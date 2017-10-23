@@ -1,7 +1,3 @@
-# Setup
-
-    make release
-
 # Example usage
 
 Create the IAM Role and the s3-bucket:
