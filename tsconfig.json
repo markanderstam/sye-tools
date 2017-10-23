@@ -17,5 +17,5 @@
             "es2016.array.include"
         ]
     },
-    "include": [ "*.ts", "test/", "lib/" ]
+    "include": [ "sye-aws/*.ts", "sye-aws/test/", "sye-aws/lib/" ]
 }

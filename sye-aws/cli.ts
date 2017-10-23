@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import 'source-map-support/register'
 import * as program from 'commander'
 import {createCluster, deleteCluster, showResources} from './lib/cluster'
