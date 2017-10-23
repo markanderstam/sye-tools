@@ -1,0 +1,29 @@
+{
+  "name": "sye-aws",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "multi-tape test/test-*.js",
+    "postinstall": "tsc && webpack && chmod +x sye-aws"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/commander": "^2.9.2",
+    "@types/node": "^8.0.28",
+    "aws-sdk": "^2.114.0",
+    "banner-webpack-plugin": "^0.2.3",
+    "commander": "^2.11.0",
+    "debug": "^3.0.1",
+    "easy-table": "^1.1.0",
+    "source-map-support": "^0.4.18",
+    "tslint": "^5.7.0",
+    "typescript": "^2.5.2",
+    "webpack": "^3.6.0"
+  },
+  "devDependencies": {
+    "multi-tape": "^1.1.1",
+    "purple-tape": "^1.0.3"
+  }
+}
