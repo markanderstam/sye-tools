@@ -27,10 +27,17 @@ EOF
     exit 0
 }
 
+function validateFlag() {
+    if [ -z $2 ]; then
+        echo 'No value provided for '$1
+        exit 1
+    fi
+}
+
 function validateMachineTags() {
     if ! [[ $1 =~ ^(^$)|([a-zA-Z0-9_-]+,)*([a-zA-Z0-9_-]+)$ ]]
     then
-        echo 'Invalid machine tags: ' $1
+        echo 'Invalid machine tags: '$1
         exit 1
     fi
 }
@@ -87,38 +94,47 @@ do
             usage
             ;;
         -f|--file)
+            validateFlag --file $2
             FILE=$2
             shift
             ;;
         -mcv|--mc-version)
+            validateFlag --mc-version $2
             MACHINE_VERSION=$2
             shift
             ;;
         -mp|--management-port)
+            validateFlag --management-port $2
             MANAGEMENT_PORT=$2
             shift
             ;;
         -mtp|--management-tls-port)
+            validateFlag --management-tls-port $2
             MANAGEMENT_TLS_PORT=$2
             shift
             ;;
         -mn|--machine-name)
+            validateFlag --machine-name $2
             MACHINE_NAME=$2
             shift
             ;;
         -l|--location)
+            validateFlag --location $2
             LOCATION=$2
             shift
             ;;
         -mr|--machine-region)
+            validateFlag --machine-region $2
             MACHINE_REGION=$2
             shift
             ;;
         -mz|--machine-zone)
+            validateFlag --machine-zone $2
             MACHINE_ZONE=$2
             shift
             ;;
         -mt|--machine-tags)
+            validateFlag --machine-tags $2
             MACHINE_TAGS=$2
             shift
             ;;
