@@ -59,29 +59,6 @@ program
     .action( clusterCreate )
 
 program
-    .command('cluster-join')
-    .description('Add this machine to a cluster')
-    .option('-f, --file <filename>', 'configuration filename',
-        './sye-environment.tar.gz')
-    .option('--mc-version <revision>', 'start a specific version of the machine-controller')
-    .option('--single <interface-name>', 'start single-pitcher services listening on an interface', '')
-    .option('--management <interface-name>', 'start management services listening on an interface', '')
-    .option('-p, --management-port <port>', 'start playout-management listening on a port', '81')
-    .option('-t, --management-tls-port <port>', 'start playout-management listening on a TLS port', '4433')
-    .option('--machine-name <machine-name>', 'name for this machine, defaults to hostname', false)
-    .option('--location <location>', 'location for this machine, default "Unknown"', 'Unknown')
-    .option('--machine-region <machine-region>', 'region for this machine, default "default"', 'default')
-    .option('--machine-zone <machine-zone>', 'zone for this machine, default "default"', 'default')
-    .option('--machine-tag <machine-tag>', 'optional tags for this machine, default "[]"', collectTags, [])
-    .action( clusterJoin )
-
-program
-    .command('cluster-leave')
-    .description('Remove machine-controller and all service containers from this node')
-    .option('--force', 'Disable warning')
-    .action( clusterLeave )
-
-program
     .command('single-server <interface>')
     .description('Start a single server installation')
     .option('-p, --management-port <port>', 'start playout-management listening on a port', '81')
@@ -211,93 +188,6 @@ function clusterCreate( registryUrl, etcdIps, options ) {
     }, options.output)
 }
 
-function clusterJoin( options ) {
-    verifyRoot('cluster-join')
-    configSystemForLogService()
-
-    if( options.single && options.management ) {
-        exit(1, 'Cannot be both single-server and management at the same time. Single-server includes management. Exiting.')
-    }
-
-    // extrac cluster configuration file to ${confdir}
-    extractConfigurationFile(confdir, options)
-
-    let global = JSON.parse(fs.readFileSync(confdir + '/global.json'))
-    let containerName = 'machine-controller-1'
-    let machineControllerVersion = options['mcVersion']
-        || imageReleaseRevision('machine-controller', global.release, global.registryUrl, global.registryUsername,
-            global.registryPassword)
-
-    if (global.registryUsername && global.registryPassword) {
-        dockerLogin(global.registryUsername, global.registryPassword, global.registryUrl.replace(/^(http|https):\/\//, ''))
-    }
-
-    let registryPrefix = registryPrefixFromUrl(global.registryUrl)
-
-	docker(`run -d \
-		-e "SINGLE_SERVER_IF=${options.single}" \
-        -e "BOOTSTRAP_IF=${options.management}" \
-        -e "CONTAINER_NAME=${containerName}" \
-        -e "MEMORY_LIMIT=256" \
-		-e "MACHINE_REGION=${options.machineRegion}" \
-		-e "MACHINE_ZONE=${options.machineZone}" \
-        -e "MACHINE_TAGS=${options.machineTag}" \
-        -e "MANAGEMENT_PORT=${options.managementPort}" \
-        -e "MANAGEMENT_TLS_PORT=${options.managementTlsPort}" \
-		-v /etc/sye:/etc/sye:rw \
-		-v /var/lib/docker/volumes:/var/lib/docker/volumes:rw \
-		-v /tmp/cores:/tmp/cores:rw \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v /etc/passwd:/etc/passwd:ro \
-		-v /etc/group:/etc/group:ro \
-		--net=host \
-		--log-driver=json-file \
-		--log-opt max-size=20m \
-		--log-opt max-file=10 \
-        --memory 256M \
-		--restart always \
-		--name ${containerName} ${registryPrefix}/machine-controller:${machineControllerVersion}
-    `)
-    // start machine-controller
-}
-
-function clusterLeave( options ) {
-    verifyRoot('cluster-leave')
-
-    let services = [
-        'machine-controller-',
-        'pitcher_',
-        'frontend_',
-        'frontend-balancer_',
-        'playout-management_',
-        'playout-controller_',
-        'log_',
-        'login_',
-        'log-viewer_',
-        'influxdb_',
-        'metric-viewer_',
-        'cluster-monitor_',
-        'etcd_',
-        'video-source_',
-        'zookeeper_',
-        'kafka_',
-        'ad-impression-router_',
-        'ad-session-router_',
-        'ad-vast-requester_',
-        'ad-vast-reporter_',
-        'ad-deduplicator_',
-        'ad-playlist_',
-        'scaling_',
-        'schema-registry_',
-    ]
-
-    services.forEach( s => {stopAllInstances(s) })
-    services.forEach( s => {removeAllInstances(s) })
-    services.forEach( s => removeVolume(s) )
-
-    execSync('rm -rf /etc/sye')
-}
-
 function singleServer( networkInterface, options ) {
     verifyRoot('single-server')
     configSystemForLogService()
@@ -314,7 +204,7 @@ function singleServer( networkInterface, options ) {
     }
 
     console.log('\n> sye cluster-leave')
-    clusterLeave()
+    execSync('./sye-cluster-leave.sh')
 
     console.log('\n> sye registry-remove')
     registryRemove()
@@ -329,14 +219,7 @@ function singleServer( networkInterface, options ) {
     clusterCreate('http://127.0.0.1:5000/ott', ['127.0.0.1'], {output: './sye-environment.tar.gz'})
 
     console.log( '\n> sye cluster-join')
-    clusterJoin({
-        single: networkInterface,
-        management: '',
-        file: './sye-environment.tar.gz',
-        location: 'Unknown',
-        managementPort: options.managementPort,
-        managementTlsPort: options.managementTlsPort
-    })
+    execSync(`./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`)
 
     execSync(`rm sye-environment.tar.gz`)
 
@@ -370,7 +253,7 @@ function dockerLoad(tarFile) {
 }
 
 function dockerLogin(username, password, registry) {
-    console.log('Login external Docker registry')
+    console.log('Login to external Docker registry.')
     if (registry.startsWith('docker.io')) {
         docker(`login -u ${username} -p ${password}`)
     } else {
