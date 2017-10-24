@@ -166,8 +166,6 @@ async function createBucket(bucketName: string) {
         }
     }).promise()
 
-    // Getting the dirname explicitly because of:
-    // https://stackoverflow.com/questions/46729293/configure-webpack-for-nodejs-so-that-you-can-run-the-app-using-the-absolute-path
     let body
     if (fs.existsSync(resolve(__dirname, 'bootstrap.sh'))) {
         // When used as script
