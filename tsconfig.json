@@ -17,5 +17,7 @@
             "es2016.array.include"
         ]
     },
-    "include": [ "sye-aws/*.ts", "sye-aws/test/", "sye-aws/lib/" ]
+    "exclude": [
+        "node_modules"
+    ]
 }

@@ -13,34 +13,7 @@ EOF
     exit 0
 }
 
-services=(
-    "machine-controller-"
-    "pitcher_"
-    "frontend_"
-    "frontend-balancer_"
-    "playout-management_"
-    "playout-controller_"
-    "log_"
-    "login_"
-    "log-viewer_"
-    "influxdb_"
-    "metric-viewer_"
-    "cluster-monitor_"
-    "etcd_"
-    "video-source_"
-    "zookeeper_"
-    "kafka_"
-    "ad-impression-router_"
-    "ad-session-router_"
-    "ad-vast-requester_"
-    "ad-vast-reporter_"
-    "ad-deduplicator_"
-    "ad-playlist_"
-    "scaling_"
-    "schema-registry_"
-)
-
-while [ $# -gt 0 ] 
+while [ $# -gt 0 ]
 do
     case "$1" in
         -h|--help)
@@ -53,19 +26,15 @@ do
     esac
 done
 
-for serviceName in "${services[@]}"
-do
-	docker ps | grep ${serviceName} | awk '{FS=" "; print $1}' | xargs -r docker stop
-done
+if ! docker ps -a -q > /dev/null
+then
+    docker stop $(docker ps -a -q)
+    docker rm -v $(docker ps -a -q)
+fi
 
-for serviceName in "${services[@]}"
-do
-	docker ps -a | grep ${serviceName} | awk '{FS=" "; print $1}' | xargs -r docker rm -v
-done
-
-for serviceName in "${services[@]}"
-do
-	docker volume ls | grep ${serviceName} | awk '{FS=" "; print $2}' | xargs -r docker volume rm
-done
+if ! docker volume ls -q -f dangling=true > /dev/null
+then
+    docker volume rm $(docker volume ls -q -f dangling=true)
+fi
 
 rm -rf /etc/sye
