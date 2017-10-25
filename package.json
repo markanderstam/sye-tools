@@ -8,7 +8,8 @@
     "sye-aws": "sye-aws/cli.js"
   },
   "scripts": {
-    "prepare": "npm run tsc",
+    "prepublishOnly": "npm run tsc",
+    "preinstall": "npm run tsc",
     "test": "npm run tsc && multi-tape sye-aws/test/test-*.js",
     "lint": "tslint -t stylish -p tsconfig.json",
     "tsc": "tsc"
