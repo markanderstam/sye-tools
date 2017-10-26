@@ -19,16 +19,13 @@ This creates a file called sye-environment.tar.gz in the current directory.
 This file contains all secret credentials for the cluster and should be protected
 from unauthorized access.
 
+You also need a set of ssh-keys that shall be allowed to login to all machines.
+These keys shall be specified in an authorized_keys file. See the man-page
+for sshd for a specification of the authorized_keys file-format.
+
 Create the IAM Role and the s3-bucket:
 
-    sye-aws cluster-create my-cluster.example.com
-
-Now you need to add the following files to the s3-bucket my-cluster.example.com:
-
-- sye-environment.tar.gz in the private/ folder
-- sye-cluster-join.sh in the public/ folder
-- sye-cluster-leave.sh in the public/ folder
-- authorized_keys in the public/ folder
+    sye-aws cluster-create my-cluster.example.com ./sye-environment.tar.gz ./authorized_keys
 
 ## Add regions
 
