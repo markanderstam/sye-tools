@@ -31,17 +31,17 @@ Create the IAM Role and the s3-bucket:
 
 Setup new regions for the cluster:
 
-    ./sye-aws region-add my-cluster.example.com eu-central-1
-    ./sye-aws region-add my-cluster.example.com eu-west-2
+    sye-aws region-add my-cluster.example.com eu-central-1
+    sye-aws region-add my-cluster.example.com eu-west-2
 
 ## Add machines
 
-    ./sye-aws machine-add my-cluster.example.com eu-central-1 --availability-zone a --instance-type t2.large --machine-name core1 --management
-    ./sye-aws machine-add my-cluster.example.com eu-central-1 --availability-zone b --instance-type t2.large --machine-name core2
-    ./sye-aws machine-add my-cluster.example.com eu-central-1 --availability-zone c --instance-type t2.large --machine-name core3
-    ./sye-aws machine-add my-cluster.example.com eu-west-2 --instance-type t2.large --machine-name pitcher --role pitcher
+    sye-aws machine-add my-cluster.example.com eu-central-1 --availability-zone a --instance-type t2.large --machine-name core1 --management
+    sye-aws machine-add my-cluster.example.com eu-central-1 --availability-zone b --instance-type t2.large --machine-name core2
+    sye-aws machine-add my-cluster.example.com eu-central-1 --availability-zone c --instance-type t2.large --machine-name core3
+    sye-aws machine-add my-cluster.example.com eu-west-2 --instance-type t2.large --machine-name pitcher --role pitcher
 
-    ./sye-aws cluster-show my-cluster.example.com
+    sye-aws cluster-show my-cluster.example.com
 
 Now you should add DNS names for the etcd-machines:
 
@@ -56,10 +56,18 @@ to the private IP address of the machine named "core1", port 81.
 
 # Shutting down a cluster
 
-- Delete all ec2 instances
-- Delete all VPCs
-- Delete the IAM Role named "clusterId"-instance
-- Delete the IAM Policy named "clusterId"-s3-read
+To shut down a cluster, start by shutting down all machines with machine-delete:
 
-Do NOT delete the s3-bucket if you want to use the same cluster-id again.
-cluster-create can handle if the bucket already exists.
+    sye-aws machine-delete my-cluster.example.com eu-central-1 core1
+
+Wait for the machine to be terminated. Then you can remove regions with
+
+    sye-aws region-delete my-cluster.example.com eu-central-1
+
+And finally delete the cluster with
+
+    sye-aws cluster-delete my-cluster.example.com
+
+Note that cluster-delete does NOT delete the s3-bucket with the same name as the cluster.
+The reason for this is that you will then lose ownership of that bucket name.
+cluster-create will reuse the same bucket if it already exists. 
