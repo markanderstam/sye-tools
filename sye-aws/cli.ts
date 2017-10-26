@@ -12,11 +12,11 @@ program
     .version('1.0.0')
 
 program
-    .command('cluster-create <clusterId>')
+    .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Amazon')
-    .action(async (clusterId) => {
+    .action(async (clusterId, syeEnvironment, authorizedKeys) => {
         consoleLog(`Creating cluster ${clusterId}`)
-        await createCluster(clusterId)
+        await createCluster(clusterId, syeEnvironment, authorizedKeys)
             .catch(exit)
     })
 

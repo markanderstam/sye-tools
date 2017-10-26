@@ -29,8 +29,8 @@ interface ClusterMachine {
     DataVolumeDevice?: string
 }
 
-export async function createCluster(clusterId: string) {
-    await createBucket(clusterId)
+export async function createCluster(clusterId: string, syeEnvironment: string, authorizedKeys: string) {
+    await createBucket(clusterId, syeEnvironment, authorizedKeys)
     await createIamRole(clusterId)
 }
 
@@ -138,7 +138,7 @@ export async function listRegions() {
     return regions.Regions.map( reg => reg.RegionName )
 }
 
-async function createBucket(bucketName: string) {
+async function createBucket(bucketName: string, syeEnvironment: string, authorizedKeys: string) {
     let s3 = new aws.S3({ region: 'us-east-1' })
     let existing = await s3.headBucket({
         Bucket: bucketName
@@ -166,22 +166,43 @@ async function createBucket(bucketName: string) {
         }
     }).promise()
 
-    let body
-    if (fs.existsSync(resolve(__dirname, 'bootstrap.sh'))) {
-        // When used as script
-        body = fs.readFileSync(resolve(__dirname, 'bootstrap.sh'))
-    }
-    else {
-        // When used as module
-        body = fs.readFileSync(resolve(__dirname, '../bootstrap.sh'))
-    }
-
     await s3.upload({
         Bucket: bucketName,
         Key: 'public/bootstrap.sh',
-        Body: body,
+        Body: readPackageFile('bootstrap.sh'),
         ContentType: 'application/x-sh'
     }).promise()
+
+    await s3.upload({
+        Bucket: bucketName,
+        Key: 'public/sye-cluster-join.sh',
+        Body: readPackageFile('../sye-cluster-join.sh'),
+        ContentType: 'application/x-sh'
+    }).promise()
+
+    await s3.upload({
+        Bucket: bucketName,
+        Key: 'private/sye-environment.tar.gz',
+        Body: fs.readFileSync(syeEnvironment),
+        ContentType: 'application/x-gzip',
+    }).promise()
+
+    await s3.upload({
+        Bucket: bucketName,
+        Key: 'public/authorized_keys',
+        Body: fs.readFileSync(authorizedKeys),
+    }).promise()
+}
+
+function readPackageFile(filename: string) {
+    if (fs.existsSync(resolve(__dirname, filename))) {
+        // When used as script
+        return fs.readFileSync(resolve(__dirname, filename))
+    }
+    else {
+        // When used as module
+        return fs.readFileSync(resolve(__dirname, '..', filename))
+    }
 }
 
 async function createIamRole(clusterId: string) {
