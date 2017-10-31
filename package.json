@@ -4,8 +4,10 @@
   "description": "Tools for installing and managing a Sye Backend",
   "main": "index.js",
   "bin": {
-    "sye": "sye/index.js",
-    "sye-aws": "sye-aws/cli.js"
+    "sye": "cli/sye",
+    "sye-aws": "cli/sye-aws",
+    "sye-cluster": "cli/sye-cluster",
+    "sye-registry": "cli/sye-registry"
   },
   "repository": {
     "type": "git",
