@@ -6,4 +6,9 @@ Tools for installing and managing a Sye cluster.
 
     npm install -g @netinsight/sye-tools
 
-Installs the commands `sye` and `sye-aws`.
+The following commands are available:
+
+- `sye-aws`
+- `sye-cluster`
+- `sye-registry`
+- `sye-single-server`
