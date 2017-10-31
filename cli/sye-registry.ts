@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const program = require('commander');
-import {registryStart, registryAddImages, registryRemove} from './index'
+import {registryStart, registryAddImages, registryRemove} from '../sye-registry/index'
 
 program
     .version('0.0.1')

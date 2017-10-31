@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import {clusterCreate} from './index'
+import {clusterCreate} from '../sye-cluster/index'
 
 const program = require('commander')
 program

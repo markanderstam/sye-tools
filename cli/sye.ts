@@ -5,36 +5,17 @@ import * as cp from 'child_process'
 import * as os from 'os'
 
 const debug = require('debug')('sye')
-import {registryStart, registryRemove, registryAddImages} from '../sye-registry/index'
 import {clusterCreate} from '../sye-cluster/index'
+import { registryAddImages, registryStart, registryRemove } from '../sye-registry/index'
 
 program
     .version('0.0.1')
-    .usage('[command] <options>')
+    .description('sye-tools')
 
 program
-    .command('registry-start <ip>')
-    .description('Start a docker registry on this machine')
-    .option('-p, --prefix <name>', 'registry prefix name, default ott', 'ott')
-    .option('-f, --file <filename>', 'file with registry image, default ./registry.tar', './registry.tar')
-    .action( registryStart )
-
-program
-    .command('registry-add-release <registry-url>')
-    .description('Add a sye release to a docker registry')
-    .option('-f, --file <filename>', 'file with images, default ./images.tar', './images.tar')
-    .action( registryAddImages )
-
-program
-    .command('registry-add-images <registry-url>')
-    .description('Add stand-alone sye images to a docker registry')
-    .option('-f, --file <filename>', 'file with images, default ./images.tar.gz', './images.tar.gz')
-    .action( registryAddImages )
-
-program
-    .command('registry-remove')
-    .description('Remove the docker registry running on this machine')
-    .action( registryRemove )
+    .command('registry [subcommand]', 'operate on a docker registry')
+    .command('aws [subcommand]', 'operate cluster on Amazon AWS')
+    .command('cluster [subcommand]', 'define a sye cluster')
 
 program
     .command('cluster-create <registry-url> <etcd-ip...>')
@@ -54,22 +35,9 @@ program
     .description('Install a single-server setup on this machine')
     .action( singleServer )
 
-program
-    .command('*')
-    .action( help )
 
 program
   .parse(process.argv)
-
-if (!process.argv.slice(2).length) {
-    help()
-}
-
-function help() {
-    program.outputHelp()
-    console.log('Use <command> -h for help on a specific command.\n')
-    process.exit(1)
-}
 
 function singleServer( networkInterface, options ) {
     verifyRoot('single-server')
