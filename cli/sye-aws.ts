@@ -78,9 +78,10 @@ program
 program
     .command('machine-delete <cluster-id> <region> <instance-name>')
     .description('Delete a machine from the cluster')
-    .action(async (clusterId: string, region: string, name: string) => {
+    .option('--instance-id [id]', 'Amazon instance id')
+    .action(async (clusterId: string, region: string, name: string, options: { instanceId?: string }) => {
         consoleLog(`Deleting instance ${name} in region ${region} for cluster ${clusterId}`)
-        await machineDelete(clusterId, region, name)
+        await machineDelete(clusterId, region, name, options.instanceId)
             .catch(exit)
         consoleLog('Done')
     })
@@ -88,9 +89,10 @@ program
 program
     .command('machine-redeploy <cluster-id> <region> <instance-name>')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
-    .action(async (clusterId: string, region: string, name: string) => {
+    .option('--instance-id [id]', 'Amazon instance id')
+    .action(async (clusterId: string, region: string, name: string, options: { instanceId?: string }) => {
         consoleLog(`Redeploying instance ${name} in region ${region} for cluster ${clusterId}`)
-        await machineRedeploy(clusterId, region, name)
+        await machineRedeploy(clusterId, region, name, options.instanceId)
             .catch(exit)
         consoleLog('Done')
     })

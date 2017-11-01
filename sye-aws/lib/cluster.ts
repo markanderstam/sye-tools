@@ -13,7 +13,7 @@ import * as dbg from 'debug'
 import * as fs from 'fs'
 import * as EasyTable from 'easy-table'
 import { resolve } from 'path'
-import {getInstanceInformation} from './machine'
+import {getInstances} from './machine'
 import {getTag, consoleLog} from './common'
 
 const debug = dbg('cluster')
@@ -61,34 +61,32 @@ export async function showResources(clusterId: string, output = true, raw = fals
         log('='.repeat( ('Region ' + region).length))
         log('')
 
-        let instances = resources
-            .filter(r => r.ResourceARN.split(':')[3] === region )
-            .filter( r => r.ResourceARN.split(':')[5].split('/')[0] === 'instance')
+        let instanceIds = resources
+            .filter(r => r.ResourceARN.split(':')[3] === region)
+            .filter(r => r.ResourceARN.split(':')[5].split('/')[0] === 'instance')
+            .map(r => r.ResourceARN.split(':')[5].split('/')[1])
+
+        const instances = await getInstances(clusterId, region, instanceIds)
 
         const table = []
         if (instances.length === 0) {
             log('No instances')
         } else {
-            for (let instance of instances) {
+            instances.forEach(instance => {
                 debug('instance', instance)
-                const instanceInfo = await getInstanceInformation(clusterId, region, getTag(instance.Tags, 'Name'))
-                debug('instanceInfo', JSON.stringify(instanceInfo))
-                const instanceId = instance.ResourceARN.split(':')[5].split('/')[1]
-                if (instanceInfo !== undefined && instanceId === instanceInfo.InstanceId) {
-                    table.push({
-                        Id: instanceId,
-                        Region: region,
-                        AZ: getTag(instance.Tags, 'AvailabilityZone'),
-                        Name: getTag(instance.Tags, 'Name'),
-                        Roles: getTag(instance.Tags, 'Roles'),
-                        PublicIpAddress: instanceInfo.PublicIpAddress,
-                        Ipv6Address: instanceInfo.NetworkInterfaces[0].Ipv6Addresses[0].Ipv6Address,
-                        DataVolumeDevice: (
-                            instanceInfo.BlockDeviceMappings.find((v) => v.DeviceName !== instanceInfo.RootDeviceName) || {}
-                        ).DeviceName
-                    })
-                }
-            }
+                table.push({
+                    Id: instance.InstanceId,
+                    Region: region,
+                    AZ: getTag(instance.Tags, 'AvailabilityZone'),
+                    Name: getTag(instance.Tags, 'Name'),
+                    Roles: getTag(instance.Tags, 'Roles'),
+                    PublicIpAddress: instance.PublicIpAddress,
+                    Ipv6Address: instance.NetworkInterfaces[0].Ipv6Addresses[0].Ipv6Address,
+                    DataVolumeDevice: (
+                        instance.BlockDeviceMappings.find((v) => v.DeviceName !== instance.RootDeviceName) || {}
+                    ).DeviceName
+                })
+            })
             log(EasyTable.print(table))
             log(`https://${region}.console.aws.amazon.com/ec2/v2/home?region=${region}#Instances:tag:SyeClusterId='${clusterId}';sort=keyName`)
         }
