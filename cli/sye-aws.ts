@@ -2,10 +2,10 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import {createCluster, deleteCluster, showResources} from './lib/cluster'
-import {machineAdd, machineDelete, machineRedeploy} from './lib/machine'
-import {regionAdd, regionDelete} from './lib/region'
-import {consoleLog} from './lib/common'
+import {createCluster, deleteCluster, showResources} from '../sye-aws/lib/cluster'
+import {machineAdd, machineDelete, machineRedeploy} from '../sye-aws/lib/machine'
+import {regionAdd, regionDelete} from '../sye-aws/lib/region'
+import {consoleLog} from '../sye-aws/lib/common'
 
 program
     .description('Manage sye-clusters on Amazon')

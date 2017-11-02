@@ -1,3 +1,7 @@
 node_modules
 sye-aws/**/*.js
 index.js
+cli/sye
+cli/sye-aws
+cli/sye-cluster
+cli/sye-registry

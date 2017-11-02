@@ -4,8 +4,10 @@
   "description": "Tools for installing and managing a Sye Backend",
   "main": "index.js",
   "bin": {
-    "sye": "sye/index.js",
-    "sye-aws": "sye-aws/cli.js"
+    "sye": "cli/sye",
+    "sye-aws": "cli/sye-aws",
+    "sye-cluster": "cli/sye-cluster",
+    "sye-registry": "cli/sye-registry"
   },
   "repository": {
     "type": "git",
@@ -19,7 +21,7 @@
     "preinstall": "ls index.js > /dev/null 2>&1 || npm run tsc",
     "test": "npm run tsc && multi-tape sye-aws/test/test-*.js",
     "lint": "tslint -t stylish -p tsconfig.json",
-    "tsc": "tsc"
+    "tsc": "tsc && mv cli/sye.js cli/sye && mv cli/sye-aws.js cli/sye-aws && mv cli/sye-cluster.js cli/sye-cluster && mv cli/sye-registry.js cli/sye-registry && chmod +x cli/sye cli/sye-aws cli/sye-cluster cli/sye-registry"
   },
   "author": "Net Insight",
   "license": "MIT",
