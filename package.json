@@ -17,8 +17,7 @@
     "url": "https://github.com/netinsight/sye-tools/issues"
   },
   "scripts": {
-    "prepublishOnly": "npm run tsc",
-    "preinstall": "ls index.js > /dev/null 2>&1 || npm run tsc",
+    "prepare": "npm run tsc",
     "test": "npm run tsc && multi-tape sye-aws/test/test-*.js",
     "lint": "tslint -t stylish -p tsconfig.json",
     "tsc": "tsc && mv cli/sye.js cli/sye && mv cli/sye-aws.js cli/sye-aws && mv cli/sye-cluster.js cli/sye-cluster && mv cli/sye-registry.js cli/sye-registry && chmod +x cli/sye cli/sye-aws cli/sye-cluster cli/sye-registry"

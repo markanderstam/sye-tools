@@ -153,20 +153,20 @@ async function createInstance(
     }
 }
 
-async function deleteInstance(clusterId: string, region: string, name: string, instanceId?: string) {
+async function deleteInstance(clusterId: string, region: string, name: string) {
     const ec2 = new aws.EC2({ region })
 
-    const instance = await getInstance(clusterId, region, name, instanceId)
+    const instance = await getInstance(clusterId, region, name)
 
     await ec2.terminateInstances({
         InstanceIds: [instance.InstanceId]
     }).promise()
 }
 
-async function redeployInstance(clusterId: string, region: string, name: string, instanceId?: string) {
+async function redeployInstance(clusterId: string, region: string, name: string) {
     const ec2 = new aws.EC2({ region })
 
-    const instance = await getInstance(clusterId, region, name, instanceId)
+    const instance = await getInstance(clusterId, region, name)
 
     const dataVolume = instance.BlockDeviceMappings.find((v) => v.DeviceName !== instance.RootDeviceName)
     const dataVolumeId = dataVolume && dataVolume.Ebs.VolumeId
@@ -303,8 +303,12 @@ export async function getInstances(clusterId: string, region: string, instanceId
     return instances.Reservations.map((r) => r.Instances[0])
 }
 
-export async function getInstance(clusterId: string, region: string, name: string, instanceId?: string): Promise<aws.EC2.Instance> {
-    const instances = await getInstances(clusterId, region, [instanceId], [name])
+export async function getInstance(clusterId: string, region: string, name: string): Promise<aws.EC2.Instance> {
+    let instances = await getInstances(clusterId, region, [], [name])
+
+    if (instances.length > 1) {
+        instances = await getInstances(clusterId, region, [name])
+    }
 
     if (instances.length === 0) {
         throw `No instance of '${name}' in ${region} found`
@@ -331,10 +335,10 @@ export async function machineAdd(
     await createInstance(clusterId, region, availabilityZone, machineName, instanceType, storage, roles, args)
 }
 
-export async function machineDelete(clusterId: string, region: string, name: string, instanceId?: string) {
-    await deleteInstance(clusterId, region, name, instanceId)
+export async function machineDelete(clusterId: string, region: string, name: string) {
+    await deleteInstance(clusterId, region, name)
 }
 
-export async function machineRedeploy(clusterId: string, region: string, name: string, instanceId?: string) {
-    await redeployInstance(clusterId, region, name, instanceId)
+export async function machineRedeploy(clusterId: string, region: string, name: string) {
+    await redeployInstance(clusterId, region, name)
 }

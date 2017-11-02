@@ -30,7 +30,7 @@ if (!process.argv.slice(2).length) {
 
 function help() {
     program.outputHelp()
-    console.log('Use <command> -h for help on a specific command.\n')
+    console.log('Use <command> -h for help on a specific command.\n') // tslint:disable-line no-console
     process.exit(1)
 }
 

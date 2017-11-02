@@ -50,36 +50,36 @@ function singleServer( networkInterface, options ) {
     catch(e) {}
 
     if(!ip) {
-        console.log('Failed to find ip address of interface ' + networkInterface)
+        console.log('Failed to find ip address of interface ' + networkInterface) // tslint:disable-line no-console
         process.exit(1)
     }
 
-    console.log('\n> sye cluster-leave')
+    console.log('\n> sye cluster-leave') // tslint:disable-line no-console
     execSync('./sye-cluster-leave.sh')
 
-    console.log('\n> sye registry-remove')
+    console.log('\n> sye registry-remove') // tslint:disable-line no-console
     registryRemove()
 
-    console.log( '\n> sye registry-start 127.0.0.1')
+    console.log( '\n> sye registry-start 127.0.0.1') // tslint:disable-line no-console
     registryStart('127.0.0.1', {prefix: 'ott', file: './registry.tar'})
 
-    console.log( '\n> sye registry-add-release http://127.0.0.1:5000/ott')
+    console.log( '\n> sye registry-add-release http://127.0.0.1:5000/ott') // tslint:disable-line no-console
     registryAddImages('http://127.0.0.1:5000/ott', {file: './images.tar'})
 
-    console.log( '\n> sye cluster-create http://127.0.0.1:5000/ott 127.0.0.1')
+    console.log( '\n> sye cluster-create http://127.0.0.1:5000/ott 127.0.0.1') // tslint:disable-line no-console
     clusterCreate('http://127.0.0.1:5000/ott', ['127.0.0.1'], {output: './sye-environment.tar.gz'})
 
-    console.log( '\n> sye cluster-join')
+    console.log( '\n> sye cluster-join') // tslint:disable-line no-console
     execSync(`./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`)
 
     execSync(`rm sye-environment.tar.gz`)
 
-    console.log('System is starting. Will be available on http://' + ip + ':81')
+    console.log('System is starting. Will be available on http://' + ip + ':81') // tslint:disable-line no-console
 }
 
 function verifyRoot(command) {
     if (os.userInfo().uid !== 0) {
-    	exit(1, `${command} must be run as root`)
+        exit(1, `${command} must be run as root`)
     }
 }
 
@@ -87,10 +87,10 @@ function configSystemForLogService() {
     try {
         // Replace the value of vm.max_map_count inline or add it to the end of the file is it doesn't exist
         // reference here: https://superuser.com/questions/590630/sed-how-to-replace-line-if-found-or-append-to-end-of-file-if-not-found
-        execSync("sed '/^vm.max_map_count = /{h;s/=.*/= 262144/};${x;/^$/{s//vm.max_map_count = 262144/;H};x}' -i /etc/sysctl.conf") // eslint-disable-line
+        execSync('sed \'/^vm.max_map_count = /{h;s/=.*/= 262144/};${x;/^$/{s//vm.max_map_count = 262144/;H};x}\' -i /etc/sysctl.conf')
         execSync('sysctl -p')
     } catch (e) {
-        console.log(e)
+        console.log(e) // tslint:disable-line no-console
         exit(1, `Cannot set the OS parameter 'vm.max_map_count' to 262144. Exiting.`)
     }
 }
@@ -101,6 +101,6 @@ function execSync(cmd: string, options?: cp.ExecSyncOptions) {
 }
 
 function exit(code, message) {
-	console.log(message)
-	process.exit(code)
+    console.log(message) // tslint:disable-line no-console
+    process.exit(code)
 }
