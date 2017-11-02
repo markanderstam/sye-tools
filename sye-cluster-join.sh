@@ -60,12 +60,16 @@ function imageReleaseRevision() {
         # For Docker Cloud
         url=$(dockerRegistryApiUrlFromUrl $(echo ${registryUrl} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${release}
         echo $(curl -s -H "Accept: application/json" -H "Authorization: Bearer $(getTokenFromDockerHub)" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
+    elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]
+    then
+        url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${release}
+        echo $(curl -k -u${registryUsername}:${registryPassword} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
     else
         # For internal Docker registry
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${release}
         if [[ ${registryUsername} && ${registryPassword} ]]
         then
-            echo $(curl -s -k -u${registryUsername}:${registryPassword} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
+            echo $(curl -s -k -u '${registryUsername}:${registryPassword}' ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
         else
             echo $(curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
         fi
@@ -77,14 +81,21 @@ function registryPrefixFromUrl() {
 }
 
 function dockerRegistryApiUrlFromUrl() {
-    local registryUrl=$1
-    local pathName=${registryUrl##*/}
-    echo $(echo ${registryUrl} | sed 's/'"${pathName}"'/v2\/'"${pathName}"'/g')
+    local url=$1
+    local proto=$(echo ${url} | grep :// | sed -e's,^\(.*://\).*,\1,g')
+    local host=$(echo ${url/${proto}/})
+    local pathName=$(echo ${host} | grep / | cut -d/ -f2-)
+    if [[ ${pathName} ]]
+    then
+        echo $(echo ${proto}${host} | sed 's/'"${pathName}"'/v2\/'"${pathName}"'/g')
+    else
+        echo ${proto}${host}/v2
+    fi
 }
 
 function getTokenFromDockerHub() {
     local repo=${registryUrl##*/}/release
-    echo $(curl -s -u ${registryUsername}:${registryPassword} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/')
+    echo $(curl -s -u '${registryUsername}:${registryPassword}' "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/')
 }
 
 while [ $# -gt 0 ]
@@ -178,13 +189,29 @@ registryUrl=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.jso
 registryUsername=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 registryPassword=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
-if [[ ${registryUsername} && ${registryPassword} ]]
+if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]
 then
-    echo "Login external Docker registry"
-    if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]
+    echo 'Log in to Docker Cloud registry'
+    docker login -u ${registryUsername} -p ${registryPassword}
+elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]
+then
+    echo 'Log in to Amazon ECR container registry'
+    aws || echo 'Please install awscli'; exit 1
+    if [[ ${registryUsername} && ${registryPassword} ]]
     then
-        docker login -u ${registryUsername} -p ${registryPassword}
-    else
+        export AWS_ACCESS_KEY_ID=$registryUsername
+        export AWS_SECRET_ACCESS_KEY=$registryPassword
+    fi
+    export AWS_DEFAULT_REGION=$(echo $registryUrl | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com/\1/')
+    cmd="$(aws ecr get-login --no-include-email)"
+    output=$cmd
+    registryUsername=$(echo $output | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
+    registryPassword=$(echo $output | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
+    docker login -u ${registryUsername} -p ${registryPassword} ${registryUrl}
+else
+    echo 'Log in to private container registry'
+    if [[ ${registryUsername} && ${registryPassword} ]]
+    then
         docker login -u ${registryUsername} -p ${registryPassword} ${registryUrl}
     fi
 fi
