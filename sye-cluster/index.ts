@@ -41,7 +41,7 @@ export function clusterCreate(registryUrl, etcdIps, options) {
 
 function getTokenFromDockerHub(username, password, repo, permissions) {
     try {
-        let authRes = execSync(`curl -u ${username}:${password} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:${permissions.join(',')}"`).toString()
+        let authRes = execSync(`curl -u '${username}:${password}' "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:${permissions.join(',')}"`).toString()
         return JSON.parse(authRes).token
     }
     catch (e) {
@@ -73,7 +73,7 @@ function validateRegistryUrl(registryUrl, release) {
         }
     } else { // Request against Docker registry V2 endpoint
         let url = dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release
-        let cmd = registryUsername && registryPassword ? `curl -s -k -u${registryUsername}:${registryPassword} ${url}` : `curl -s ${url}`
+        let cmd = registryUsername && registryPassword ? `curl -s -k -u '${registryUsername}:${registryPassword}' ${url}` : `curl -s ${url}`
         execSync(cmd)
     }
 }
