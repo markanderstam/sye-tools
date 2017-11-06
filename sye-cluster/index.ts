@@ -52,7 +52,7 @@ function getTokenFromDockerHub(username, password, repo, permissions) {
 
 function dockerRegistryApiUrlFromUrl(registryUrl) {
     let u = url.parse(registryUrl)
-    u.pathname = '/v2' + u.pathname
+    u.pathname = u.pathname !== '/' ? '/v2' + u.pathname : '/v2'
     return url.format(u)
 }
 
@@ -65,6 +65,12 @@ function validateRegistryUrl(registryUrl, release) {
         if (res.errors) {
             throw JSON.stringify(res.errors, null, 2)
         }
+    } else if (p.host.endsWith('amazonaws.com')) { // Request against Amazon Docker registry
+        let url = dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release
+        let res = JSON.parse(execSync(`curl -s -k -u${registryUsername}:${registryPassword} ${url}`).toString())
+        if (res.errors) {
+            throw JSON.stringify(res.errors, null, 2)
+        }
     } else { // Request against Docker registry V2 endpoint
         let url = dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release
         let cmd = registryUsername && registryPassword ? `curl -s -k -u${registryUsername}:${registryPassword} ${url}` : `curl -s ${url}`
@@ -73,7 +79,8 @@ function validateRegistryUrl(registryUrl, release) {
 }
 
 function urlRequiresCredentials(registryUrl) {
-    return url.parse(registryUrl).host === 'docker.io'
+    let p = url.parse(registryUrl)
+    return p.host === 'docker.io' || p.host.endsWith('amazonaws.com')
 }
 
 function promptRegistryCredentials() {
