@@ -306,8 +306,14 @@ export async function getInstances(clusterId: string, region: string, instanceId
 export async function getInstance(clusterId: string, region: string, name: string): Promise<aws.EC2.Instance> {
     let instances = await getInstances(clusterId, region, [], [name])
 
-    if (instances.length > 1) {
+    if (instances.length !== 1) {
         instances = await getInstances(clusterId, region, [name])
+            .catch((err: aws.AWSError) => {
+                if (err.code === 'InvalidInstanceID.Malformed') {
+                    return []
+                }
+                throw err
+            })
     }
 
     if (instances.length === 0) {
