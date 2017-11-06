@@ -6,14 +6,18 @@ import {getResources} from './cluster'
 
 const debug = dbg('region')
 
+type SecurityGroups = Map<string, string>
 interface CoreSubnet {
     id: string
     name: string
     ipv6block?: string
 }
 interface CoreRegion {
-    location: string,
+    ec2: aws.EC2
+    location: string
+    vpcId: string
     subnets: CoreSubnet[]
+    securityGroups: SecurityGroups
 }
 
 // There seems to be a limit of max 5 VPCs per region
@@ -187,6 +191,8 @@ async function createSecurityGroup(ec2: aws.EC2, clusterId: string, vpcid: strin
 async function getCoreRegion(clusterId: string): Promise<CoreRegion|undefined> {
     debug('getCoreRegion')
     let resources = await getResources(clusterId)
+    let ec2: aws.EC2
+    let vpcId: string
     let location: string
     let subnets = await Promise.all<CoreSubnet>(
         resources
@@ -196,17 +202,21 @@ async function getCoreRegion(clusterId: string): Promise<CoreRegion|undefined> {
             )
             .map(async (r) => {
                 location = r.ResourceARN.split(':')[3]
+                ec2 = new aws.EC2({ region: location })
                 let id = r.ResourceARN.split('/')[1]
                 let name = r.Tags.find(tag => tag.Key === 'Name').Value
                 let availabilityZone = name.split('-').pop()
-                let ipv6block = await getSubnet(new aws.EC2({ region: location }), clusterId, availabilityZone)
-                    .then(subnet => subnet.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock)
+                let subnet = await getSubnet(ec2, clusterId, availabilityZone)
+                vpcId = subnet.VpcId
+                let ipv6block = subnet.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
                 return { id, name, ipv6block }
             })
     )
-    if (location && subnets.length > 0) {
-        debug('core region ', JSON.stringify({ location, subnets }, null, 2))
-        return { location, subnets }
+    if (subnets.length > 0) {
+        const securityGroups = await getSecurityGroups(ec2, clusterId, vpcId)
+        const coreRegion = { ec2, location, vpcId, subnets, securityGroups }
+        debug('core region ', coreRegion)
+        return coreRegion
     } else {
         return undefined
     }
@@ -278,64 +288,30 @@ export async function getSecurityGroups(ec2: aws.EC2, clusterId: string, vpcid: 
         ]
     }).promise()
 
-    let sgIds = new Map()
+    let sgIds: SecurityGroups = new Map()
     result.SecurityGroups.forEach(sg => sgIds.set(sg.GroupName, sg.GroupId))
     return sgIds
-}
-
-async function authorizeSecurityGroupRule(ec2: aws.EC2, clusterId: string, groupName: string, ipPermissions: aws.EC2.IpPermissionList, inbound = true, outbound = false) {
-    debug('authorizeSecurityGroupRule')
-    let vpc = await getVpc(ec2, clusterId)
-    let groupId = await getSecurityGroups(ec2, clusterId, vpc.VpcId).then(sg => sg.get(groupName))
-    let p = []
-    if (inbound) {
-        p.push(ec2.authorizeSecurityGroupIngress({
-            GroupId: groupId,
-            IpPermissions: ipPermissions
-        }).promise())
-    }
-    if (outbound) {
-        p.push(ec2.authorizeSecurityGroupEgress({
-            GroupId: groupId,
-            IpPermissions: ipPermissions
-        }).promise())
-    }
-    await Promise.all(p)
-}
-
-async function revokeSecurityGroupRule(ec2: aws.EC2, clusterId: string, groupName: string, ipPermissions: aws.EC2.IpPermissionList, inbound = true, outbound = false) {
-    debug('revokeSecurityGroupRule')
-    let vpc = await getVpc(ec2, clusterId)
-    let groupId = await getSecurityGroups(ec2, clusterId, vpc.VpcId).then(sg => sg.get(groupName))
-    let p = []
-    if (inbound) {
-        p.push(ec2.revokeSecurityGroupIngress({
-            GroupId: groupId,
-            IpPermissions: ipPermissions
-        }).promise())
-    }
-    if (outbound) {
-        p.push(ec2.revokeSecurityGroupEgress({
-            GroupId: groupId,
-            IpPermissions: ipPermissions
-        }).promise())
-    }
-    await Promise.all(p)
 }
 
 // Update security group firewall rule to allow inbound IPv6 traffic
 async function allowInboundIPv6Traffic(ec2: aws.EC2, clusterId: string, groupName: string, subnets: CoreSubnet[]) {
     debug('allowInboundIPv6Traffic')
+    const vpc = await getVpc(ec2, clusterId)
+    const securityGroups = await getSecurityGroups(ec2, clusterId, vpc.VpcId)
     await Promise.all(
         subnets.map(subnet => {
-            return authorizeSecurityGroupRule(ec2, clusterId, groupName, [
-                {
-                    IpProtocol: '-1',
-                    Ipv6Ranges: [
-                        { CidrIpv6: subnet.ipv6block }
-                    ]
-                }
-            ])
+            debug('authorizeSecurityGroupRule', subnet.name)
+            return ec2.authorizeSecurityGroupIngress({
+                GroupId: securityGroups.get(groupName),
+                IpPermissions: [
+                    {
+                        IpProtocol: '-1',
+                        Ipv6Ranges: [
+                            { CidrIpv6: subnet.ipv6block }
+                        ]
+                    }
+                ]
+            }).promise()
         })
     )
 }
@@ -349,20 +325,16 @@ export async function regionAdd(clusterId: string, region: string) {
     let routeTableId = await setupRouteTable(ec2, clusterId, vpc.VpcId, internetGatewayId)
     let ipv6blockVpc = vpc.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
     consoleLog('Creating subnets in availability-zones ' + availabilityZones.join(', '))
-    let subnets: CoreSubnet[] = []
-    availabilityZones.forEach( async (availabilityZone, index) => {
-        try {
+    const subnets = await Promise.all<CoreSubnet>(
+        availabilityZones.map(async (availabilityZone, index) => {
             let name = clusterId + '-' + availabilityZone
             let ipv4block = '10.0.' + (index * 16) + '.0/20'
             let ipv6block = cidrSubset6(ipv6blockVpc, index)
             let subnet = await createSubnet(ec2, clusterId, name, vpc.VpcId, region + availabilityZone, ipv4block, ipv6block)
-            subnets.push({id: subnet.SubnetId, name: name, ipv6block: ipv6block})
             await associateRouteTable(ec2, subnet.SubnetId, routeTableId)
-        }
-        catch(err) {
-            consoleLog(err, true)
-        }
-    })
+            return { id: subnet.SubnetId, name, ipv6block }
+        })
+    )
 
     await createSecurityGroups(ec2, clusterId, vpc.VpcId)
 
@@ -371,7 +343,7 @@ export async function regionAdd(clusterId: string, region: string) {
      * From core region to and from other regions
      */
     let coreRegion = await ensureCoreRegion(ec2, clusterId, subnets)
-    let p = [ allowInboundIPv6Traffic(new aws.EC2({ region: coreRegion.location }), clusterId, 'sye-default', subnets) ]
+    let p = [ allowInboundIPv6Traffic(coreRegion.ec2, clusterId, 'sye-default', subnets) ]
     if (region !== coreRegion.location) {
         p.push( allowInboundIPv6Traffic(ec2, clusterId, 'sye-default', coreRegion.subnets) )
     }
@@ -389,74 +361,80 @@ export async function regionDelete(clusterId: string, region: string) {
     const vpcs = await ec2.describeVpcs().promise()
     const vpc = vpcs.Vpcs.find((vpc) => someTag(vpc.Tags, 'Name', clusterId))
 
-    if (vpc) {
-        debug('describeSecurityGroups')
-        const securityGroups = await ec2.describeSecurityGroups().promise()
-        await Promise.all(
-            securityGroups.SecurityGroups
-                .filter((s) => s.VpcId === vpc.VpcId && s.GroupName.startsWith('sye-'))
-                .map((s) => {
-                    debug('deleteSecurityGroup', s.GroupName)
-                    return ec2.deleteSecurityGroup({GroupId: s.GroupId}).promise()
-                })
-        )
+    if (vpc === undefined) {
+        debug('vpc does not exist')
+        return
+    }
 
-        debug('describeSubnets')
-        const subnets = await ec2.describeSubnets().promise()
-        await Promise.all(
-            subnets.Subnets
-                .filter((s) => s.VpcId === vpc.VpcId)
-                .map((s) => {
-                    let p = []
-                    if (coreRegion && region !== coreRegion.location) {
-                        debug('revoke sye-default IPv6 firewall rule on core region')
-                        p.push(
-                            revokeSecurityGroupRule(new aws.EC2({ region: coreRegion.location }), clusterId, 'sye-default', [
+    debug('describeSecurityGroups')
+    const securityGroups = await ec2.describeSecurityGroups().promise()
+    await Promise.all(
+        securityGroups.SecurityGroups
+            .filter((s) => s.VpcId === vpc.VpcId && s.GroupName.startsWith('sye-'))
+            .map((s) => {
+                debug('deleteSecurityGroup', s.GroupName)
+                return ec2.deleteSecurityGroup({GroupId: s.GroupId}).promise()
+            })
+    )
+
+    debug('describeSubnets')
+    const subnets = await ec2.describeSubnets().promise()
+    await Promise.all(
+        subnets.Subnets
+            .filter((s) => s.VpcId === vpc.VpcId)
+            .map(async (s) => {
+                const p = []
+                if (coreRegion !== undefined && region !== coreRegion.location) {
+                    debug('revokeSecurityGroupRule sye-default IPv6 firewall rule on core region')
+                    p.push(
+                        coreRegion.ec2.revokeSecurityGroupIngress({
+                            GroupId: coreRegion.securityGroups.get('sye-default'),
+                            IpPermissions: [
                                 {
                                     IpProtocol: '-1',
                                     Ipv6Ranges: [
                                         { CidrIpv6: s.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock }
                                     ]
                                 }
-                            ])
-                        )
-                    }
-                    debug('deleteSubnet', s.SubnetId)
-                    p.push( ec2.deleteSubnet({ SubnetId: s.SubnetId }).promise() )
-                    return p
-                })
-        )
+                            ]
+                        }).promise()
+                    )
+                }
+                debug('deleteSubnet', s.SubnetId)
+                p.push(ec2.deleteSubnet({ SubnetId: s.SubnetId }).promise())
+                return Promise.all(p)
+            })
+    )
 
-        debug('describeInternetGateways')
-        const internetGateways = await ec2.describeInternetGateways().promise()
-        await Promise.all(
-            internetGateways.InternetGateways
-                .filter((g) => (g.Attachments[0] || {}).VpcId === vpc.VpcId)
-                .map(async (g) => {
-                    debug('detachInternetGateway', g.InternetGatewayId, vpc.VpcId)
-                    await ec2.detachInternetGateway({
-                        InternetGatewayId: g.InternetGatewayId,
-                        VpcId: vpc.VpcId
-                    }).promise()
-                    debug('deleteInternetGateway', g.InternetGatewayId)
-                    return ec2.deleteInternetGateway({InternetGatewayId: g.InternetGatewayId}).promise()
-                })
-        )
+    debug('describeInternetGateways')
+    const internetGateways = await ec2.describeInternetGateways().promise()
+    await Promise.all(
+        internetGateways.InternetGateways
+            .filter((g) => (g.Attachments[0] || {}).VpcId === vpc.VpcId)
+            .map(async (g) => {
+                debug('detachInternetGateway', g.InternetGatewayId, vpc.VpcId)
+                await ec2.detachInternetGateway({
+                    InternetGatewayId: g.InternetGatewayId,
+                    VpcId: vpc.VpcId
+                }).promise()
+                debug('deleteInternetGateway', g.InternetGatewayId)
+                return ec2.deleteInternetGateway({InternetGatewayId: g.InternetGatewayId}).promise()
+            })
+    )
 
-        debug('describeRouteTables')
-        const routeTables = await ec2.describeRouteTables().promise()
-        await Promise.all(
-            routeTables.RouteTables
-                .filter((r) => r.VpcId === vpc.VpcId && someTag(r.Tags, 'SyeClusterId', clusterId))
-                .map(async (r) => {
-                    debug('deleteRouteTable', r.RouteTableId)
-                    return ec2.deleteRouteTable({RouteTableId: r.RouteTableId}).promise()
-                })
-        )
+    debug('describeRouteTables')
+    const routeTables = await ec2.describeRouteTables().promise()
+    await Promise.all(
+        routeTables.RouteTables
+            .filter((r) => r.VpcId === vpc.VpcId && someTag(r.Tags, 'SyeClusterId', clusterId))
+            .map(async (r) => {
+                debug('deleteRouteTable', r.RouteTableId)
+                return ec2.deleteRouteTable({RouteTableId: r.RouteTableId}).promise()
+            })
+    )
 
-        debug('deleteVPC', clusterId)
-        await ec2.deleteVpc({
-            VpcId: vpc.VpcId
-        }).promise()
-    }
+    debug('deleteVPC', clusterId)
+    await ec2.deleteVpc({
+        VpcId: vpc.VpcId
+    }).promise()
 }

@@ -12,7 +12,7 @@ let registryPassword = process.env.SYE_REGISTRY_PASSWORD
 
 export function clusterCreate(registryUrl, etcdIps, options) {
     let release = options.release ||  releaseVersionFromFile()
-    console.log(`Using release ${release}`)
+    consoleLog(`Using release ${release}`)
 
     if (urlRequiresCredentials(registryUrl)) {
         if (!(registryUsername && registryPassword)) {
@@ -25,7 +25,7 @@ export function clusterCreate(registryUrl, etcdIps, options) {
         try {
             validateRegistryUrl(registryUrl, release)
         } catch (e) {
-            console.log(`Failed to get ${registryUrl}. Check that the registry url is correct. ${e}`)
+            consoleLog(`Failed to get ${registryUrl}. Check that the registry url is correct. ${e}`)
             process.exit(1)
         }
     }
@@ -41,11 +41,11 @@ export function clusterCreate(registryUrl, etcdIps, options) {
 
 function getTokenFromDockerHub(username, password, repo, permissions) {
     try {
-        let authRes = execSync(`curl -u ${username}:${password} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:${permissions.join(',')}"`).toString()
+        let authRes = execSync(`curl -u '${username}:${password}' "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:${permissions.join(',')}"`).toString()
         return JSON.parse(authRes).token
     }
     catch (e) {
-        console.log('Docker authentication failed. Exiting.')
+        consoleLog('Docker authentication failed. Exiting.')
         process.exit(1)
     }
 }
@@ -73,7 +73,7 @@ function validateRegistryUrl(registryUrl, release) {
         }
     } else { // Request against Docker registry V2 endpoint
         let url = dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release
-        let cmd = registryUsername && registryPassword ? `curl -s -k -u${registryUsername}:${registryPassword} ${url}` : `curl -s ${url}`
+        let cmd = registryUsername && registryPassword ? `curl -s -k -u '${registryUsername}:${registryPassword}' ${url}` : `curl -s ${url}`
         execSync(cmd)
     }
 }
@@ -109,12 +109,16 @@ function createConfigurationFile(content, output) {
     execSync(`tar -C ${dir} -rf ${tmpfile} keys`)
     execSync(`cat ${tmpfile} | gzip > ${output}`)
     execSync(`rm -rf ${dir}`)
-    console.log('Cluster configuration written to ' + output)
+    consoleLog('Cluster configuration written to ' + output)
 }
 
 function execSync(cmd: string, options?: cp.ExecSyncOptions) {
     debug(cmd)
     return cp.execSync(cmd, options)
+}
+
+function consoleLog(msg: string): void {
+    console.log(msg) // tslint:disable-line no-console
 }
 
 function opensslConf() {

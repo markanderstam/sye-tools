@@ -156,17 +156,17 @@ async function createInstance(
 async function deleteInstance(clusterId: string, region: string, name: string) {
     const ec2 = new aws.EC2({ region })
 
-    const instanceInfo = await getInstanceInformation(clusterId, region, name)
+    const instance = await getInstance(clusterId, region, name)
 
     await ec2.terminateInstances({
-        InstanceIds: [instanceInfo.InstanceId]
+        InstanceIds: [instance.InstanceId]
     }).promise()
 }
 
 async function redeployInstance(clusterId: string, region: string, name: string) {
-    let ec2 = new aws.EC2({ region })
+    const ec2 = new aws.EC2({ region })
 
-    const instance = await getInstanceInformation(clusterId, region, name)
+    const instance = await getInstance(clusterId, region, name)
 
     const dataVolume = instance.BlockDeviceMappings.find((v) => v.DeviceName !== instance.RootDeviceName)
     const dataVolumeId = dataVolume && dataVolume.Ebs.VolumeId
@@ -269,35 +269,54 @@ async function redeployInstance(clusterId: string, region: string, name: string)
     }).promise()
 }
 
-export async function getInstanceInformation(clusterId: string, region: string, name: string): Promise<aws.EC2.Instance | undefined> {
-    let ec2 = new aws.EC2({ region })
+export async function getInstances(clusterId: string, region: string, instanceIds: string[], names = new Array<string>()): Promise<aws.EC2.Instance[]> {
+    const ec2 = new aws.EC2({ region })
 
-    let instances = await ec2.describeInstances( {
+    const describeInstancesRequest: aws.EC2.DescribeInstancesRequest = {
         Filters: [
             {
                 Name: 'tag:SyeClusterId',
                 Values: [clusterId]
             },
             {
-                Name: 'tag:Name',
-                Values: [name]
-            },
-            {
                 Name: 'instance-state-name',
                 Values: ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
             }
         ]
-    }).promise()
+    }
 
-    if( instances.Reservations.length > 1 ) {
+    if (instanceIds[0] !== undefined) {
+        describeInstancesRequest.InstanceIds = instanceIds
+    }
+
+    if (names[0] !== undefined) {
+        describeInstancesRequest.Filters.push(
+            {
+                Name: 'tag:Name',
+                Values: names
+            }
+        )
+    }
+
+    const instances = await ec2.describeInstances(describeInstancesRequest).promise()
+
+    return instances.Reservations.map((r) => r.Instances[0])
+}
+
+export async function getInstance(clusterId: string, region: string, name: string): Promise<aws.EC2.Instance> {
+    let instances = await getInstances(clusterId, region, [], [name])
+
+    if (instances.length > 1) {
+        instances = await getInstances(clusterId, region, [name])
+    }
+
+    if (instances.length === 0) {
+        throw `No instance of '${name}' in ${region} found`
+    } else if (instances.length > 1) {
         throw `More than one instance of '${name}' in ${region} found`
     }
 
-    if( instances.Reservations.length === 0 ) {
-        return undefined
-    }
-
-    return instances.Reservations[0].Instances[0]
+    return instances[0]
 }
 
 export async function machineAdd(

@@ -76,7 +76,7 @@ program
     })
 
 program
-    .command('machine-delete <cluster-id> <region> <instance-name>')
+    .command('machine-delete <cluster-id> <region> <instance-name|instance-id>')
     .description('Delete a machine from the cluster')
     .action(async (clusterId: string, region: string, name: string) => {
         consoleLog(`Deleting instance ${name} in region ${region} for cluster ${clusterId}`)
@@ -86,7 +86,7 @@ program
     })
 
 program
-    .command('machine-redeploy <cluster-id> <region> <instance-name>')
+    .command('machine-redeploy <cluster-id> <region> <instance-name|instance-id>')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
     .action(async (clusterId: string, region: string, name: string) => {
         consoleLog(`Redeploying instance ${name} in region ${region} for cluster ${clusterId}`)

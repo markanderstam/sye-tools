@@ -1,7 +1,8 @@
 node_modules
-sye-aws/**/*.js
+**/*.js
 index.js
 cli/sye
 cli/sye-aws
 cli/sye-cluster
 cli/sye-registry
+sye-environment.tar.gz

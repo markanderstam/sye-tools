@@ -14,11 +14,11 @@ export function registryStart(ip, options) {
     let registryUrl = `http://${ip}:${port}/${options.prefix}`
     let images = dockerLoad(options.file)
     if (images.length !== 1) {
-        console.log(`Found ${images.length} images in ${options.file}, expected 1`)
+        consoleLog(`Found ${images.length} images in ${options.file}, expected 1`)
         process.exit(1)
     }
     let image = images[0]
-    console.log(`Using image ${image}`)
+    consoleLog(`Using image ${image}`)
 
     docker(`run -d --net=host \
         --log-driver=json-file --log-opt max-size=20m --log-opt max-file=10 \
@@ -39,10 +39,10 @@ export function registryStart(ip, options) {
         }
     }
     if (!started) {
-        console.log('Failed to start docker registry')
+        consoleLog('Failed to start docker registry')
         process.exit(1)
     }
-    console.log(`Registry URL: ${registryUrl}`)
+    consoleLog(`Registry URL: ${registryUrl}`)
 }
 
 export function registryAddImages(registryUrl, options) {
@@ -58,10 +58,9 @@ export function registryAddImages(registryUrl, options) {
         dockerLogin(registryUsername, registryPassword, registryAddr)
     }
 
-    console.log('Loading images')
+    consoleLog('Loading images')
     let images = dockerLoad(options.file)
     for (let localName of images) {
-//        let [, service, revision] = localName.match(/^.+\/(.+):(.+)$/)
         let remoteName = localName.replace(/^ott/, registryAddr)
         docker(`tag ${localName} ${remoteName}`)
         docker(`push ${remoteName}`)
@@ -72,14 +71,14 @@ export function registryAddImages(registryUrl, options) {
 export function registryRemove() {
     let id = docker('ps -a -q --no-trunc --filter name=^/registry$')
     if (id) {
-        console.log('Stopping registry container')
+        consoleLog('Stopping registry container')
         docker('stop registry')
 
-        console.log('Removing container')
+        consoleLog('Removing container')
         docker('rm -v registry')
     }
     else {
-        console.log('No registry to remove')
+        consoleLog('No registry to remove')
     }
 }
 
@@ -89,7 +88,7 @@ function docker(command: string) {
     }
     catch (e) {
         // Docker prints its error-messages to stderr
-        console.log('Docker command failed. Exiting.')
+        consoleLog('Docker command failed. Exiting.')
         process.exit(1)
         return ''
     }
@@ -100,7 +99,7 @@ function dockerLoad(tarFile) {
     let images = result.split('\n')
         .filter(s => {
             if (s.match(/no space left on device/)) {
-                console.log('Failed to load. No space left on device.')
+                consoleLog('Failed to load. No space left on device.')
                 process.exit(1)
                 return ''
             } else {
@@ -112,7 +111,7 @@ function dockerLoad(tarFile) {
 }
 
 function dockerLogin(username, password, registry) {
-    console.log('Login to external Docker registry.')
+    consoleLog('Login to external Docker registry.')
     if (registry.startsWith('docker.io')) {
         docker(`login -u ${username} -p ${password}`)
     } else {
@@ -147,6 +146,10 @@ function execSync(cmd: string, options?: cp.ExecSyncOptions) {
 }
 
 function exit(code, message) {
-    console.log(message)
+    consoleLog(message)
     process.exit(code)
+}
+
+function consoleLog(msg: string): void {
+    console.log(msg) // tslint:disable-line no-console
 }
