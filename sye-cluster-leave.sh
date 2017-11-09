@@ -26,13 +26,13 @@ do
     esac
 done
 
-if ! docker ps -a -q > /dev/null
+if docker ps -a -q > /dev/null
 then
     docker stop $(docker ps -a -q)
     docker rm -v $(docker ps -a -q)
 fi
 
-if ! docker volume ls -q -f dangling=true > /dev/null
+if docker volume ls -q -f dangling=true > /dev/null
 then
     docker volume rm $(docker volume ls -q -f dangling=true)
 fi
