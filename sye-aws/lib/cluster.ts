@@ -39,13 +39,11 @@ export async function deleteCluster(clusterId: string) {
 }
 
 export async function showResources(clusterId: string, output = true, raw = false): Promise<ClusterMachine[]> {
-    let resources = await getResources(clusterId)
+    let resources = await getResources(clusterId, ['ec2:vpc', 'ec2:instance'])
 
     debug('resources', resources)
     let regions = new Set(
-        resources
-            .filter( r => r.ResourceARN.startsWith('arn:aws:ec2'))
-            .map( r => r.ResourceARN.split(':')[3] )
+        resources.map(r => r.ResourceARN.split(':')[3])
     )
 
     debug('regions', regions)
@@ -108,22 +106,29 @@ export async function getMachines(clusterId: string): Promise<ClusterMachine[]> 
     return showResources(clusterId, false)
 }
 
-export async function getResources(clusterId: string): Promise<aws.ResourceGroupsTaggingAPI.ResourceTagMappingList> {
-    let resources: aws.ResourceGroupsTaggingAPI.ResourceTagMappingList = []
-    let regions = await listRegions()
-    for( let region of regions) {
-        let rg = new aws.ResourceGroupsTaggingAPI({ region })
-
-        let regionResources = await rg.getResources({
+export async function getResources(clusterId: string, resourceTypeFilters: string[]): Promise<aws.ResourceGroupsTaggingAPI.ResourceTagMappingList> {
+    const resources: aws.ResourceGroupsTaggingAPI.ResourceTagMappingList = []
+    const regions = await listRegions()
+    for (let region of regions) {
+        const rg = new aws.ResourceGroupsTaggingAPI({ region })
+        const getResourcesInput: aws.ResourceGroupsTaggingAPI.GetResourcesInput = {
             TagFilters: [
                 {
                     Key: 'SyeClusterId',
                     Values: [clusterId],
                 }
-            ]
-        }).promise()
+            ],
+            ResourceTypeFilters: resourceTypeFilters
+        }
 
+        let regionResources = await rg.getResources(getResourcesInput).promise()
         resources.push(...regionResources.ResourceTagMappingList)
+
+        while (regionResources.PaginationToken) {
+            getResourcesInput.PaginationToken = regionResources.PaginationToken
+            regionResources = await rg.getResources(getResourcesInput).promise()
+            resources.push(...regionResources.ResourceTagMappingList)
+        }
     }
 
     return resources
