@@ -190,16 +190,13 @@ async function createSecurityGroup(ec2: aws.EC2, clusterId: string, vpcid: strin
 
 async function getCoreRegion(clusterId: string): Promise<CoreRegion|undefined> {
     debug('getCoreRegion')
-    let resources = await getResources(clusterId)
+    let resources = await getResources(clusterId, ['ec2:subnet'])
     let ec2: aws.EC2
     let vpcId: string
     let location: string
     let subnets = await Promise.all<CoreSubnet>(
         resources
-            .filter(r => r.ResourceARN.startsWith('arn:aws:ec2') &&
-                r.ResourceARN.split('/')[1].startsWith('subnet') &&
-                r.Tags.some(tag => tag.Key.startsWith('SyeCore_'))
-            )
+            .filter(r => r.Tags.some(tag => tag.Key === `SyeCore_${clusterId}`))
             .map(async (r) => {
                 location = r.ResourceARN.split(':')[3]
                 ec2 = new aws.EC2({ region: location })
