@@ -52,18 +52,13 @@ if [[ $ROLES =~ (^|,)pitcher($|,) ]]
 then
     # TODO: Make it work on Amazon Linux
     echo "Applying role pitcher"
-    unset cpulist
-    cpulist=`awk '/processor/ { print $3 }' </proc/cpuinfo`
+    echo "" >> /etc/sysctl.conf
+    echo "net.core.wmem_default=14700" >> /etc/sysctl.conf
+    echo "net.core.wmem_max=147000" >> /etc/sysctl.conf
+    echo "net.core.rmem_max=20000000" >> /etc/sysctl.conf
+    echo "net.core.rmem_default=20000000" >> /etc/sysctl.conf
+    sysctl -p
 
-    echo "Old max socket buffer values:"
-    echo "Rx = " `cat /proc/sys/net/core/rmem_max`
-    echo "Tx = " `cat /proc/sys/net/core/wmem_max`
-    echo "Setting input socket buffers to 20000000"
-    echo 20000000 >/proc/sys/net/core/rmem_max
-    echo 20000000 >/proc/sys/net/core/rmem_default
-    echo "Setting output socket buffers to 14700"
-    echo 14700 >/proc/sys/net/core/wmem_max
-    echo 14700 >/proc/sys/net/core/wmem_default
 fi
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"
