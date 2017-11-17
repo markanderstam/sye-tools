@@ -50,7 +50,6 @@ fi
 
 if [[ $ROLES =~ (^|,)pitcher($|,) ]]
 then
-    # TODO: Make it work on Amazon Linux
     echo "Applying role pitcher"
     echo "" >> /etc/sysctl.conf
     echo "net.core.wmem_default=14700" >> /etc/sysctl.conf
