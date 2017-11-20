@@ -280,7 +280,7 @@ export async function getInstances(clusterId: string, region: string, instanceId
             },
             {
                 Name: 'instance-state-name',
-                Values: ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
+                Values: ['pending', 'running', 'stopping', 'stopped']
             }
         ]
     }
