@@ -38,15 +38,22 @@ async function getInstanceProfileArn(instanceProfileName: string) {
     return result.InstanceProfile.Arn
 }
 
-function buildUserData(clusterId: string, roles: string, region: string, zone: string, name: string, hasStorage: boolean, args = '') {
+async function buildUserData(clusterId: string, roles: string, region: string, zone: string, name: string, hasStorage: boolean, args = '') {
     const s3 = new aws.S3({
         // We need to blank out the region so that the URL generated isn't region specific
         region: ''
     })
-    const envUrl = s3.getSignedUrl('getObject', {
-        Bucket: clusterId,
-        Key: 'private/sye-environment.tar.gz',
-        Expires: 10 * 60 // The URL will expire after 10 minutes
+    const envUrl = await new Promise((resolve, reject) => {
+        s3.getSignedUrl('getObject', {
+            Bucket: clusterId,
+            Key: 'private/sye-environment.tar.gz',
+            Expires: 10 * 60 // The URL will expire after 10 minutes
+        }, (err, url) => {
+            if (err) {
+                reject(err)
+            }
+            resolve(url)
+        })
     })
     debug('envUrl', envUrl)
     return Buffer.from(`#!/bin/sh
@@ -100,7 +107,7 @@ async function createInstance(
         ],
         MinCount: 1,
         MaxCount: 1,
-        UserData: buildUserData(clusterId, roles.join(','), region, availabilityZone, name, !!storage, args)
+        UserData: await buildUserData(clusterId, roles.join(','), region, availabilityZone, name, !!storage, args)
     }
 
     if(storage > 0) {
@@ -220,7 +227,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
         })),
         MinCount: 1,
         MaxCount: 1,
-        UserData: buildUserData(clusterId, getTag(instance.Tags, 'Roles'), region, getTag(instance.Tags, 'AvailabilityZone'), name, dataVolumeId !== undefined),
+        UserData: await buildUserData(clusterId, getTag(instance.Tags, 'Roles'), region, getTag(instance.Tags, 'AvailabilityZone'), name, dataVolumeId !== undefined),
         TagSpecifications: [
             {
                 ResourceType: 'instance',
