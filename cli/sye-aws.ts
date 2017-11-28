@@ -65,7 +65,7 @@ program
     .option('--machine-name [name]', 'Name of machine, defaults to amazon instance id')
     .option('--instance-type [type]', 'e.g. t2.micro', 't2.micro')
     .option('--management', 'Run cluster-join with --management parameter')
-    .option('--role [role]', 'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management',
+    .option('--role [role]', 'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
         (role, roles) => roles.push(role) && roles, [])
     .option('--storage [size]', 'Setup a separate EBS volume for storing container data. Size in GiB', parseInt, 0)
     .action(async (clusterId: string, region: string, options: any) => {
