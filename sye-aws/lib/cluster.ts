@@ -71,7 +71,7 @@ export async function showResources(clusterId: string, output = true, raw = fals
             log('No instances')
         } else {
             instances.forEach(instance => {
-                debug('instance', instance)
+                debug('instance', instance.InstanceId)
                 table.push({
                     Id: instance.InstanceId,
                     Region: region,
