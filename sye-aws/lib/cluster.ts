@@ -41,7 +41,7 @@ export async function deleteCluster(clusterId: string) {
 export async function showResources(clusterId: string, output = true, raw = false): Promise<ClusterMachine[]> {
     let resources = await getResources(clusterId, ['ec2:vpc', 'ec2:instance'])
 
-    debug('resources', resources)
+    debug('resources', resources.map((r) => r.ResourceARN))
     let regions = new Set(
         resources.map(r => r.ResourceARN.split(':')[3])
     )
@@ -85,6 +85,7 @@ export async function showResources(clusterId: string, output = true, raw = fals
                     ).DeviceName
                 })
             })
+            table.sort((m1, m2) => m1.Name < m2.Name ? -1 : 1)
             log(EasyTable.print(table))
             log(`https://${region}.console.aws.amazon.com/ec2/v2/home?region=${region}#Instances:tag:SyeClusterId='${clusterId}';sort=keyName`)
         }

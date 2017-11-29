@@ -143,8 +143,8 @@ async function createInstance(
 
     let result = await ec2.runInstances( ec2Req ).promise()
 
-    debug(result.Instances[0])
     let instanceId = result.Instances[0].InstanceId
+    debug(instanceId)
 
     if( !name ) {
         // The user did not specify a name for this instance
@@ -239,7 +239,9 @@ async function redeployInstance(clusterId: string, region: string, name: string)
             }
         ]
     }).promise()
-    debug(result.Instances[0])
+
+    const instanceId = result.Instances[0].InstanceId
+    debug(instanceId)
 
     if (dataVolumeId !== undefined) {
         // Wait for new instance to be up
@@ -252,7 +254,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
         debug('attachVolume')
         await ec2.attachVolume({
             Device: dataVolume.DeviceName,
-            InstanceId: result.Instances[0].InstanceId,
+            InstanceId: instanceId,
             VolumeId: dataVolumeId
         }).promise()
 
@@ -265,7 +267,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
                     DeleteOnTermination: true
                 }
             }],
-            InstanceId: result.Instances[0].InstanceId
+            InstanceId: instanceId
         }).promise()
     }
 
