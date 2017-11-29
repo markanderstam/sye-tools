@@ -31,11 +31,11 @@ interface ClusterMachine {
 
 export async function createCluster(clusterId: string, syeEnvironment: string, authorizedKeys: string) {
     await createBucket(clusterId, syeEnvironment, authorizedKeys)
-    await createIamRole(clusterId)
+    await createIamRoles(clusterId)
 }
 
 export async function deleteCluster(clusterId: string) {
-    await deleteIamRole(clusterId)
+    await deleteIamRoles(clusterId)
 }
 
 export async function showResources(clusterId: string, output = true, raw = false): Promise<ClusterMachine[]> {
@@ -209,14 +209,76 @@ function readPackageFile(filename: string) {
     }
 }
 
-async function createIamRole(clusterId: string) {
-    debug('createIamRole')
-    const clusterIdInstance = clusterId + '-instance'
+async function createIamRoles(clusterId: string): Promise<void> {
+    const basicPolicyDocument = JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                Action: [
+                    's3:GetObject'
+                ],
+                Resource: [
+                    'arn:aws:s3:::' + clusterId + '/public/*'
+                ],
+            },
+        ]
+    })
+    const scalingPolicyDocument = JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                Action: [
+                    'ec2:CreateTags',
+                    'ec2:DescribeAvailabilityZones',
+                    'ec2:DescribeImages',
+                    'ec2:DescribeInstances',
+                    'ec2:DescribeRegions',
+                    'ec2:DescribeSecurityGroups',
+                    'ec2:DescribeSubnets',
+                    'ec2:DescribeVpcs',
+                    'ec2:RunInstances',
+                    'ec2:TerminateInstances'
+                ],
+                Resource: '*'
+            },
+            {
+                Effect: 'Allow',
+                Action: [
+                    'iam:GetInstanceProfile',
+                    'iam:PassRole'
+                ],
+                Resource: '*'
+            },
+            {
+                Effect: 'Allow',
+                Action: [
+                    's3:GetObject'
+                ],
+                Resource: 'arn:aws:s3:::' + clusterId + '/*'
+            }
+        ]
+    })
+
+    // The scaling IAM role will be used only by the machines that will have the scaling
+    // machine role. The basic IAM role will be used for the rest of the machines to access
+    // the S3 bucket.
+    await Promise.all([ createIamRole(clusterId, basicPolicyDocument),
+                        createIamRole(clusterId, scalingPolicyDocument, 'scaling') ])
+}
+
+async function createIamRole(clusterId: string, policyDocument: string, roleType?: string): Promise<void> {
+    const type = roleType || ''
+    debug('createIamRole', type)
+    const instanceProfileName = type ? `${clusterId}-instance-${type}` : `${clusterId}-instance`
+    const roleName = instanceProfileName
+    const policyName = type ? `${clusterId}-${type}` : `${clusterId}-s3-read`
     const iam = new aws.IAM()
 
-    debug('createRole')
+    debug('createRole', roleName)
     await iam.createRole({
-        RoleName: clusterIdInstance,
+        RoleName: roleName,
         AssumeRolePolicyDocument: JSON.stringify({
             Version: '2012-10-17',
             Statement: [
@@ -231,63 +293,57 @@ async function createIamRole(clusterId: string) {
         }),
     }).promise()
 
-    debug('createPolicy')
+    debug('createPolicy', policyName)
     const policy = await iam.createPolicy({
-        PolicyName: clusterId + '-s3-read',
-        PolicyDocument: JSON.stringify({
-           Version: '2012-10-17',
-           Statement: [
-                {
-                   Effect: 'Allow',
-                   Action: [
-                       's3:GetObject'
-                    ],
-                   Resource: [
-                       'arn:aws:s3:::' + clusterId + '/public/*'
-                   ],
-                },
-            ]
-        })
+        PolicyName: policyName,
+        PolicyDocument: policyDocument
     }).promise()
 
-    debug('attachRolePolicy')
+    debug('attachRolePolicy', type)
     await iam.attachRolePolicy({
-        RoleName: clusterIdInstance,
+        RoleName: roleName,
         PolicyArn: policy.Policy.Arn
     }).promise()
 
 
-    debug('createInstanceProfile')
+    debug('createInstanceProfile', instanceProfileName)
     await iam.createInstanceProfile({
-        InstanceProfileName: clusterIdInstance
+        InstanceProfileName: instanceProfileName
     }).promise()
 
-    debug('addRoleToInstanceProfile')
+    debug('addRoleToInstanceProfile', instanceProfileName)
     await iam.addRoleToInstanceProfile({
-        RoleName: clusterIdInstance,
-        InstanceProfileName: clusterIdInstance
+        RoleName: roleName,
+        InstanceProfileName: instanceProfileName
     }).promise()
 }
 
-async function deleteIamRole(clusterId: string) {
-    debug('deleteIamRole')
-    const clusterIdInstance = clusterId + '-instance'
+async function deleteIamRoles(clusterId: string) {
+    await Promise.all([ deleteIamRole(clusterId),
+                        deleteIamRole(clusterId, 'scaling')])
+}
+
+async function deleteIamRole(clusterId: string, roleType?: string ) {
+    const type = roleType || ''
+    debug('deleteIamRole', type)
+    const instanceProfileName = type ? `${clusterId}-instance-${type}` : `${clusterId}-instance`
+    const roleName = instanceProfileName
     const iam = new aws.IAM()
 
-    debug('removeRoleFromInstanceProfile')
+    debug('removeRoleFromInstanceProfile', instanceProfileName)
     await iam.removeRoleFromInstanceProfile({
-        RoleName: clusterIdInstance,
-        InstanceProfileName: clusterIdInstance
+        RoleName: roleName,
+        InstanceProfileName: instanceProfileName
     }).promise().catch((err) => debug(`removeRoleFromInstanceProfile failed: ${err}`))
 
-    debug('deleteInstanceProfile', clusterIdInstance)
+    debug('deleteInstanceProfile', instanceProfileName)
     await iam.deleteInstanceProfile({
-        InstanceProfileName: clusterIdInstance
+        InstanceProfileName: instanceProfileName
     }).promise().catch((err) => debug(`deleteInstanceProfile failed: ${err}`))
 
-    debug('listAttachedRolePolicies')
+    debug('listAttachedRolePolicies', roleName)
     const attachedPolicies = await iam.listAttachedRolePolicies({
-        RoleName: clusterIdInstance
+        RoleName: roleName
     }).promise()
         .then((res) => res.AttachedPolicies)
         .catch(() => new Array<aws.IAM.AttachedPolicy>())
@@ -295,7 +351,7 @@ async function deleteIamRole(clusterId: string) {
     for (let policy of attachedPolicies) {
         debug('detachRolePolicy', policy.PolicyName)
         await iam.detachRolePolicy({
-            RoleName: clusterIdInstance,
+            RoleName: roleName,
             PolicyArn: policy.PolicyArn
         }).promise().catch((err) => debug(`detachRolePolicy ${policy.PolicyName} failed: ${err}`))
         debug('deletePolicy', policy.PolicyName)
@@ -304,8 +360,8 @@ async function deleteIamRole(clusterId: string) {
         }).promise().catch((err) => debug(`deletePolicy ${policy.PolicyName} failed: ${err}`))
     }
 
-    debug('deleteRole')
+    debug('deleteRole', roleName)
     await iam.deleteRole({
-        RoleName: clusterIdInstance
-    }).promise().catch((err) => debug(`deleteRole ${clusterIdInstance} failed: ${err}`))
+        RoleName: roleName
+    }).promise().catch((err) => debug(`deleteRole ${roleName} failed: ${err}`))
 }

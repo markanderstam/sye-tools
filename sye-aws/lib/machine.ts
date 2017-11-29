@@ -29,10 +29,11 @@ async function getAmiId(ec2: aws.EC2) {
     return mostRecent.ImageId
 }
 
-async function getInstanceProfileArn(instanceProfileName: string) {
-    let iam = new aws.IAM()
-    let result = await iam.getInstanceProfile({
-        InstanceProfileName: instanceProfileName + '-instance'
+async function getInstanceProfileArn(clusterId: string, type?: string) {
+    const instanceProfileName = type ? `${clusterId}-instance-${type}` : `${clusterId}-instance`
+    const iam = new aws.IAM()
+    const result = await iam.getInstanceProfile({
+        InstanceProfileName: instanceProfileName
     }).promise()
 
     return result.InstanceProfile.Arn
@@ -78,6 +79,10 @@ async function createInstance(
     let subnetId = await getSubnet(ec2, clusterId, availabilityZone).then(subnet => subnet.SubnetId)
     let amiId = await getAmiId(ec2)
     let instanceProfileArn = await getInstanceProfileArn(clusterId)
+    // The scaling machine needs different AWS permissions than just reading the S3 bucket
+    if (roles.includes('scaling')) {
+        instanceProfileArn = await getInstanceProfileArn(clusterId, 'scaling')
+    }
 
     let groups = [
         sg.get('sye-default'),
