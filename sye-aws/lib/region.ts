@@ -71,7 +71,7 @@ async function createSubnet(ec2: aws.EC2, clusterId: string, name: string, vpcid
     await ec2.modifySubnetAttribute({
         SubnetId: result.Subnet.SubnetId,
         MapPublicIpOnLaunch: { Value: true },
-    })
+    }).promise()
 
     return result.Subnet
 }

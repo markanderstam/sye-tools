@@ -12,6 +12,7 @@
         "no-unsafe-finally": true,
         "eofline": true,
         "no-floating-promises": false,
+        "await-promise": true,
         "no-console": [
             true,
             "log",
