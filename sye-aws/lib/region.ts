@@ -27,15 +27,24 @@ async function createVPC(ec2: aws.EC2, clusterId: string, cidrBlock: string) {
         CidrBlock: cidrBlock,
         AmazonProvidedIpv6CidrBlock: true
     }).promise()
-    await tagResource(ec2, result.Vpc.VpcId, clusterId, clusterId)
 
     let vpc = result.Vpc
-    let vpcid = vpc.VpcId
+    let vpcId = vpc.VpcId
+
+    await ec2.modifyVpcAttribute({
+        EnableDnsHostnames: {
+            Value: true,
+        },
+        VpcId: vpcId
+    }).promise()
+
+    await tagResource(ec2, vpcId, clusterId, clusterId)
+
 
     while (vpc.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlockState.State !== 'associated') {
         await sleep(2000)
         let result2 = await ec2.describeVpcs({
-            VpcIds: [vpcid]
+            VpcIds: [vpcId]
         }).promise()
         vpc = result2.Vpcs[0]
     }
