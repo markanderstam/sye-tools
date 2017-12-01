@@ -1,6 +1,6 @@
 {
   "name": "@netinsight/sye-tools",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "Tools for installing and managing a Sye Backend",
   "main": "index.js",
   "bin": {
