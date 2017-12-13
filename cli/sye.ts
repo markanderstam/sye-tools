@@ -11,7 +11,7 @@ import { registryAddImages, registryStart, registryRemove } from '../sye-registr
 
 program
     .version('0.0.1')
-    .description('sye-tools')
+    .description('sye-tools. See https://github.com/netinsight/sye-tools')
 
 program
     .command('registry [subcommand]', 'operate on a docker registry')
