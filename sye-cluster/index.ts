@@ -2,6 +2,7 @@ import * as cp from 'child_process'
 import * as os from 'os'
 import * as fs from 'fs'
 import * as url from 'url'
+import * as semver from 'semver'
 
 const debug = require('debug')('sye')
 const prompt = require('prompt-sync')()
@@ -143,7 +144,7 @@ function releaseVersionFromRegistry(registryUrl, registryUsername, registryPassw
     if (res.errors) {
         throw `Failed to get latest avalaible release from ${registryUrl}: ${JSON.stringify(res.errors, null, 2)}`
     }
-    return res.tags.length ? res.tags.pop() : undefined
+    return res.tags.length ? res.tags.filter(r => r.match(/^r\d+\.\d+$/)).sort((a, b) => semver.compare(a.replace('r', '0.'), b.replace('r', '0.'))).pop() : undefined
 }
 
 function createConfigurationFile(content, output) {
