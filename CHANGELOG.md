@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.7] - 2017-12-13
+
+- Fix single-server installation
+- Improve documentation
+
 ## [0.9.6] - 2017-12-13
 
 - Allow single-server installations from Docker Hub
