@@ -11,19 +11,19 @@ let registryUsername = process.env.SYE_REGISTRY_USERNAME
 let registryPassword = process.env.SYE_REGISTRY_PASSWORD
 
 export function clusterCreate(registryUrl, etcdIps, options) {
-    let release = options.release ||  releaseVersionFromFile()
-    consoleLog(`Using release ${release}`)
-
     if (urlRequiresCredentials(registryUrl)) {
         if (!(registryUsername && registryPassword)) {
             promptRegistryCredentials()
         }
     }
 
+    let release = options.release || releaseVersionFromRegistry(registryUrl, registryUsername, registryPassword) || releaseVersionFromFile()
+    consoleLog(`Using release ${release}`)
+
     if (options.check) {
         // Check that the registry URL is valid before creating the cluster config
         try {
-            validateRegistryUrl(registryUrl, release)
+            validateRegistryUrl(registryUrl, registryUsername, registryPassword, release)
         } catch (e) {
             consoleLog(`Failed to get ${registryUrl}. Check that the registry url is correct. ${e}`)
             process.exit(1)
@@ -56,25 +56,44 @@ function dockerRegistryApiUrlFromUrl(registryUrl) {
     return url.format(u)
 }
 
-function validateRegistryUrl(registryUrl, release) {
+function requestToDockerHub(url, repo, registryUsername, registryPassword) {
+    let token = getTokenFromDockerHub(registryUsername, registryPassword, repo, ['pull'])
+    return JSON.parse(execSync(`curl -s -H "Accept: application/json" -H "Authorization: Bearer ${token}" "${url}"`).toString())
+}
+
+function requestToAmazonECR(url, registryUsername, registryPassword) {
+    return JSON.parse(execSync(`curl -s -k -u${registryUsername}:${registryPassword} ${url}`).toString())
+}
+
+function requestToLocalRegistry(url, registryUsername, registryPassword) {
+    return JSON.parse(execSync(registryUsername && registryPassword ? `curl -s -k -u '${registryUsername}:${registryPassword}' ${url}` : `curl -s ${url}`).toString())
+}
+
+function validateRegistryUrl(registryUrl, registryUsername, registryPassword, release) {
     let p = url.parse(registryUrl)
-    if (p.host === 'docker.io') { // Request against Docker Hub
-        let url = dockerRegistryApiUrlFromUrl(registryUrl.replace('docker.io', 'registry.hub.docker.com')) + '/release/manifests/' + release
-        let token = getTokenFromDockerHub(registryUsername, registryPassword, `${p.path.replace('/', '')}/release`, ['pull'])
-        let res = JSON.parse(execSync(`curl -s -H "Accept: application/json" -H "Authorization: Bearer ${token}" "${url}"`).toString())
-        if (res.errors) {
-            throw JSON.stringify(res.errors, null, 2)
-        }
-    } else if (p.host.endsWith('amazonaws.com')) { // Request against Amazon Docker registry
-        let url = dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release
-        let res = JSON.parse(execSync(`curl -s -k -u${registryUsername}:${registryPassword} ${url}`).toString())
-        if (res.errors) {
-            throw JSON.stringify(res.errors, null, 2)
-        }
-    } else { // Request against Docker registry V2 endpoint
-        let url = dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release
-        let cmd = registryUsername && registryPassword ? `curl -s -k -u '${registryUsername}:${registryPassword}' ${url}` : `curl -s ${url}`
-        execSync(cmd)
+    let res
+    if (p.host === 'docker.io') {
+        res = requestToDockerHub(
+            dockerRegistryApiUrlFromUrl(registryUrl.replace('docker.io', 'registry.hub.docker.com')) + '/release/manifests/' + release,
+                `${p.path.replace('/', '')}/release`,
+                registryUsername,
+                registryPassword
+            )
+    } else if (p.host.endsWith('amazonaws.com')) {
+        res = requestToAmazonECR(
+            dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release,
+            registryUsername,
+            registryPassword
+        )
+    } else {
+        res = requestToLocalRegistry(
+            dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release,
+            registryUsername,
+            registryPassword
+        )
+    }
+    if (res.errors) {
+        throw JSON.stringify(res.errors, null, 2)
     }
 }
 
@@ -95,6 +114,36 @@ function releaseVersionFromFile() {
     catch (e) {
         throw 'Could not open release_version due to error: ' + e.stack
     }
+}
+
+// Get latest available release version from an external registry
+function releaseVersionFromRegistry(registryUrl, registryUsername, registryPassword) {
+    let res
+    let p = url.parse(registryUrl)
+    if (p.host === 'docker.io') {
+        res = requestToDockerHub(
+            dockerRegistryApiUrlFromUrl(registryUrl.replace('docker.io', 'registry.hub.docker.com')) + '/release/tags/list',
+                `${p.path.replace('/', '')}/release`,
+                registryUsername,
+                registryPassword
+            )
+    } else if (p.host.endsWith('amazonaws.com')) {
+        res = requestToAmazonECR(
+            dockerRegistryApiUrlFromUrl(registryUrl) + '/release/tags/list',
+            registryUsername,
+            registryPassword
+        )
+    } else {
+        res = requestToLocalRegistry(
+            dockerRegistryApiUrlFromUrl(registryUrl) + '/release/tags/list',
+            registryUsername,
+            registryPassword
+        )
+    }
+    if (res.errors) {
+        throw `Failed to get latest avalaible release from ${registryUrl}: ${JSON.stringify(res.errors, null, 2)}`
+    }
+    return res.tags.length ? res.tags.pop() : undefined
 }
 
 function createConfigurationFile(content, output) {

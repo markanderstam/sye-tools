@@ -30,16 +30,23 @@ program
 program
     .command('single-server <interface>')
     .description('Start a single server installation')
-    .option('-p, --management-port <port>', 'start playout-management listening on a port', '81')
-    .option('-t, --management-tls-port <port>', 'start playout-management listening on a TLS port', '4433')
+    .option('-l, --local-registry', 'Use a local Docker registry')
+    .option('-r, --registry-url <url>', 'Use a specific external Docker registry url. Default to https://docker.io/netisye')
+    .option('--release <release>', 'Use a specific release')
+    .option('-p, --management-port <port>', 'Start playout-management listening on a port', '81')
+    .option('-t, --management-tls-port <port>', 'Start playout-management listening on a TLS port', '4433')
     .description('Install a single-server setup on this machine')
     .action( singleServer )
-
 
 program
   .parse(process.argv)
 
 function singleServer( networkInterface, options ) {
+    if (options.localRegistry && options.registryUrl) {
+        console.log('Unable to use both local and external registry') // tslint:disable-line no-console
+        process.exit(1)
+    }
+
     verifyRoot('single-server')
     configSystemForLogService()
 
@@ -57,17 +64,23 @@ function singleServer( networkInterface, options ) {
     console.log('\n> sye cluster-leave') // tslint:disable-line no-console
     execSync('./sye-cluster-leave.sh')
 
-    console.log('\n> sye registry-remove') // tslint:disable-line no-console
-    registryRemove()
+    let registryUrl = 'https://docker.io/netisye'
+    if (options.localRegistry) {
+        registryUrl = 'http://127.0.0.1:5000/ott'
+        console.log('\n> sye registry-remove') // tslint:disable-line no-console
+        registryRemove()
 
-    console.log( '\n> sye registry-start 127.0.0.1') // tslint:disable-line no-console
-    registryStart('127.0.0.1', {prefix: 'ott', file: './registry.tar'})
+        console.log( '\n> sye registry-start 127.0.0.1') // tslint:disable-line no-console
+        registryStart('127.0.0.1', {prefix: 'ott', file: './registry.tar'})
 
-    console.log( '\n> sye registry-add-release http://127.0.0.1:5000/ott') // tslint:disable-line no-console
-    registryAddImages('http://127.0.0.1:5000/ott', {file: './images.tar'})
+        console.log( `\n> sye registry-add-release http://127.0.0.1:5000/ott`) // tslint:disable-line no-console
+        registryAddImages('http://127.0.0.1:5000/ott', {file: './images.tar'})
+    } else if (options.registryUrl) {
+        registryUrl = options.registryUrl
+    }
 
-    console.log( '\n> sye cluster-create http://127.0.0.1:5000/ott 127.0.0.1') // tslint:disable-line no-console
-    clusterCreate('http://127.0.0.1:5000/ott', ['127.0.0.1'], {output: './sye-environment.tar.gz'})
+    console.log( `\n> sye cluster-create ${registryUrl} 127.0.0.1 ${options.release ? '--release ' + options.release : ''}`) // tslint:disable-line no-console
+    clusterCreate(registryUrl, ['127.0.0.1'], {output: './sye-environment.tar.gz', release: options.release})
 
     console.log( '\n> sye cluster-join') // tslint:disable-line no-console
     execSync(`./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`)
