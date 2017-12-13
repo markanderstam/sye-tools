@@ -1,13 +1,7 @@
-# Sye aws
+# sye aws
 
 The sye aws command can be used to setup a multi-region sye backend on Amazon AWS.
 All machines will communicate with each other over IPv6.
-
-## Installation
-
-Make sure that you have [nodejs](https://nodejs.org) installed. Install the sye-tools package with
-
-    npm install -g @netinsight/sye-tools
 
 ## Create the cluster
 

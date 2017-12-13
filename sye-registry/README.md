@@ -35,6 +35,8 @@ of a sye backend.
 ## sye registry start
 
 Start a local docker registry running on this machine.
+The docker registry will be started as a docker container.
+The container image is downloaded from Docker Hub.
 
     sye registry start 127.0.0.1
 

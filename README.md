@@ -15,6 +15,6 @@ Documentation on the `sye aws` command can be found in [sye-aws/README.md](sye-a
 
 Documentation on the `sye cluster` command can be found in [sye-cluster/README.md](sye-cluster/README.md).
 
-Documentation on the `sye registry` command can be found in [sye-cluster/README.md](sye-cluster/README.md).
+Documentation on the `sye registry` command can be found in [sye-registry/README.md](sye-registry/README.md).
 
 Documentation on the `sye single-server` command can be found in [sye-single-server/README.md](sye-single-server/README.md).
