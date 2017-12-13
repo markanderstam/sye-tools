@@ -3,6 +3,7 @@
 const program = require('commander')
 import * as cp from 'child_process'
 import * as os from 'os'
+import { resolve } from 'path'
 
 const debug = require('debug')('sye')
 import {clusterCreate} from '../sye-cluster/index'
@@ -62,7 +63,7 @@ function singleServer( networkInterface, options ) {
     }
 
     console.log('\n> sye cluster-leave') // tslint:disable-line no-console
-    execSync('./sye-cluster-leave.sh')
+    execSync(resolve(__dirname, '..', './sye-cluster-leave.sh'))
 
     let registryUrl = 'https://docker.io/netisye'
     if (options.localRegistry) {
@@ -83,7 +84,7 @@ function singleServer( networkInterface, options ) {
     clusterCreate(registryUrl, ['127.0.0.1'], {output: './sye-environment.tar.gz', release: options.release})
 
     console.log( '\n> sye cluster-join') // tslint:disable-line no-console
-    execSync(`./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`)
+    execSync(resolve(__dirname, '..', `./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`))
 
     execSync(`rm sye-environment.tar.gz`)
 
