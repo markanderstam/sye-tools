@@ -216,6 +216,9 @@ else
     fi
 fi
 
+mkdir -p /sharedData/timeshift
+chown -R sye:sye /sharedData
+
 echo "Starting machine-controller"
 
 docker run -d \

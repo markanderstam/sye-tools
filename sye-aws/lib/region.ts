@@ -3,6 +3,7 @@ import * as dbg from 'debug'
 import {tagResource, sleep, consoleLog} from './common'
 import {cidrSubset6} from './cidr'
 import {getResources} from './cluster'
+import {awaitAsyncCondition} from './common'
 
 const debug = dbg('region')
 
@@ -355,6 +356,138 @@ export async function regionAdd(clusterId: string, region: string) {
     }
     await Promise.all(p)
 
+    if ( await efsAvailableInRegion(region) ) {
+        await createElasticFileSystem(ec2, clusterId, region, subnets)
+    }
+    else {
+        consoleLog(`EFS not available in region ${region}. /sharedData will not be available.`, true)
+    }
+}
+
+async function efsAvailableInRegion(region: string) {
+    const efs = new aws.EFS({ region })
+    try {
+         await efs.describeFileSystems().promise()
+         return true
+     } catch (e) {
+         if (e.code.match(/UnknownEndpoint/)) {
+           return false
+         }
+         throw e
+     }
+}
+
+async function createElasticFileSystem(ec2: aws.EC2, clusterId: string, region: string, subnets: CoreSubnet[]) {
+    debug('createFileSystem')
+    const efs = new aws.EFS({ region })
+    const vpc = await getVpc(ec2, clusterId)
+    const securityGroups = await getSecurityGroups(ec2, clusterId, vpc.VpcId)
+    // allow inbound traffic from instances assigned to 'sye-egress-pitcher' security group
+    await createSecurityGroup(ec2, clusterId, vpc.VpcId, 'efs-mount-target', [
+        {
+            IpProtocol: 'tcp',
+            FromPort: 2049,
+            ToPort: 2049,
+            UserIdGroupPairs: [
+                {
+                    GroupId: securityGroups.get('sye-egress-pitcher')
+                }
+            ]
+        }
+    ])
+    const fileSystem = await efs.createFileSystem({ CreationToken: clusterId }).promise()
+    await efs.createTags({
+        FileSystemId: fileSystem.FileSystemId,
+        Tags: [
+            {
+                Key: 'Name',
+                Value: clusterId
+            },
+            {
+                Key: 'SyeClusterId',
+                Value: clusterId
+            },
+            {
+                Key: 'SyeCluster_' + clusterId,
+                Value: ''
+            },
+        ]
+    }).promise()
+    try {
+        await awaitAsyncCondition(
+            async () => {
+                let result = await efs.describeFileSystems({ FileSystemId: fileSystem.FileSystemId }).promise()
+                return result.FileSystems[0].LifeCycleState.match(/^available$/) !== null
+            },
+            5000,
+            2 * 60 * 1000,
+            'elastic file system to be available'
+        )
+    } catch (e) {
+        consoleLog('Failed to create elastic file system', true)
+    }
+
+    debug('createMountTargets')
+    await Promise.all(
+        subnets.map((subnet) => {
+            return efs.createMountTarget({
+                FileSystemId: fileSystem.FileSystemId,
+                SubnetId: subnet.id,
+                SecurityGroups: [ securityGroups.get('efs-mount-target') ]
+            }).promise()
+        })
+    )
+    try {
+        await awaitAsyncCondition(
+            async () => {
+                let result = await efs.describeMountTargets({ FileSystemId: fileSystem.FileSystemId }).promise()
+                return result.MountTargets.every((mt) => mt.LifeCycleState.match(/^available$/) !== null)
+            },
+            5000,
+            5 * 60 * 1000,
+            'mount targets to be available'
+        )
+    } catch (e) {
+        consoleLog('Failed to create mount targets', true)
+    }
+}
+
+async function deleteElasticFileSystem(ec2: aws.EC2, clusterId: string, region: string){
+    const efs = new aws.EFS({ region })
+    debug('describeElasticFileSystems')
+    const fileSystems = await efs.describeFileSystems().promise()
+    const fileSystem = fileSystems.FileSystems.find((fs) => fs.Name === clusterId)
+
+    debug('describeMountTargets')
+    const mountTargets = await efs.describeMountTargets({ FileSystemId: fileSystem.FileSystemId }).promise()
+
+    debug('deleteMountTargets')
+    await Promise.all(
+        mountTargets.MountTargets.map((mt) => {
+            return efs.deleteMountTarget({ MountTargetId: mt.MountTargetId }).promise()
+        })
+    )
+    try {
+        await awaitAsyncCondition(
+            async () => {
+                let result = await efs.describeMountTargets({ FileSystemId: fileSystem.FileSystemId }).promise()
+                return result.MountTargets.length === 0
+            },
+            5000,
+            2 * 60 * 1000,
+            'waiting for mount targets to be deleted'
+        )
+    } catch (e) {
+        consoleLog('Failed to delete mount targets', true)
+    }
+
+    debug('deleteElasticFileSystems')
+    await efs.deleteFileSystem({ FileSystemId: fileSystem.FileSystemId }).promise()
+
+    debug('deleteSecurityGroup')
+    const vpc = await getVpc(ec2, clusterId)
+    const securityGroups = await getSecurityGroups(ec2, clusterId, vpc.VpcId)
+    await ec2.deleteSecurityGroup({ GroupId: securityGroups.get('efs-mount-target') }).promise()
 }
 
 export async function regionDelete(clusterId: string, region: string) {
@@ -370,6 +503,13 @@ export async function regionDelete(clusterId: string, region: string) {
     if (vpc === undefined) {
         debug('vpc does not exist')
         return
+    }
+
+    if ( await efsAvailableInRegion(region) ) {
+        await deleteElasticFileSystem(ec2, clusterId, region)
+    }
+    else {
+        consoleLog(`EFS not available in region ${region}. /sharedData will not be available.`, true)
     }
 
     debug('describeSecurityGroups')
