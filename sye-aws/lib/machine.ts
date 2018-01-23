@@ -39,7 +39,7 @@ async function getInstanceProfileArn(clusterId: string, type?: string) {
     return result.InstanceProfile.Arn
 }
 
-async function buildUserData(clusterId: string, roles: string, region: string, zone: string, name: string, hasStorage: boolean, args = '') {
+async function buildUserData(clusterId: string, roles: string, region: string, zone: string, name: string, hasStorage: boolean, fileSystemId: string, args = '') {
     const s3 = new aws.S3({
         // We need to blank out the region so that the URL generated isn't region specific
         region: ''
@@ -57,11 +57,13 @@ async function buildUserData(clusterId: string, roles: string, region: string, z
         })
     })
     debug('envUrl', envUrl)
+    const efsDns = `${fileSystemId}.efs.${region}.amazonaws.com`
+    debug('efsDns', efsDns)
     return Buffer.from(`#!/bin/sh
 cd /tmp
 aws s3 cp s3://${clusterId}/public/bootstrap.sh bootstrap.sh
 chmod +x bootstrap.sh
-ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
+ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ELASTIC_FILE_SYSTEM_DNS="${efsDns}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
 `).toString('base64')
 }
 
@@ -74,6 +76,7 @@ async function createInstance(
     }
 
     let ec2 = new aws.EC2({ region })
+    let efs = new aws.EFS({ region })
     let vpcid = await getVpc(ec2, clusterId).then(vpc => vpc.VpcId)
     let sg = await getSecurityGroups(ec2, clusterId, vpcid)
     let subnetId = await getSubnet(ec2, clusterId, availabilityZone).then(subnet => subnet.SubnetId)
@@ -95,6 +98,8 @@ async function createInstance(
         groups.push(sg.get('sye-playout-management'))
     }
 
+    let fileSystem = (await efs.describeFileSystems().promise()).FileSystems.find((fs) => fs.Name === clusterId)
+
     let ec2Req: AWS.EC2.RunInstancesRequest = {
         ImageId: amiId,
         InstanceType: instanceType,
@@ -112,7 +117,7 @@ async function createInstance(
         ],
         MinCount: 1,
         MaxCount: 1,
-        UserData: await buildUserData(clusterId, roles.join(','), region, availabilityZone, name, !!storage, args)
+        UserData: await buildUserData(clusterId, roles.join(','), region, availabilityZone, name, !!storage, fileSystem.FileSystemId, args)
     }
 
     if(storage > 0) {
@@ -177,6 +182,7 @@ async function deleteInstance(clusterId: string, region: string, name: string) {
 
 async function redeployInstance(clusterId: string, region: string, name: string) {
     const ec2 = new aws.EC2({ region })
+    const efs = new aws.EFS({ region })
 
     const instance = await getInstance(clusterId, region, name)
 
@@ -214,6 +220,8 @@ async function redeployInstance(clusterId: string, region: string, name: string)
         }
     }
 
+    const fileSystem = (await efs.describeFileSystems().promise()).FileSystems.find((fs) => fs.Name === clusterId)
+
     // Add new instance
     const amiId = await getAmiId(ec2)
     debug('runInstance')
@@ -232,7 +240,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
         })),
         MinCount: 1,
         MaxCount: 1,
-        UserData: await buildUserData(clusterId, getTag(instance.Tags, 'Roles'), region, getTag(instance.Tags, 'AvailabilityZone'), name, dataVolumeId !== undefined),
+        UserData: await buildUserData(clusterId, getTag(instance.Tags, 'Roles'), region, getTag(instance.Tags, 'AvailabilityZone'), name, dataVolumeId !== undefined, fileSystem.FileSystemId),
         TagSpecifications: [
             {
                 ResourceType: 'instance',

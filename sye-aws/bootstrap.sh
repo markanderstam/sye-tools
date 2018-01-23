@@ -8,6 +8,7 @@ echo BUCKET $BUCKET
 echo ROLES $ROLES
 echo URL $SYE_ENV_URL
 echo ATTACHED_STORAGE $ATTACHED_STORAGE
+echo ELASTIC_FILE_SYSTEM_DNS $ELASTIC_FILE_SYSTEM_DNS
 
 echo Arguments "${@:1}"
 
@@ -57,8 +58,10 @@ then
     echo "net.core.rmem_max=20000000" >> /etc/sysctl.conf
     echo "net.core.rmem_default=20000000" >> /etc/sysctl.conf
     sysctl -p
-
 fi
+
+mkdir /sharedData
+mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $ELASTIC_FILE_SYSTEM_DNS:/  /sharedData
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"
 aws s3 cp s3://$BUCKET/public/sye-cluster-join.sh .
