@@ -470,33 +470,42 @@ async function createElasticFileSystem(ec2: aws.EC2, clusterId: string, region: 
     }
 }
 
-async function deleteElasticFileSystem(ec2: aws.EC2, clusterId: string, region: string){
+async function deleteElasticFileSystem(ec2: aws.EC2, clusterId: string, region: string) {
     const efs = new aws.EFS({ region })
     debug('describeElasticFileSystems')
     const fileSystems = await efs.describeFileSystems().promise()
     const fileSystem = fileSystems.FileSystems.find((fs) => fs.Name === clusterId)
 
+    if (fileSystem === undefined) {
+        debug('elastic file system does not exist')
+        return
+    }
+
     debug('describeMountTargets')
     const mountTargets = await efs.describeMountTargets({ FileSystemId: fileSystem.FileSystemId }).promise()
 
-    debug('deleteMountTargets')
-    await Promise.all(
-        mountTargets.MountTargets.map((mt) => {
-            return efs.deleteMountTarget({ MountTargetId: mt.MountTargetId }).promise()
-        })
-    )
-    try {
-        await awaitAsyncCondition(
-            async () => {
-                let result = await efs.describeMountTargets({ FileSystemId: fileSystem.FileSystemId }).promise()
-                return result.MountTargets.length === 0
-            },
-            5000,
-            2 * 60 * 1000,
-            'waiting for mount targets to be deleted'
+    if (!mountTargets.MountTargets.length) {
+        debug('mount targets do not exist')
+    } else {
+        debug('deleteMountTargets')
+        await Promise.all(
+            mountTargets.MountTargets.map((mt) => {
+                return efs.deleteMountTarget({ MountTargetId: mt.MountTargetId }).promise()
+            })
         )
-    } catch (e) {
-        consoleLog('Failed to delete mount targets', true)
+        try {
+            await awaitAsyncCondition(
+                async () => {
+                    let result = await efs.describeMountTargets({ FileSystemId: fileSystem.FileSystemId }).promise()
+                    return result.MountTargets.length === 0
+                },
+                5000,
+                2 * 60 * 1000,
+                'waiting for mount targets to be deleted'
+            )
+        } catch (e) {
+            consoleLog('Failed to delete mount targets', true)
+        }
     }
 
     debug('deleteElasticFileSystems')
