@@ -1,7 +1,7 @@
 import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
-import {buildTags, tagResource, getTag} from './common'
-import {getVpc, getSubnet, getSecurityGroups} from './region'
+import {buildTags, tagResource, getTag, consoleLog} from './common'
+import {getVpc, getSubnet, getSecurityGroups, efsAvailableInRegion, getElasticFileSystem} from './region'
 
 const debug = dbg('machine')
 
@@ -57,13 +57,13 @@ async function buildUserData(clusterId: string, roles: string, region: string, z
         })
     })
     debug('envUrl', envUrl)
-    const efsDns = `${fileSystemId}.efs.${region}.amazonaws.com`
+    const efsDns = fileSystemId ? `${fileSystemId}.efs.${region}.amazonaws.com` : undefined
     debug('efsDns', efsDns)
     return Buffer.from(`#!/bin/sh
 cd /tmp
 aws s3 cp s3://${clusterId}/public/bootstrap.sh bootstrap.sh
 chmod +x bootstrap.sh
-ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ELASTIC_FILE_SYSTEM_DNS="${efsDns}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
+ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ELASTIC_FILE_SYSTEM_DNS="${efsDns ? efsDns : ''}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
 `).toString('base64')
 }
 
@@ -76,7 +76,6 @@ async function createInstance(
     }
 
     let ec2 = new aws.EC2({ region })
-    let efs = new aws.EFS({ region })
     let vpcid = await getVpc(ec2, clusterId).then(vpc => vpc.VpcId)
     let sg = await getSecurityGroups(ec2, clusterId, vpcid)
     let subnetId = await getSubnet(ec2, clusterId, availabilityZone).then(subnet => subnet.SubnetId)
@@ -98,7 +97,13 @@ async function createInstance(
         groups.push(sg.get('sye-playout-management'))
     }
 
-    let fileSystem = (await efs.describeFileSystems().promise()).FileSystems.find((fs) => fs.Name === clusterId)
+    let fileSystemId
+    if (await efsAvailableInRegion(region)) {
+        fileSystemId = await getElasticFileSystem(clusterId, region).then((fs) => fs ? fs.FileSystemId : undefined)
+    }
+    else {
+        consoleLog(`EFS not available in region ${region}. /sharedData will not be available.`, true)
+    }
 
     let ec2Req: AWS.EC2.RunInstancesRequest = {
         ImageId: amiId,
@@ -117,7 +122,7 @@ async function createInstance(
         ],
         MinCount: 1,
         MaxCount: 1,
-        UserData: await buildUserData(clusterId, roles.join(','), region, availabilityZone, name, !!storage, fileSystem.FileSystemId, args)
+        UserData: await buildUserData(clusterId, roles.join(','), region, availabilityZone, name, !!storage, fileSystemId, args)
     }
 
     if(storage > 0) {
@@ -182,7 +187,6 @@ async function deleteInstance(clusterId: string, region: string, name: string) {
 
 async function redeployInstance(clusterId: string, region: string, name: string) {
     const ec2 = new aws.EC2({ region })
-    const efs = new aws.EFS({ region })
 
     const instance = await getInstance(clusterId, region, name)
 
@@ -220,7 +224,13 @@ async function redeployInstance(clusterId: string, region: string, name: string)
         }
     }
 
-    const fileSystem = (await efs.describeFileSystems().promise()).FileSystems.find((fs) => fs.Name === clusterId)
+    let fileSystemId
+    if (await efsAvailableInRegion(region)) {
+        fileSystemId = await getElasticFileSystem(clusterId, region).then((fs) => fs ? fs.FileSystemId : undefined)
+    }
+    else {
+        consoleLog(`EFS not available in region ${region}. /sharedData will not be available.`, true)
+    }
 
     // Add new instance
     const amiId = await getAmiId(ec2)
@@ -240,7 +250,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
         })),
         MinCount: 1,
         MaxCount: 1,
-        UserData: await buildUserData(clusterId, getTag(instance.Tags, 'Roles'), region, getTag(instance.Tags, 'AvailabilityZone'), name, dataVolumeId !== undefined, fileSystem.FileSystemId),
+        UserData: await buildUserData(clusterId, getTag(instance.Tags, 'Roles'), region, getTag(instance.Tags, 'AvailabilityZone'), name, dataVolumeId !== undefined, fileSystemId),
         TagSpecifications: [
             {
                 ResourceType: 'instance',

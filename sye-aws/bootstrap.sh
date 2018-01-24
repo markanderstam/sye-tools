@@ -61,7 +61,10 @@ then
 fi
 
 mkdir /sharedData
-mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $ELASTIC_FILE_SYSTEM_DNS:/  /sharedData
+if [[ $ELASTIC_FILE_SYSTEM_DNS ]]
+then
+    mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $ELASTIC_FILE_SYSTEM_DNS:/  /sharedData
+fi
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"
 aws s3 cp s3://$BUCKET/public/sye-cluster-join.sh .
