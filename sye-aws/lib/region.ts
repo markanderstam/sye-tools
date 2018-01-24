@@ -364,7 +364,7 @@ export async function regionAdd(clusterId: string, region: string) {
     }
 }
 
-async function efsAvailableInRegion(region: string) {
+export async function efsAvailableInRegion(region: string) {
     const efs = new aws.EFS({ region })
     try {
          await efs.describeFileSystems().promise()
@@ -375,6 +375,24 @@ async function efsAvailableInRegion(region: string) {
          }
          throw e
      }
+}
+
+export async function getElasticFileSystem(clusterId: string, region: string) {
+    const efs = new aws.EFS({ region })
+    let result
+    try {
+        result = (await efs.describeFileSystems().promise()).FileSystems.find((fs) => fs.Name === clusterId)
+    } catch(e) {
+        if (!e.code.match(/UnknownEndpoint/)) {
+            throw e
+        }
+    }
+    if (result) {
+        return result
+    }
+    else {
+        throw 'Expected 1 elastic file system, found 0'
+    }
 }
 
 async function createElasticFileSystem(ec2: aws.EC2, clusterId: string, region: string, subnets: CoreSubnet[]) {
