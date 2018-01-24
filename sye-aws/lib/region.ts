@@ -367,13 +367,13 @@ export async function regionAdd(clusterId: string, region: string) {
 export async function efsAvailableInRegion(region: string) {
     const efs = new aws.EFS({ region })
     try {
-         await efs.describeFileSystems().promise()
-         return true
+        await efs.describeFileSystems().promise()
+        return true
      } catch (e) {
-         if (e.code.match(/UnknownEndpoint/)) {
-           return false
-         }
-         throw e
+        if (e.code.match(/UnknownEndpoint/)) {
+            return false
+        }
+        throw e
      }
 }
 
@@ -399,7 +399,7 @@ async function createElasticFileSystem(ec2: aws.EC2, clusterId: string, region: 
     debug('createFileSystem')
     const efs = new aws.EFS({ region })
     const vpc = await getVpc(ec2, clusterId)
-    const securityGroups = await getSecurityGroups(ec2, clusterId, vpc.VpcId)
+    let securityGroups = await getSecurityGroups(ec2, clusterId, vpc.VpcId)
     // allow inbound traffic from instances assigned to 'sye-egress-pitcher' security group
     await createSecurityGroup(ec2, clusterId, vpc.VpcId, 'efs-mount-target', [
         {
@@ -446,6 +446,7 @@ async function createElasticFileSystem(ec2: aws.EC2, clusterId: string, region: 
     }
 
     debug('createMountTargets')
+    securityGroups = await getSecurityGroups(ec2, clusterId, vpc.VpcId)
     await Promise.all(
         subnets.map((subnet) => {
             return efs.createMountTarget({
