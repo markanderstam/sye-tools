@@ -18,12 +18,13 @@ import {getTag, consoleLog} from './common'
 
 const debug = dbg('cluster')
 
-interface ClusterMachine {
+export interface ClusterMachine {
     Id: string
     Region: string
     AZ: string
     Name: string
     Roles: string
+    PrivateIpAddress: string
     PublicIpAddress: string
     Ipv6Address: string
     DataVolumeDevice?: string
@@ -78,6 +79,7 @@ export async function showResources(clusterId: string, output = true, raw = fals
                     AZ: getTag(instance.Tags, 'AvailabilityZone'),
                     Name: getTag(instance.Tags, 'Name'),
                     Roles: getTag(instance.Tags, 'Roles'),
+                    PrivateIpAddress: instance.PrivateIpAddress,
                     PublicIpAddress: instance.PublicIpAddress,
                     Ipv6Address: instance.NetworkInterfaces[0].Ipv6Addresses[0].Ipv6Address,
                     DataVolumeDevice: (
