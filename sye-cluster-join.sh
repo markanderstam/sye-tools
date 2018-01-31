@@ -196,7 +196,7 @@ then
 elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]
 then
     echo 'Log in to Amazon ECR container registry'
-    aws || echo 'Please install awscli'; exit 1
+    command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
     if [[ ${registryUsername} && ${registryPassword} ]]
     then
         export AWS_ACCESS_KEY_ID=$registryUsername
