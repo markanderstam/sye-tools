@@ -5,11 +5,53 @@ import * as program from 'commander'
 import {createCluster, deleteCluster, showResources} from '../sye-aws/lib/cluster'
 import {machineAdd, machineDelete, machineRedeploy} from '../sye-aws/lib/machine'
 import {regionAdd, regionDelete} from '../sye-aws/lib/region'
+import {createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry} from '../sye-aws/lib/registry'
 import {consoleLog} from '../sye-aws/lib/common'
 
 program
     .description('Manage sye-clusters on Amazon')
     .version('1.0.0')
+
+program
+    .command('registry-create <region>')
+    .description(`Create ECR registry for sye services`)
+    .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
+    .action(async (region, options: any) => {
+        consoleLog(`Creating repositories in region ${region}`)
+        await createRegistry(region, options.prefix)
+            .catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('registry-show <region>')
+    .description(`Show ECR registry for sye services`)
+    .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
+    .action(async (region, options: any) => {
+        consoleLog(`Showing registry in region ${region}`)
+        await showRegistry(region, true, options.prefix)
+            .catch(exit)
+    })
+
+program
+    .command('registry-delete <registry-url>')
+    .description(`Delete ECR registry for sye services`)
+    .action(async (registryUrl) => {
+        consoleLog(`Deleting registry ${registryUrl}`)
+        await deleteRegistry(registryUrl)
+            .catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('registry-grant-permission <registry-url> <cluster-id>')
+    .description(`Grant read only permission for cluster to access ECR registry`)
+    .action(async (registryUrl, clusterId) => {
+        consoleLog(`Granting permission for ${clusterId} to access ${registryUrl}`)
+        await grantPermissionRegistry(registryUrl, clusterId)
+            .catch(exit)
+        consoleLog('Done')
+    })
 
 program
     .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
