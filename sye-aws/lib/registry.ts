@@ -147,21 +147,28 @@ export async function grantPermissionRegistry(registryUrl: string, clusterId: st
         throw `No role for instance of ${clusterId} cluster found`
     }
 
+    debug('listRoles')
+    let roles = await iam.listRoles().promise()
+
     for (let service of services) {
-        let roleArns
+        let principal = []
         let repositoryName = `${getPrefixFromRegistryUrl(registryUrl)}/${service}`
         let repoPolicy = await ecr.getRepositoryPolicy({ repositoryName }).promise()
             .catch(() => debug(`No policy is set for repository ${repositoryName}`))
 
         if (repoPolicy) {
-            roleArns = JSON.parse(repoPolicy.policyText).Statement.find((s) => s.Sid === 'read-only').Principal.AWS
+            let roleArns = JSON.parse(repoPolicy.policyText).Statement.find((s) => s.Sid === 'read-only').Principal.AWS
             if (typeof roleArns === 'string') {
-                roleArns = [roleArns, role.Arn]
+                if (roles.Roles.find((role) => role.Arn === roleArns)) {
+                    principal.push(roleArns)
+                }
+                principal.push(role.Arn)
             } else if (typeof roleArns === 'object') {
-                roleArns = [...roleArns, role.Arn]
+                principal = roleArns.filter((roleArn) => roles.Roles.some((role) => role.Arn === roleArn))
+                principal.push(role.Arn)
             }
         } else {
-            roleArns = [ role.Arn ]
+            principal = [ role.Arn ]
         }
 
         debug('setRepositoryPolicy', repositoryName)
@@ -174,7 +181,7 @@ export async function grantPermissionRegistry(registryUrl: string, clusterId: st
                         Sid: 'read-only',
                         Effect: 'Allow',
                         Principal: {
-                            AWS: roleArns
+                            AWS: principal
                         },
                         Action: [
                             'ecr:GetDownloadUrlForLayer',
