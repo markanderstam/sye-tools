@@ -202,7 +202,7 @@ then
         export AWS_ACCESS_KEY_ID=$registryUsername
         export AWS_SECRET_ACCESS_KEY=$registryPassword
     fi
-    export AWS_DEFAULT_REGION=$(echo $registryUrl | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com/\1/')
+    export AWS_DEFAULT_REGION=$(echo $registryUrl | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
     cmd="$(aws ecr get-login --no-include-email)"
     output=$cmd
     registryUsername=$(echo $output | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
