@@ -1,11 +1,10 @@
-const debug = require('debug')('sye')
 import * as cp from 'child_process'
-import * as os from 'os'
-import * as prompt from 'prompt-sync'
 import * as url from 'url'
+import * as aws from 'aws-sdk'
+import * as promptSync from 'prompt-sync'
 
-let registryUsername = process.env.SYE_REGISTRY_USERNAME
-let registryPassword = process.env.SYE_REGISTRY_PASSWORD
+const debug = require('debug')('sye')
+const prompt = promptSync()
 
 export function registryStart(ip, options) {
     let port = 5000
@@ -45,27 +44,22 @@ export function registryStart(ip, options) {
     consoleLog(`Registry URL: ${registryUrl}`)
 }
 
-export function registryAddImages(registryUrl, options) {
+export async function registryAddImages(registryUrl: string, options) {
 
-    if (urlRequiresCredentials(registryUrl)) {
-        if (!(registryUsername && registryPassword)) {
-            promptRegistryCredentials()
-        }
-    }
+    let registryAddr = getRegistryAddr(registryUrl)
 
-    let registryAddr = registryUrl.replace(/^(http|https):\/\//, '')
-    if (registryUsername && registryPassword) {
+    if (registryRequiresCredentials(registryAddr)) {
+        let [ registryUsername, registryPassword ] = await setReistryCredentials(registryAddr)
         dockerLogin(registryUsername, registryPassword, registryAddr)
     }
 
     consoleLog('Loading images')
     let images = dockerLoad(options.file)
     for (let localName of images) {
-        let remoteName = localName.replace(/^ott/, registryAddr)
+        let remoteName = getImageRemoteName(localName, registryUrl)
         docker(`tag ${localName} ${remoteName}`)
         docker(`push ${remoteName}`)
     }
-
 }
 
 export function registryRemove() {
@@ -88,8 +82,7 @@ function docker(command: string) {
     }
     catch (e) {
         // Docker prints its error-messages to stderr
-        consoleLog('Docker command failed. Exiting.')
-        process.exit(1)
+        exit(1, 'Docker command failed. Exiting.')
         return ''
     }
 }
@@ -110,34 +103,75 @@ function dockerLoad(tarFile) {
     return images
 }
 
-function dockerLogin(username, password, registry) {
-    consoleLog('Login to external Docker registry.')
-    if (registry.startsWith('docker.io')) {
+function dockerLogin(username: string, password: string, registryAddr: string) {
+    if (registryAddr.includes('docker.io')) {
         docker(`login -u ${username} -p ${password}`)
     } else {
-        docker(`login -u ${username} -p ${password} ${registry}`)
+        docker(`login -u ${username} -p ${password} ${registryAddr}`)
     }
+    consoleLog('Successfully logged in to external Docker registry')
 }
 
-function registryCheckUrlFromUrl(registryUrl) {
+function registryCheckUrlFromUrl(registryUrl: string) {
     let u = url.parse(registryUrl)
     u.pathname = '/v2/'
     return url.format(u)
 }
 
-function urlRequiresCredentials(registryUrl) {
-    return url.parse(registryUrl).host === 'docker.io'
+function registryRequiresCredentials(registryAddr: string) {
+    return registryAddr.includes('docker.io') || registryAddr.includes('amazonaws.com')
+}
+
+async function setReistryCredentials(registryAddr: string) {
+    let registryUsername = process.env.SYE_REGISTRY_USERNAME
+    let registryPassword = process.env.SYE_REGISTRY_PASSWORD
+
+    if (!(registryUsername && registryPassword)) {
+        if (registryAddr.includes('docker.io')) {
+            [ registryUsername, registryPassword ] = promptRegistryCredentials()
+        }
+        if (registryAddr.includes('amazonaws.com')) {
+            [ registryUsername, registryPassword ] = await authorizeFromECR(registryAddr)
+        }
+    }
+
+    return [ registryUsername, registryPassword ]
+}
+
+function getRegistryAddr(registryUrl: string) {
+    let u = url.parse(registryUrl)
+    return u.host
+}
+
+function getImageRemoteName(localName: string, registryUrl: string) {
+    let u = url.parse(registryUrl)
+    if (u.host.includes('amazonaws.com')) {
+        return localName.replace(/^ott/, `${u.host}${u.path}`)
+    } else {
+        return localName.replace(/^ott/, u.host)
+    }
+}
+
+async function authorizeFromECR(registryAddr: string) {
+    try {
+        let c = new aws.ECR({
+            endpoint: 'https://' + registryAddr.match(/.*\.dkr\.(ecr\..*)/)[1],
+            region: registryAddr.match(/ecr.(.*).amazonaws.com/)[1]
+        })
+        let token = Buffer.from(
+            (await c.getAuthorizationToken({}).promise()).authorizationData[0].authorizationToken, 'base64'
+        ).toString().split(':')[1]
+        return [ 'AWS', token ]
+    } catch(e) {
+        exit(1, `Failed to retrieve authorization token from ECR: ${e.message}`)
+        return ''
+    }
 }
 
 function promptRegistryCredentials() {
-    registryUsername = prompt('SYE_REGISTRY_USERNAME: ')
-    registryPassword = prompt('SYE_REGISTRY_PASSWORD: ', { echo: '' })
-}
-
-export function verifyRoot(command) {
-    if (os.userInfo().uid !== 0) {
-        exit(1, `${command} must be run as root`)
-    }
+    const registryUsername = prompt('SYE_REGISTRY_USERNAME: ')
+    const registryPassword = prompt('SYE_REGISTRY_PASSWORD: ', { echo: '' })
+    return [ registryUsername, registryPassword ]
 }
 
 function execSync(cmd: string, options?: cp.ExecSyncOptions) {
@@ -145,7 +179,7 @@ function execSync(cmd: string, options?: cp.ExecSyncOptions) {
     return cp.execSync(cmd, options)
 }
 
-function exit(code, message) {
+function exit(code: number, message: string) {
     consoleLog(message)
     process.exit(code)
 }
