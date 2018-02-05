@@ -14,7 +14,8 @@ import * as fs from 'fs'
 import * as EasyTable from 'easy-table'
 import { resolve } from 'path'
 import {getInstances} from './machine'
-import {getTag, consoleLog} from './common'
+import {getTag} from './common'
+import {consoleLog} from '../../lib/common'
 
 const debug = dbg('cluster')
 

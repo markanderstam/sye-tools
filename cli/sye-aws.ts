@@ -6,7 +6,7 @@ import {createCluster, deleteCluster, showResources} from '../sye-aws/lib/cluste
 import {machineAdd, machineDelete, machineRedeploy} from '../sye-aws/lib/machine'
 import {regionAdd, regionDelete} from '../sye-aws/lib/region'
 import {createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry} from '../sye-aws/lib/registry'
-import {consoleLog} from '../sye-aws/lib/common'
+import {consoleLog} from '../lib/common'
 
 program
     .description('Manage sye-clusters on Amazon')

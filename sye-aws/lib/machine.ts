@@ -1,6 +1,7 @@
 import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
-import {buildTags, tagResource, getTag, consoleLog} from './common'
+import {buildTags, tagResource, getTag} from './common'
+import {consoleLog} from '../../lib/common'
 import {getVpc, getSubnet, getSecurityGroups, efsAvailableInRegion, getElasticFileSystem} from './region'
 
 const debug = dbg('machine')
