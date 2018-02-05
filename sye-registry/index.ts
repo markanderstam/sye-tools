@@ -162,8 +162,9 @@ async function authorizeFromECR(registryAddr: string) {
         ).toString().split(':')[1]
         return [ 'AWS', token ]
     } catch(e) {
-        exit(1, `Failed to retrieve authorization token from ECR: ${e.message}`)
-        return ''
+        consoleLog(`Failed to retrieve authorization token from ECR: ${e.message}`)
+        let [username, password] = promptRegistryCredentials()
+        return [username, password]
     }
 }
 
