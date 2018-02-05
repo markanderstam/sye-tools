@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import * as url from 'url'
 import * as semver from 'semver'
 import * as net from 'net'
-import {registryRequiresCredentials, setReistryCredentials, getRegistryAddr} from '../sye-registry'
+import {registryRequiresCredentials, setRegistryCredentials, getRegistryAddr} from '../sye-registry'
 
 const debug = require('debug')('sye')
 
@@ -14,7 +14,7 @@ export async function clusterCreate(registryUrl, etcdIps, options) {
     let registryPassword
     let registryAddr = getRegistryAddr(registryUrl)
     if (registryRequiresCredentials(registryAddr)) {
-        [ registryUsername, registryPassword ] = await setReistryCredentials(registryAddr)
+        [ registryUsername, registryPassword ] = await setRegistryCredentials(registryAddr)
     }
 
     let release = options.release || releaseVersionFromRegistry(registryUrl, registryUsername, registryPassword) || releaseVersionFromFile()
