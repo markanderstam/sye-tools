@@ -27,9 +27,9 @@ program
     .command('registry-show <region>')
     .description(`Show ECR registry for sye services`)
     .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
+    .option('--raw', 'Show raw JSON format')
     .action(async (region, options: any) => {
-        consoleLog(`Showing registry in region ${region}`)
-        await showRegistry(region, true, options.prefix)
+        await showRegistry(region, true, options.prefix, options.raw)
             .catch(exit)
     })
 

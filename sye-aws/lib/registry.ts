@@ -85,9 +85,10 @@ export async function createRegistry(region: string, prefix = 'netinsight') {
     consoleLog(`Registry url: ${getRegistryUrl(repositories[0].repository, prefix)}`)
 }
 
-export async function showRegistry(region: string, output = true, prefix = 'netinsight') {
+export async function showRegistry(region: string, output = true, prefix = 'netinsight', raw = false) {
     let ecr = new aws.ECR({ region })
     let logOutput = ''
+    let table = []
     let log = (msg: string) => logOutput += msg + '\n'
 
     debug('describeRepositories')
@@ -96,42 +97,58 @@ export async function showRegistry(region: string, output = true, prefix = 'neti
     if (!repositories.length) {
         throw `No repositories for ${prefix} found in ${region}`
     }
-    logOutput = `Registry url: ${getRegistryUrl(repositories[0], prefix)}` + '\n'
-    log(
-        EasyTable.print(
-            repositories.map((repo) => {
-                return {
-                    repositoryName: repo.repositoryName,
-                    repositoryUri: repo.repositoryUri,
-                    createdAt: repo.createdAt
-                }
-            })
-        )
-    )
+    let registryUrl = getRegistryUrl(repositories[0], prefix)
+    logOutput = `Registry url: ${registryUrl}` + '\n'
+    repositories.forEach((repo) => {
+        debug('repository', repo.repositoryName)
+        table.push({
+            repositoryName: repo.repositoryName,
+            repositoryUri: repo.repositoryUri,
+            createdAt: repo.createdAt
+        })
+    })
+    table.sort((r1, r2) => r1.repositoryName < r2.repositoryName ? -1 : 1)
+    log(EasyTable.print(table))
+
+    let repos = {}
+    table.forEach((t) => {
+        repos[t.repositoryName] = {
+            repositoryUri: t.repositoryUri,
+            createdAt: t.createdAt
+        }
+    })
+    let registry = {
+        url: registryUrl,
+        repositories: repos
+    }
 
     if (output) {
-        consoleLog(logOutput)
+        if (raw) {
+            consoleLog(JSON.stringify(registry, null, 2))
+        } else {
+            consoleLog(logOutput)
+        }
     }
-    return repositories
+    return registry
 }
 
 export async function deleteRegistry(registryUrl: string) {
     let region = getRegionFromRegistryUrl(registryUrl)
     let ecr = new aws.ECR({ region })
 
-    let repositories = await showRegistry(region, false)
-    for (let repository of repositories) {
+    let repositories = (await showRegistry(region, false)).repositories
+    for (let repositoryName of Object.keys(repositories)) {
         debug('listImages')
-        let images = await ecr.listImages({ repositoryName: repository.repositoryName }).promise()
+        let images = await ecr.listImages({ repositoryName }).promise()
         if (images.imageIds.length) {
             debug('batchDeleteImage')
             await ecr.batchDeleteImage({
-                repositoryName: repository.repositoryName,
+                repositoryName: repositoryName,
                 imageIds: images.imageIds
             }).promise()
         }
         debug('deleteRepository')
-        await ecr.deleteRepository({ repositoryName: repository.repositoryName }).promise()
+        await ecr.deleteRepository({ repositoryName }).promise()
     }
 }
 
