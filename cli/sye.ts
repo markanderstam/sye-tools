@@ -9,13 +9,16 @@ const debug = require('debug')('sye')
 import {clusterCreate} from '../sye-cluster/index'
 import { registryAddImages, registryStart, registryRemove } from '../sye-registry/index'
 
+const VERSION = require('../package.json').version
+
 program
-    .version('0.0.1')
+    .version(VERSION)
     .description('sye-tools. See https://github.com/netinsight/sye-tools')
 
 program
     .command('registry [subcommand]', 'operate on a docker registry')
     .command('aws [subcommand]', 'operate cluster on Amazon AWS')
+    .command('azure [subcommand]', 'operate cluster on Microsoft Azure')
     .command('cluster [subcommand]', 'define a sye cluster')
 
 program

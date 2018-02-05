@@ -4,7 +4,6 @@ import {clusterCreate} from '../sye-cluster/index'
 
 const program = require('commander')
 program
-    .version('0.0.1')
     .usage('[command] <options>')
 
 program

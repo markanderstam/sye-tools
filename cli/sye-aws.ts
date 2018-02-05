@@ -10,7 +10,6 @@ import {consoleLog} from '../lib/common'
 
 program
     .description('Manage sye-clusters on Amazon')
-    .version('1.0.0')
 
 program
     .command('registry-create <region>')
