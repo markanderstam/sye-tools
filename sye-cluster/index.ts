@@ -29,6 +29,7 @@ export async function clusterCreate(registryUrl, etcdIps, options) {
             process.exit(1)
         }
     }
+
     createConfigurationFile({
         registryUrl,
         registryUsername,
@@ -72,14 +73,14 @@ function requestToLocalRegistry(url, registryUsername, registryPassword) {
 function validateRegistryUrl(registryUrl, registryUsername, registryPassword, release) {
     let p = url.parse(registryUrl)
     let res
-    if (p.host === 'docker.io') {
+    if (p.host.includes('docker.io')) {
         res = requestToDockerHub(
             dockerRegistryApiUrlFromUrl(registryUrl.replace('docker.io', 'registry.hub.docker.com')) + '/release/manifests/' + release,
                 `${p.path.replace('/', '')}/release`,
                 registryUsername,
                 registryPassword
             )
-    } else if (p.host.endsWith('amazonaws.com')) {
+    } else if (p.host.includes('amazonaws.com')) {
         res = requestToAmazonECR(
             dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release,
             registryUsername,
@@ -137,6 +138,11 @@ function releaseVersionFromRegistry(registryUrl, registryUsername, registryPassw
 }
 
 function createConfigurationFile(content, output) {
+    // Reset temporary credentials if registry is ECR and no access id and secret are provided as credentials
+    if (content.registryUrl.includes('amazonaws.com') && !(process.env.SYE_REGISTRY_USERNAME && process.env.SYE_REGISTRY_PASSWORD)) {
+        content.registryUsername = ''
+        content.registryPassword = ''
+    }
     let dir = os.platform() === 'darwin' ? fs.mkdtempSync('/private/tmp/') : fs.mkdtempSync('/tmp/')
     let tmpfile = dir + 'sye-environment.tar'
     fs.writeFileSync(dir + '/global.json', JSON.stringify(content, undefined, 4))
