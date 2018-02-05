@@ -3,19 +3,18 @@ import * as os from 'os'
 import * as fs from 'fs'
 import * as url from 'url'
 import * as semver from 'semver'
+import * as net from 'net'
+import {registryRequiresCredentials, setReistryCredentials, getRegistryAddr} from '../sye-registry'
 
 const debug = require('debug')('sye')
-const prompt = require('prompt-sync')()
-import * as net from 'net'
 
-let registryUsername = process.env.SYE_REGISTRY_USERNAME
-let registryPassword = process.env.SYE_REGISTRY_PASSWORD
+export async function clusterCreate(registryUrl, etcdIps, options) {
 
-export function clusterCreate(registryUrl, etcdIps, options) {
-    if (urlRequiresCredentials(registryUrl)) {
-        if (!(registryUsername && registryPassword)) {
-            promptRegistryCredentials()
-        }
+    let registryUsername
+    let registryPassword
+    let registryAddr = getRegistryAddr(registryUrl)
+    if (registryRequiresCredentials(registryAddr)) {
+        [ registryUsername, registryPassword ] = await setReistryCredentials(registryAddr)
     }
 
     let release = options.release || releaseVersionFromRegistry(registryUrl, registryUsername, registryPassword) || releaseVersionFromFile()
@@ -96,16 +95,6 @@ function validateRegistryUrl(registryUrl, registryUsername, registryPassword, re
     if (res.errors) {
         throw JSON.stringify(res.errors, null, 2)
     }
-}
-
-function urlRequiresCredentials(registryUrl) {
-    let p = url.parse(registryUrl)
-    return p.host === 'docker.io' || p.host.endsWith('amazonaws.com')
-}
-
-function promptRegistryCredentials() {
-    registryUsername = prompt('SYE_REGISTRY_USERNAME: ')
-    registryPassword = prompt('SYE_REGISTRY_PASSWORD: ', { echo: '' })
 }
 
 function releaseVersionFromFile() {

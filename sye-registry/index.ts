@@ -47,7 +47,6 @@ export function registryStart(ip, options) {
 export async function registryAddImages(registryUrl: string, options) {
 
     let registryAddr = getRegistryAddr(registryUrl)
-
     if (registryRequiresCredentials(registryAddr)) {
         let [ registryUsername, registryPassword ] = await setReistryCredentials(registryAddr)
         dockerLogin(registryUsername, registryPassword, registryAddr)
@@ -118,11 +117,11 @@ function registryCheckUrlFromUrl(registryUrl: string) {
     return url.format(u)
 }
 
-function registryRequiresCredentials(registryAddr: string) {
+export function registryRequiresCredentials(registryAddr: string) {
     return registryAddr.includes('docker.io') || registryAddr.includes('amazonaws.com')
 }
 
-async function setReistryCredentials(registryAddr: string) {
+export async function setReistryCredentials(registryAddr: string) {
     let registryUsername = process.env.SYE_REGISTRY_USERNAME
     let registryPassword = process.env.SYE_REGISTRY_PASSWORD
 
@@ -138,7 +137,7 @@ async function setReistryCredentials(registryAddr: string) {
     return [ registryUsername, registryPassword ]
 }
 
-function getRegistryAddr(registryUrl: string) {
+export function getRegistryAddr(registryUrl: string) {
     let u = url.parse(registryUrl)
     return u.host
 }
