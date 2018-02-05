@@ -1,4 +1,6 @@
 import * as dbg from 'debug'
+import * as fs from 'fs'
+import { resolve } from 'path'
 
 const debug = dbg('common')
 
@@ -17,6 +19,11 @@ export function consoleLog(msg: string, error = false): void {
     } else {
         console.log(msg) // tslint:disable-line no-console
     }
+}
+
+export function exit(err) {
+    consoleLog(err, true)
+    process.exit(1)
 }
 
 export async function awaitAsyncCondition<T>(
@@ -49,5 +56,16 @@ export async function awaitAsyncCondition<T>(
         } else {
             await sleep(intervalMs, message)
         }
+    }
+}
+
+export function readPackageFile(filename: string) {
+    if (fs.existsSync(resolve(__dirname, filename))) {
+        // When used as script
+        return fs.readFileSync(resolve(__dirname, filename))
+    }
+    else {
+        // When used as module
+        return fs.readFileSync(resolve(__dirname, '..', filename))
     }
 }

@@ -2,7 +2,7 @@ import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import * as EasyTable from 'easy-table'
 import * as url from 'url'
-import {consoleLog} from './common'
+import {consoleLog} from '../../lib/common'
 
 const debug = dbg('cluster')
 

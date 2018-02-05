@@ -3,6 +3,7 @@ node_modules
 index.js
 cli/sye
 cli/sye-aws
+cli/sye-azure
 cli/sye-cluster
 cli/sye-registry
 sye-environment.tar.gz

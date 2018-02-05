@@ -2,59 +2,17 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import {createCluster, deleteCluster, showResources} from '../sye-aws/lib/cluster'
-import {machineAdd, machineDelete, machineRedeploy} from '../sye-aws/lib/machine'
-import {regionAdd, regionDelete} from '../sye-aws/lib/region'
-import {createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry} from '../sye-aws/lib/registry'
-import {consoleLog, exit} from '../lib/common'
+import {createCluster, deleteCluster} from '../sye-azure/lib/cluster'
+import {machineAdd, machineDelete, machineRedeploy} from '../sye-azure/lib/machine'
+import {regionAdd, regionDelete} from '../sye-azure/lib/region'
+import {consoleLog} from '../lib/common'
 
 program
-    .description('Manage sye-clusters on Amazon')
-
-program
-    .command('registry-create <region>')
-    .description(`Create ECR registry for sye services`)
-    .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
-    .action(async (region, options: any) => {
-        consoleLog(`Creating repositories in region ${region}`)
-        await createRegistry(region, options.prefix)
-            .catch(exit)
-        consoleLog('Done')
-    })
-
-program
-    .command('registry-show <region>')
-    .description(`Show ECR registry for sye services`)
-    .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
-    .option('--raw', 'Show raw JSON format')
-    .action(async (region, options: any) => {
-        await showRegistry(region, true, options.prefix, options.raw)
-            .catch(exit)
-    })
-
-program
-    .command('registry-delete <registry-url>')
-    .description(`Delete ECR registry for sye services`)
-    .action(async (registryUrl) => {
-        consoleLog(`Deleting registry ${registryUrl}`)
-        await deleteRegistry(registryUrl)
-            .catch(exit)
-        consoleLog('Done')
-    })
-
-program
-    .command('registry-grant-permission <registry-url> <cluster-id>')
-    .description(`Grant read only permission for cluster to access ECR registry`)
-    .action(async (registryUrl, clusterId) => {
-        consoleLog(`Granting permission for ${clusterId} to access ${registryUrl}`)
-        await grantPermissionRegistry(registryUrl, clusterId)
-            .catch(exit)
-        consoleLog('Done')
-    })
+    .description('Manage sye-clusters on Azure')
 
 program
     .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
-    .description('Setup a new sye cluster on Amazon')
+    .description('Setup a new sye cluster on Azure')
     .action(async (clusterId, syeEnvironment, authorizedKeys) => {
         consoleLog(`Creating cluster ${clusterId}`)
         await createCluster(clusterId, syeEnvironment, authorizedKeys)
@@ -63,7 +21,7 @@ program
 
 program
     .command('cluster-delete <clusterId>')
-    .description('Delete a sye cluster on Amazon')
+    .description('Delete a sye cluster on Azure')
     .action(async (clusterId) => {
         consoleLog(`Deleting cluster ${clusterId}`)
         await deleteCluster(clusterId)
@@ -74,10 +32,10 @@ program
     .command('cluster-show <clusterId>')
     .description('Show all resources used by a cluster')
     .option('--raw', 'Show raw JSON format')
-    .action(async (clusterId, options) => {
-        await showResources(clusterId, true, options.raw)
-            .catch(exit)
-    })
+    // .action(async (clusterId, options) => {
+    //     await showResources(clusterId, true, options.raw)
+    //         .catch(exit)
+    // })
 
 program
     .command('region-add <cluster-id> <region>')
@@ -101,14 +59,13 @@ program
 
 program
     .command('machine-add <cluster-id> <region>')
-    .description('Add a new machine, i.e. ec2-instance to the cluster')
-    .option('--availability-zone [zone]', 'Availability-zone for machine. Default "a"', 'a')
-    .option('--machine-name [name]', 'Name of machine, defaults to amazon instance id')
-    .option('--instance-type [type]', 'e.g. t2.micro', 't2.micro')
+    .description('Add a new machine to the cluster')
+    .option('--machine-name [name]', 'Name of machine, defaults to azure instance id')
+    .option('--instance-type [type]', 'e.g. Basic_A1, Standard_D5_v2', 'Basic_A1')
     .option('--management', 'Run cluster-join with --management parameter')
     .option('--role [role]', 'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
         (role, roles) => roles.push(role) && roles, [])
-    .option('--storage [size]', 'Setup a separate EBS volume for storing container data. Size in GiB', parseInt, 0)
+    .option('--storage [size]', 'Setup a separate data disk for storing container data. Size in GiB', parseInt, 0)
     .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Adding instance ${options.machineName} in region ${region} for cluster ${clusterId}`)
         await machineAdd(clusterId, region, options.availabilityZone, options.machineName, options.instanceType, options.role, options.management, options.storage)
@@ -150,6 +107,10 @@ if (!process.argv.slice(2).length) {
 
 function help() {
     program.outputHelp()
-    consoleLog('Use <command> -h for help on a specific command.\n')
+    exit('Use <command> -h for help on a specific command.\n')
+}
+
+function exit(err) {
+    consoleLog(err, true)
     process.exit(1)
 }
