@@ -196,13 +196,13 @@ then
 elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]
 then
     echo 'Log in to Amazon ECR container registry'
-    aws || echo 'Please install awscli'; exit 1
+    command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
     if [[ ${registryUsername} && ${registryPassword} ]]
     then
         export AWS_ACCESS_KEY_ID=$registryUsername
         export AWS_SECRET_ACCESS_KEY=$registryPassword
     fi
-    export AWS_DEFAULT_REGION=$(echo $registryUrl | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com/\1/')
+    export AWS_DEFAULT_REGION=$(echo $registryUrl | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
     cmd="$(aws ecr get-login --no-include-email)"
     output=$cmd
     registryUsername=$(echo $output | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')

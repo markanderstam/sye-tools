@@ -224,6 +224,13 @@ async function createIamRoles(clusterId: string): Promise<void> {
                     'arn:aws:s3:::' + clusterId + '/public/*'
                 ],
             },
+            {
+                Effect: 'Allow',
+                Action: [
+                    'ecr:GetAuthorizationToken',
+                ],
+                Resource: '*'
+            }
         ]
     })
     const scalingPolicyDocument = JSON.stringify({
@@ -275,7 +282,7 @@ async function createIamRole(clusterId: string, policyDocument: string, roleType
     debug('createIamRole', type)
     const instanceProfileName = type ? `${clusterId}-instance-${type}` : `${clusterId}-instance`
     const roleName = instanceProfileName
-    const policyName = type ? `${clusterId}-${type}` : `${clusterId}-s3-read`
+    const policyName = type ? `${clusterId}-${type}` : `${clusterId}-basic`
     const iam = new aws.IAM()
 
     debug('createRole', roleName)

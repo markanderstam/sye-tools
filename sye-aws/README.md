@@ -64,4 +64,34 @@ And finally delete the cluster with
 
 Note that cluster-delete does NOT delete the s3-bucket with the same name as the cluster.
 The reason for this is that you will then lose ownership of that bucket name.
-cluster-create will reuse the same bucket if it already exists. 
+cluster-create will reuse the same bucket if it already exists.
+
+# Using ECR as container registry
+
+Additionally, sye cluster on AWS is able to be deployed by using Amazon elastic container registry. An ECR works among multi-regions and it can be shared by several sye clusters.
+
+## Create an Amazon elastic container registry
+    sye aws registry-create eu-central-1
+
+## Show all repositories of a registry in a region
+    sye aws registry-show eu-central-1
+
+## Grant read only permission to registry for a sye cluster
+    sye aws registry-grant-permission https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster.example.com
+
+## Delete a registry
+    sye aws registry-delete https://123456789.dkr.ecr.eu-central-1.amazonaws.com/
+
+To set up a sye backend using ECR, you should follow the steps shown below:
+
+    sye aws registry-create eu-central-1
+
+    sye cluster-create --release r23.175 --internal-ipv6 https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
+
+    sye aws cluster-create my-cluster.example.com ./sye-environment.tar.gz ./authorized_keys
+
+    sye registry add-release https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight
+
+    sye aws registry-grant-permission https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster.example.com
+
+You are ready to add regions and machines.

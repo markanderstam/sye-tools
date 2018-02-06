@@ -3,19 +3,18 @@ import * as os from 'os'
 import * as fs from 'fs'
 import * as url from 'url'
 import * as semver from 'semver'
+import * as net from 'net'
+import {registryRequiresCredentials, setRegistryCredentials, getRegistryAddr} from '../sye-registry'
 
 const debug = require('debug')('sye')
-const prompt = require('prompt-sync')()
-import * as net from 'net'
 
-let registryUsername = process.env.SYE_REGISTRY_USERNAME
-let registryPassword = process.env.SYE_REGISTRY_PASSWORD
+export async function clusterCreate(registryUrl, etcdIps, options) {
 
-export function clusterCreate(registryUrl, etcdIps, options) {
-    if (urlRequiresCredentials(registryUrl)) {
-        if (!(registryUsername && registryPassword)) {
-            promptRegistryCredentials()
-        }
+    let registryUsername
+    let registryPassword
+    let registryAddr = getRegistryAddr(registryUrl)
+    if (registryRequiresCredentials(registryAddr)) {
+        [ registryUsername, registryPassword ] = await setRegistryCredentials(registryAddr)
     }
 
     let release = options.release || releaseVersionFromRegistry(registryUrl, registryUsername, registryPassword) || releaseVersionFromFile()
@@ -30,6 +29,7 @@ export function clusterCreate(registryUrl, etcdIps, options) {
             process.exit(1)
         }
     }
+
     createConfigurationFile({
         registryUrl,
         registryUsername,
@@ -73,14 +73,14 @@ function requestToLocalRegistry(url, registryUsername, registryPassword) {
 function validateRegistryUrl(registryUrl, registryUsername, registryPassword, release) {
     let p = url.parse(registryUrl)
     let res
-    if (p.host === 'docker.io') {
+    if (p.host.includes('docker.io')) {
         res = requestToDockerHub(
             dockerRegistryApiUrlFromUrl(registryUrl.replace('docker.io', 'registry.hub.docker.com')) + '/release/manifests/' + release,
                 `${p.path.replace('/', '')}/release`,
                 registryUsername,
                 registryPassword
             )
-    } else if (p.host.endsWith('amazonaws.com')) {
+    } else if (p.host.includes('amazonaws.com')) {
         res = requestToAmazonECR(
             dockerRegistryApiUrlFromUrl(registryUrl) + '/release/manifests/' + release,
             registryUsername,
@@ -96,16 +96,6 @@ function validateRegistryUrl(registryUrl, registryUsername, registryPassword, re
     if (res.errors) {
         throw JSON.stringify(res.errors, null, 2)
     }
-}
-
-function urlRequiresCredentials(registryUrl) {
-    let p = url.parse(registryUrl)
-    return p.host === 'docker.io' || p.host.endsWith('amazonaws.com')
-}
-
-function promptRegistryCredentials() {
-    registryUsername = prompt('SYE_REGISTRY_USERNAME: ')
-    registryPassword = prompt('SYE_REGISTRY_PASSWORD: ', { echo: '' })
 }
 
 function releaseVersionFromFile() {
@@ -148,6 +138,11 @@ function releaseVersionFromRegistry(registryUrl, registryUsername, registryPassw
 }
 
 function createConfigurationFile(content, output) {
+    // Reset temporary credentials if registry is ECR and no access id and secret are provided as credentials
+    if (content.registryUrl.includes('amazonaws.com') && !(process.env.SYE_REGISTRY_USERNAME && process.env.SYE_REGISTRY_PASSWORD)) {
+        content.registryUsername = ''
+        content.registryPassword = ''
+    }
     let dir = os.platform() === 'darwin' ? fs.mkdtempSync('/private/tmp/') : fs.mkdtempSync('/tmp/')
     let tmpfile = dir + 'sye-environment.tar'
     fs.writeFileSync(dir + '/global.json', JSON.stringify(content, undefined, 4))
