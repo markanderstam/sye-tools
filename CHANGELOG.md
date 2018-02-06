@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.9.8] - 2018-01-06
+
+- AWS: Create an EFS volume in all regions that support EFS
+- AWS: Mount EFS volume into /sharedData in all machines
+- AWS: Show private IP address of machines in `sye aws cluster-show`
+- AWS: Support for creating ECR repositories, uploading release to them
+and using them in a cluster. Requires Sye release r26.2 or later.
 
 ## [0.9.7] - 2017-12-13
 
