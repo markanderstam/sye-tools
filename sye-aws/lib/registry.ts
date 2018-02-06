@@ -169,9 +169,6 @@ export async function grantPermissionRegistry(registryUrl: string, clusterId: st
         throw `No role for instance of ${clusterId} cluster found`
     }
 
-    debug('listRoles')
-    let roles = await iam.listRoles().promise()
-
     for (let service of services) {
         let principal = []
         let repositoryName = `${getPrefixFromRegistryUrl(registryUrl)}/${service}`
@@ -181,14 +178,17 @@ export async function grantPermissionRegistry(registryUrl: string, clusterId: st
         if (repoPolicy) {
             let roleArns = JSON.parse(repoPolicy.policyText).Statement.find((s) => s.Sid === 'read-only').Principal.AWS
             if (typeof roleArns === 'string') {
-                if (roles.Roles.find((role) => role.Arn === roleArns)) {
-                    principal.push(roleArns)
-                }
-                principal.push(role.Arn)
+                await iam.getRole({ RoleName: roleArns.match(/(?!role\/)([a-zA-Z0-9-.]+)$/)[0] }).promise()
+                    .then(() => principal.push(roleArns))
+                    .catch((e) => debug(`Failed to get role for ${roleArns} ${e.message}`))
             } else if (typeof roleArns === 'object') {
-                principal = roleArns.filter((roleArn) => roles.Roles.some((role) => role.Arn === roleArn))
-                principal.push(role.Arn)
+                for(let r of roleArns) {
+                    await iam.getRole({ RoleName: r.match(/(?!role\/)([a-zA-Z0-9-.]+)$/)[0] }).promise()
+                        .then(() => principal.push(r))
+                        .catch((e) => debug(`Failed to get role for ${r} ${e.message}`))
+                }
             }
+            principal.push(role.Arn)
         } else {
             principal = [ role.Arn ]
         }
