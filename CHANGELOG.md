@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.9] - 2018-01-06
+
+No code changes from 0.9.8. Re-released due to npm problems.
+
 ## [0.9.8] - 2018-01-06
 
 - AWS: Create an EFS volume in all regions that support EFS
