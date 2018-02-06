@@ -136,7 +136,12 @@ export async function deleteRegistry(registryUrl: string) {
     let region = getRegionFromRegistryUrl(registryUrl)
     let ecr = new aws.ECR({ region })
 
-    let repositories = (await showRegistry(region, false)).repositories
+    let repositories = (await showRegistry(
+        region,
+        false,
+        getPrefixFromRegistryUrl(registryUrl),
+        true)
+    ).repositories
     for (let repositoryName of Object.keys(repositories)) {
         debug('listImages')
         let images = await ecr.listImages({ repositoryName }).promise()
