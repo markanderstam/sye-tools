@@ -35,8 +35,7 @@ function validateFlag() {
 }
 
 function validateMachineTags() {
-    if ! [[ $1 =~ ^(^$)|([a-zA-Z0-9_-]+,)*([a-zA-Z0-9_-]+)$ ]]
-    then
+    if ! [[ $1 =~ ^(^$)|([a-zA-Z0-9_-]+,)*([a-zA-Z0-9_-]+)$ ]]; then
         echo 'Invalid machine tags: '$1
         exit 1
     fi
@@ -45,7 +44,7 @@ function validateMachineTags() {
 function extractConfigurationFile() {
     mkdir -p ${CONFDIR}/instance-data
     tar -xzf ${FILE} -C ${CONFDIR} -o
-cat << EOF > ${CONFDIR}/machine.json
+    cat << EOF > ${CONFDIR}/machine.json
 {"location":"${LOCATION}","machineName":"${MACHINE_NAME}"}
 EOF
 }
@@ -54,20 +53,17 @@ function imageReleaseRevision() {
     local image=$1
     local url
 
-    if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]
-    then
+    if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         # For Docker Cloud
         url=$(dockerRegistryApiUrlFromUrl $(echo ${registryUrl} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${release}
         echo $(curl -s -H "Accept: application/json" -H "Authorization: Bearer $(getTokenFromDockerHub)" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
-    elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]
-    then
+    elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${release}
         echo $(curl -k -u ${registryUsername}:${registryPassword} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
     else
         # For internal Docker registry
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${release}
-        if [[ ${registryUsername} && ${registryPassword} ]]
-        then
+        if [[ ${registryUsername} && ${registryPassword} ]]; then
             echo $(curl -s -k -u ${registryUsername}:${registryPassword} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
         else
             echo $(curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
@@ -84,8 +80,7 @@ function dockerRegistryApiUrlFromUrl() {
     local proto=$(echo ${url} | grep :// | sed -e's,^\(.*://\).*,\1,g')
     local host=$(echo ${url/${proto}/})
     local pathName=$(echo ${host} | grep / | cut -d/ -f2-)
-    if [[ ${pathName} ]]
-    then
+    if [[ ${pathName} ]]; then
         echo $(echo ${proto}${host} | sed 's/'"${pathName}"'/v2\/'"${pathName}"'/g')
     else
         echo ${proto}${host}/v2
@@ -97,8 +92,7 @@ function getTokenFromDockerHub() {
     echo $(curl -s -u ${registryUsername}:${registryPassword} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/')
 }
 
-while [ $# -gt 0 ]
-do
+while [ $# -gt 0 ]; do
     case "$1" in
         -h|--help)
             usage
@@ -188,16 +182,13 @@ registryUrl=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.jso
 registryUsername=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 registryPassword=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
-if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]
-then
+if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
     echo 'Log in to Docker Cloud registry'
     docker login -u ${registryUsername} -p ${registryPassword}
-elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]
-then
+elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
     echo 'Log in to Amazon ECR container registry'
     command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
-    if [[ ${registryUsername} && ${registryPassword} ]]
-    then
+    if [[ ${registryUsername} && ${registryPassword} ]]; then
         export AWS_ACCESS_KEY_ID=$registryUsername
         export AWS_SECRET_ACCESS_KEY=$registryPassword
     fi
@@ -209,8 +200,7 @@ then
     docker login -u ${registryUsername} -p ${registryPassword} ${registryUrl}
 else
     echo 'Log in to private container registry'
-    if [[ ${registryUsername} && ${registryPassword} ]]
-    then
+    if [[ ${registryUsername} && ${registryPassword} ]]; then
         docker login -u ${registryUsername} -p ${registryPassword} ${registryUrl}
     fi
 fi
@@ -242,4 +232,5 @@ docker run -d \
     --log-opt max-file=10 \
     --memory 256M \
     --restart always \
-    --name machine-controller-1 $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+    --name machine-controller-1 \
+    $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
