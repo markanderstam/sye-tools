@@ -78,7 +78,7 @@ function registryPrefixFromUrl() {
 function dockerRegistryApiUrlFromUrl() {
     local url=$1
     local proto=$(echo ${url} | grep :// | sed -e's,^\(.*://\).*,\1,g')
-    local host=$(echo ${url/${proto}/})
+    local host=${url/${proto}/}
     local pathName=$(echo ${host} | grep / | cut -d/ -f2-)
     if [[ ${pathName} ]]; then
         echo ${proto}${host} | sed 's/'"${pathName}"'/v2\/'"${pathName}"'/g'
