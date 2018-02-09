@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -o errexit -o pipefail
 
 CONFDIR="/etc/sye"
 
