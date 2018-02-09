@@ -56,23 +56,23 @@ function imageReleaseRevision() {
     if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         # For Docker Cloud
         url=$(dockerRegistryApiUrlFromUrl $(echo ${registryUrl} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${release}
-        echo $(curl -s -H "Accept: application/json" -H "Authorization: Bearer $(getTokenFromDockerHub)" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
+        curl -s -H "Accept: application/json" -H "Authorization: Bearer $(getTokenFromDockerHub)" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${release}
-        echo $(curl -k -u ${registryUsername}:${registryPassword} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
+        curl -k -u ${registryUsername}:${registryPassword} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
     else
         # For internal Docker registry
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${release}
         if [[ ${registryUsername} && ${registryPassword} ]]; then
-            echo $(curl -s -k -u ${registryUsername}:${registryPassword} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
+            curl -s -k -u ${registryUsername}:${registryPassword} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
         else
-            echo $(curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2)
+            curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
         fi
     fi
 }
 
 function registryPrefixFromUrl() {
-    echo $(echo ${registryUrl} | sed -e 's/^http:\/\///g' -e 's/^https:\/\///g')
+    echo ${registryUrl} | sed -e 's/^http:\/\///g' -e 's/^https:\/\///g'
 }
 
 function dockerRegistryApiUrlFromUrl() {
@@ -81,7 +81,7 @@ function dockerRegistryApiUrlFromUrl() {
     local host=$(echo ${url/${proto}/})
     local pathName=$(echo ${host} | grep / | cut -d/ -f2-)
     if [[ ${pathName} ]]; then
-        echo $(echo ${proto}${host} | sed 's/'"${pathName}"'/v2\/'"${pathName}"'/g')
+        echo ${proto}${host} | sed 's/'"${pathName}"'/v2\/'"${pathName}"'/g'
     else
         echo ${proto}${host}/v2
     fi
@@ -89,7 +89,7 @@ function dockerRegistryApiUrlFromUrl() {
 
 function getTokenFromDockerHub() {
     local repo=${registryUrl##*/}/release
-    echo $(curl -s -u ${registryUsername}:${registryPassword} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/')
+    curl -s -u ${registryUsername}:${registryPassword} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/'
 }
 
 while [ $# -gt 0 ]; do
