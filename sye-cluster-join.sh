@@ -218,28 +218,32 @@ fi
 mkdir -p /sharedData/timeshift
 chown -R sye:sye /sharedData
 
-echo "Starting machine-controller"
-
-docker run -d \
-    -e "SINGLE_SERVER_IF=${SINGLE}" \
-    -e "BOOTSTRAP_IF=${MANAGEMENT}" \
-    -e "CONTAINER_NAME=machine-controller-1" \
-    -e "MEMORY_LIMIT=256" \
-    -e "MACHINE_REGION=${MACHINE_REGION}" \
-    -e "MACHINE_ZONE=${MACHINE_ZONE}" \
-    -e "MACHINE_TAGS=${MACHINE_TAGS}" \
-    -e "MANAGEMENT_PORT=${MANAGEMENT_PORT}" \
-    -e "MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT}" \
-    -v /etc/sye:/etc/sye:rw \
-    -v /var/lib/docker/volumes:/var/lib/docker/volumes:rw \
-    -v /tmp/cores:/tmp/cores:rw \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /etc/passwd:/etc/passwd:ro \
-    -v /etc/group:/etc/group:ro \
-    --net=host \
-    --log-driver=json-file \
-    --log-opt max-size=20m \
-    --log-opt max-file=10 \
-    --memory 256M \
-    --restart always \
-    --name machine-controller-1 $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+RUNNING_CONTAINER=$(docker ps --quiet --filter "name=machine-controller-1")
+if [[ ${RUNNING_CONTAINER} ]]; then
+    echo "Machine controller already running as ${RUNNING_CONTAINER}"
+else
+    echo "Starting machine-controller"
+    docker run -d \
+        -e "SINGLE_SERVER_IF=${SINGLE}" \
+        -e "BOOTSTRAP_IF=${MANAGEMENT}" \
+        -e "CONTAINER_NAME=machine-controller-1" \
+        -e "MEMORY_LIMIT=256" \
+        -e "MACHINE_REGION=${MACHINE_REGION}" \
+        -e "MACHINE_ZONE=${MACHINE_ZONE}" \
+        -e "MACHINE_TAGS=${MACHINE_TAGS}" \
+        -e "MANAGEMENT_PORT=${MANAGEMENT_PORT}" \
+        -e "MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT}" \
+        -v /etc/sye:/etc/sye:rw \
+        -v /var/lib/docker/volumes:/var/lib/docker/volumes:rw \
+        -v /tmp/cores:/tmp/cores:rw \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v /etc/passwd:/etc/passwd:ro \
+        -v /etc/group:/etc/group:ro \
+        --net=host \
+        --log-driver=json-file \
+        --log-opt max-size=20m \
+        --log-opt max-file=10 \
+        --memory 256M \
+        --restart always \
+        --name machine-controller-1 $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+fi
