@@ -218,7 +218,7 @@ fi
 mkdir -p /sharedData/timeshift
 chown -R sye:sye /sharedData
 
-RUNNING_CONTAINER=$(docker ps --quiet --filter "name=machine-controller-1")
+RUNNING_CONTAINER=$(docker ps --quiet --filter "name=machine-controller-")
 if [[ ${RUNNING_CONTAINER} ]]; then
     echo "Machine controller already running as ${RUNNING_CONTAINER}"
 else
