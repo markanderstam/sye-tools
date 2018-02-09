@@ -87,6 +87,30 @@ function dockerRegistryApiUrlFromUrl() {
     fi
 }
 
+function dockerRegistryLogin() {
+    if [[ ${REGISTRY_URL} =~ (.*)docker\.io(.*) ]]; then
+        echo 'Log in to Docker Cloud registry'
+        docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD}
+    elif [[ ${REGISTRY_URL} =~ (.*)amazonaws(.*) ]]; then
+        echo 'Log in to Amazon ECR container registry'
+        command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
+        if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
+            export AWS_ACCESS_KEY_ID=${REGISTRY_USERNAME}
+            export AWS_SECRET_ACCESS_KEY=${REGISTRY_PASSWORD}
+        fi
+        export AWS_DEFAULT_REGION=$(echo $REGISTRY_URL | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
+        output=$(aws ecr get-login --no-include-email)
+        REGISTRY_USERNAME=$(echo $output | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
+        REGISTRY_PASSWORD=$(echo $output | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
+        docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD} ${REGISTRY_URL}
+    else
+        echo 'Log in to private container registry'
+        if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
+            docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD} ${REGISTRY_URL}
+        fi
+    fi
+}
+
 function getTokenFromDockerHub() {
     local repo=${REGISTRY_URL##*/}/release
     curl -s -u ${REGISTRY_USERNAME}:${REGISTRY_PASSWORD} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/'
@@ -182,28 +206,7 @@ REGISTRY_URL=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.js
 REGISTRY_USERNAME=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 REGISTRY_PASSWORD=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
-if [[ ${REGISTRY_URL} =~ (.*)docker\.io(.*) ]]; then
-    echo 'Log in to Docker Cloud registry'
-    docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD}
-elif [[ ${REGISTRY_URL} =~ (.*)amazonaws(.*) ]]; then
-    echo 'Log in to Amazon ECR container registry'
-    command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
-    if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
-        export AWS_ACCESS_KEY_ID=$REGISTRY_USERNAME
-        export AWS_SECRET_ACCESS_KEY=$REGISTRY_PASSWORD
-    fi
-    export AWS_DEFAULT_REGION=$(echo $REGISTRY_URL | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
-    cmd="$(aws ecr get-login --no-include-email)"
-    output=$cmd
-    REGISTRY_USERNAME=$(echo $output | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
-    REGISTRY_PASSWORD=$(echo $output | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
-    docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD} ${REGISTRY_URL}
-else
-    echo 'Log in to private container registry'
-    if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
-        docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD} ${REGISTRY_URL}
-    fi
-fi
+dockerRegistryLogin
 
 mkdir -p /sharedData/timeshift
 chown -R sye:sye /sharedData
