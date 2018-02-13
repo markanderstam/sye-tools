@@ -48,9 +48,14 @@ class MyTokenCache {
         return this.tokens[0]
     }
 
-    private filename() {
-        return `${process.env.HOME}/.sye/${this.clusterId}.tokens.json`
+    private directoryName(): string {
+        return `${process.env.HOME}/.sye`
     }
+
+    private filename(): string {
+        return `${this.directoryName()}/${this.clusterId}.tokens.json`
+    }
+
     private load() {
         try {
             this.tokens = JSON.parse(fs.readFileSync(this.filename()).toString())
@@ -60,6 +65,9 @@ class MyTokenCache {
     }
 
     save() {
+        if (!fs.existsSync(this.directoryName())) {
+            fs.mkdirSync(this.directoryName())
+        }
         fs.writeFileSync(this.filename(), JSON.stringify(this.tokens))
     }
 
