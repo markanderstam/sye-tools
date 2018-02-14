@@ -1,9 +1,9 @@
 import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
-import {tagResource, sleep, consoleLog} from './common'
+import {tagResource} from './common'
 import {cidrSubset6} from './cidr'
 import {getResources} from './cluster'
-import {awaitAsyncCondition} from './common'
+import {awaitAsyncCondition, sleep, consoleLog} from '../../lib/common'
 
 const debug = dbg('region')
 

@@ -12,9 +12,9 @@ import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import * as fs from 'fs'
 import * as EasyTable from 'easy-table'
-import { resolve } from 'path'
 import {getInstances} from './machine'
-import {getTag, consoleLog} from './common'
+import {getTag} from './common'
+import {consoleLog, readPackageFile} from '../../lib/common'
 
 const debug = dbg('cluster')
 
@@ -175,14 +175,14 @@ async function createBucket(bucketName: string, syeEnvironment: string, authoriz
     await s3.upload({
         Bucket: bucketName,
         Key: 'public/bootstrap.sh',
-        Body: readPackageFile('bootstrap.sh'),
+        Body: readPackageFile('sye-aws/bootstrap.sh'),
         ContentType: 'application/x-sh'
     }).promise()
 
     await s3.upload({
         Bucket: bucketName,
         Key: 'public/sye-cluster-join.sh',
-        Body: readPackageFile('../sye-cluster-join.sh'),
+        Body: readPackageFile('sye-cluster-join.sh'),
         ContentType: 'application/x-sh'
     }).promise()
 
@@ -198,17 +198,6 @@ async function createBucket(bucketName: string, syeEnvironment: string, authoriz
         Key: 'public/authorized_keys',
         Body: fs.readFileSync(authorizedKeys),
     }).promise()
-}
-
-function readPackageFile(filename: string) {
-    if (fs.existsSync(resolve(__dirname, filename))) {
-        // When used as script
-        return fs.readFileSync(resolve(__dirname, filename))
-    }
-    else {
-        // When used as module
-        return fs.readFileSync(resolve(__dirname, '..', filename))
-    }
 }
 
 async function createIamRoles(clusterId: string): Promise<void> {

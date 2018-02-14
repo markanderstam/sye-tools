@@ -20,21 +20,29 @@
     "prepare": "npm run tsc",
     "test": "npm run tsc && multi-tape sye-aws/test/test-*.js",
     "lint": "tslint -t stylish -p tsconfig.json",
-    "tsc": "tsc && mv cli/sye.js cli/sye && mv cli/sye-aws.js cli/sye-aws && mv cli/sye-cluster.js cli/sye-cluster && mv cli/sye-registry.js cli/sye-registry && chmod +x cli/sye cli/sye-aws cli/sye-cluster cli/sye-registry"
+    "tsc": "tsc && mv cli/sye.js cli/sye && mv cli/sye-aws.js cli/sye-aws && mv cli/sye-azure.js cli/sye-azure && mv cli/sye-cluster.js cli/sye-cluster && mv cli/sye-registry.js cli/sye-registry && chmod +x cli/sye cli/sye-aws cli/sye-azure cli/sye-cluster cli/sye-registry"
   },
   "author": "Net Insight",
   "license": "MIT",
   "dependencies": {
+    "adal-node": "^0.1.27",
     "aws-sdk": "^2.114.0",
+    "azure-arm-compute": "^4.0.0",
+    "azure-arm-keyvault": "^1.1.0-preview",
+    "azure-arm-network": "^5.1.0",
+    "azure-arm-resource": "^3.1.0-preview",
+    "azure-arm-storage": "^3.2.0",
+    "azure-keyvault": "^3.0.0-preview",
+    "azure-storage": "^2.7.0",
     "commander": "^2.11.0",
     "debug": "^3.0.1",
     "easy-table": "^1.1.0",
+    "ms-rest-azure": "^2.5.2",
     "prompt-sync": "^4.1.5",
     "semver": "^5.4.1",
     "source-map-support": "^0.4.18"
   },
   "devDependencies": {
-    "@types/commander": "^2.9.2",
     "@types/node": "^8.0.28",
     "multi-tape": "^1.1.1",
     "purple-tape": "^1.0.3",
