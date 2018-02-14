@@ -15,7 +15,8 @@
         "lib": [
             "es6",
             "es2016.array.include"
-        ]
+        ],
+        "outDir": "build"
     },
     "exclude": [
         "node_modules"
