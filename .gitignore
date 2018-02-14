@@ -7,3 +7,4 @@ cli/sye-azure
 cli/sye-cluster
 cli/sye-registry
 sye-environment.tar.gz
+.idea/
