@@ -1,9 +1,9 @@
 import KeyVaultManagementClient = require('azure-arm-keyvault')
 import KeyVault = require('azure-keyvault')
 import * as MsRest from 'ms-rest-azure'
-import {AuthenticationContext, TokenResponse} from 'adal-node'
+import { AuthenticationContext, TokenResponse } from 'adal-node'
 import * as dbg from 'debug'
-import {getPrincipal} from './common'
+import { getPrincipal } from './common'
 
 // This is the objectId of the mattias-test2 application, i.e. the objectId corresponding to the
 // applicationId
@@ -15,28 +15,30 @@ const ROOT_LOCATION = 'westus'
 const debug = dbg('azure/cluster')
 
 export async function createKeyVault(clusterId: string, credentials: any) {
-
     let principal = getPrincipal(clusterId)
 
     // Create keyvault
-    let authenticator = function (challenge, callback) {
+    let authenticator = function(challenge, callback) {
         // Create a new authentication context.
         let context = new AuthenticationContext(challenge.authorization)
 
         // Use the context to acquire an authentication token.
-        return context.acquireTokenWithClientCredentials(challenge.resource, principal.appId, principal.password, function (err, resp) {
-            if (resp.error) {
-                throw err
+        return context.acquireTokenWithClientCredentials(
+            challenge.resource,
+            principal.appId,
+            principal.password,
+            function(err, resp) {
+                if (resp.error) {
+                    throw err
+                } else {
+                    // Calculate the value to be set in the request's Authorization header and resume the call.
+                    const tokenResponse = resp as TokenResponse
+                    var authorizationValue = tokenResponse.tokenType + ' ' + tokenResponse.accessToken
+                    debug(authorizationValue)
+                    return callback(null, authorizationValue)
+                }
             }
-            else {
-                // Calculate the value to be set in the request's Authorization header and resume the call.
-                const tokenResponse = resp as TokenResponse
-                var authorizationValue = tokenResponse.tokenType + ' ' + tokenResponse.accessToken
-                debug(authorizationValue)
-                return callback(null, authorizationValue)
-          }
-
-        })
+        )
     }
 
     let keyVaultManagementClient = new KeyVaultManagementClient(credentials, SUBSCRIPTION_ID)
@@ -46,7 +48,7 @@ export async function createKeyVault(clusterId: string, credentials: any) {
         properties: {
             tenantId: principal.tenant,
             sku: {
-                name: 'standard'
+                name: 'standard',
             },
             accessPolicies: [
                 {
@@ -54,12 +56,12 @@ export async function createKeyVault(clusterId: string, credentials: any) {
                     objectId: OBJECT_ID,
                     permissions: {
                         keys: ['get', 'create', 'delete', 'list', 'update', 'import', 'backup', 'restore'],
-                        secrets: ['all']
-                    }
-                }
+                        secrets: ['all'],
+                    },
+                },
             ],
-            enabledForDeployment: true
-        }
+            enabledForDeployment: true,
+        },
     })
 
     var kvCredentials = new MsRest.KeyVaultCredentials(authenticator, credentials)
@@ -69,12 +71,11 @@ export async function createKeyVault(clusterId: string, credentials: any) {
     var keyOperations = ['encrypt', 'decrypt', 'sign', 'verify', 'wrapKey', 'unwrapKey']
     var keyOptions = {
         keyOps: keyOperations,
-        keyAttributes: attributes
+        keyAttributes: attributes,
     }
     var keyName = environmentKeyName(clusterId)
     keyName = keyName + ''
     await keyVaultClient.createKey(keyvault.properties.vaultUri, 'test', 'RSA', keyOptions)
-
 }
 
 export function keyvaultName(clusterId: string) {

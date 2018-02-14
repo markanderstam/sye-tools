@@ -6,14 +6,12 @@ import * as os from 'os'
 import { resolve } from 'path'
 
 const debug = require('debug')('sye')
-import {clusterCreate} from '../sye-cluster/index'
+import { clusterCreate } from '../sye-cluster/index'
 import { registryAddImages, registryStart, registryRemove } from '../sye-registry/index'
 
 const VERSION = require('../package.json').version
 
-program
-    .version(VERSION)
-    .description('sye-tools. See https://github.com/netinsight/sye-tools')
+program.version(VERSION).description('sye-tools. See https://github.com/netinsight/sye-tools')
 
 program
     .command('registry [subcommand]', 'operate on a docker registry')
@@ -24,28 +22,33 @@ program
 program
     .command('cluster-create <registry-url> <etcd-ip...>')
     .description('Create a configuration file for a cluster')
-    .option('-o, --output <filename>', 'configuration filename, default sye-environment.tar.gz',
-        './sye-environment.tar.gz')
+    .option(
+        '-o, --output <filename>',
+        'configuration filename, default sye-environment.tar.gz',
+        './sye-environment.tar.gz'
+    )
     .option('--release <release>', 'Use a specific release. Defaults to latest available in registry')
-    .option('-n, --no-check', 'Don\'t try to connect to registry.')
+    .option('-n, --no-check', "Don't try to connect to registry.")
     .option('--internal-ipv6', 'Use IPv6 for internal communication')
-    .action( clusterCreate )
+    .action(clusterCreate)
 
 program
     .command('single-server <interface>')
     .description('Start a single server installation')
     .option('-l, --local-registry', 'Use a local Docker registry')
-    .option('-r, --registry-url <url>', 'Use a specific external Docker registry url. Default to https://docker.io/netisye')
+    .option(
+        '-r, --registry-url <url>',
+        'Use a specific external Docker registry url. Default to https://docker.io/netisye'
+    )
     .option('--release <release>', 'Use a specific release')
     .option('-p, --management-port <port>', 'Start playout-management listening on a port', '81')
     .option('-t, --management-tls-port <port>', 'Start playout-management listening on a TLS port', '4433')
     .description('Install a single-server setup on this machine')
-    .action( singleServer )
+    .action(singleServer)
 
-program
-  .parse(process.argv)
+program.parse(process.argv)
 
-function singleServer( networkInterface, options ) {
+function singleServer(networkInterface, options) {
     if (options.localRegistry && options.registryUrl) {
         console.log('Unable to use both local and external registry') // tslint:disable-line no-console
         process.exit(1)
@@ -56,11 +59,10 @@ function singleServer( networkInterface, options ) {
 
     let ip
     try {
-        ip = os.networkInterfaces()[networkInterface].filter( v => v.family === 'IPv4')[0].address
-    }
-    catch(e) {}
+        ip = os.networkInterfaces()[networkInterface].filter((v) => v.family === 'IPv4')[0].address
+    } catch (e) {}
 
-    if(!ip) {
+    if (!ip) {
         console.log('Failed to find ip address of interface ' + networkInterface) // tslint:disable-line no-console
         process.exit(1)
     }
@@ -74,20 +76,30 @@ function singleServer( networkInterface, options ) {
         console.log('\n> sye registry-remove') // tslint:disable-line no-console
         registryRemove()
 
-        console.log( '\n> sye registry-start 127.0.0.1') // tslint:disable-line no-console
-        registryStart('127.0.0.1', {prefix: 'ott', file: './registry.tar'})
+        console.log('\n> sye registry-start 127.0.0.1') // tslint:disable-line no-console
+        registryStart('127.0.0.1', { prefix: 'ott', file: './registry.tar' })
 
-        console.log( `\n> sye registry-add-release http://127.0.0.1:5000/ott`) // tslint:disable-line no-console
-        registryAddImages('http://127.0.0.1:5000/ott', {file: './images.tar'})
+        console.log(`\n> sye registry-add-release http://127.0.0.1:5000/ott`) // tslint:disable-line no-console
+        registryAddImages('http://127.0.0.1:5000/ott', { file: './images.tar' })
     } else if (options.registryUrl) {
         registryUrl = options.registryUrl
     }
 
-    console.log( `\n> sye cluster-create ${registryUrl} 127.0.0.1 ${options.release ? '--release ' + options.release : ''}`) // tslint:disable-line no-console
-    clusterCreate(registryUrl, ['127.0.0.1'], {output: './sye-environment.tar.gz', release: options.release})
+    console.log(
+        `\n> sye cluster-create ${registryUrl} 127.0.0.1 ${options.release ? '--release ' + options.release : ''}`
+    ) // tslint:disable-line no-console
+    clusterCreate(registryUrl, ['127.0.0.1'], { output: './sye-environment.tar.gz', release: options.release })
 
-    console.log( '\n> sye cluster-join') // tslint:disable-line no-console
-    execSync(resolve(__dirname, '..', `./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`))
+    console.log('\n> sye cluster-join') // tslint:disable-line no-console
+    execSync(
+        resolve(
+            __dirname,
+            '..',
+            `./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${
+                options.managementTlsPort
+            } --single ${networkInterface}`
+        )
+    )
 
     execSync(`rm sye-environment.tar.gz`)
 
@@ -104,7 +116,9 @@ function configSystemForLogService() {
     try {
         // Replace the value of vm.max_map_count inline or add it to the end of the file is it doesn't exist
         // reference here: https://superuser.com/questions/590630/sed-how-to-replace-line-if-found-or-append-to-end-of-file-if-not-found
-        execSync('sed \'/^vm.max_map_count = /{h;s/=.*/= 262144/};${x;/^$/{s//vm.max_map_count = 262144/;H};x}\' -i /etc/sysctl.conf')
+        execSync(
+            "sed '/^vm.max_map_count = /{h;s/=.*/= 262144/};${x;/^$/{s//vm.max_map_count = 262144/;H};x}' -i /etc/sysctl.conf"
+        )
         execSync('sysctl -p')
     } catch (e) {
         console.log(e) // tslint:disable-line no-console

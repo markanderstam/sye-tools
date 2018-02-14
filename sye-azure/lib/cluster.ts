@@ -1,9 +1,15 @@
-import {readPackageFile} from '../../lib/common'
-import {ResourceManagementClient} from 'azure-arm-resource'
+import { readPackageFile } from '../../lib/common'
+import { ResourceManagementClient } from 'azure-arm-resource'
 import StorageManagementClient = require('azure-arm-storage')
 
-import {createBlobService, BlobService} from 'azure-storage'
-import {validateClusterId, getCredentials, storageAccountName, publicContainerName, privateContainerName} from './common'
+import { createBlobService, BlobService } from 'azure-storage'
+import {
+    validateClusterId,
+    getCredentials,
+    storageAccountName,
+    publicContainerName,
+    privateContainerName,
+} from './common'
 
 const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 const ROOT_LOCATION = 'westus'
@@ -14,9 +20,9 @@ export async function createCluster(clusterId: string, syeEnvironment: string, a
     let credentials = await getCredentials(clusterId)
 
     let resourceClient = new ResourceManagementClient(credentials, SUBSCRIPTION_ID)
-    await resourceClient.resourceGroups.createOrUpdate(clusterId,{
+    await resourceClient.resourceGroups.createOrUpdate(clusterId, {
         location: ROOT_LOCATION,
-        tags: {}
+        tags: {},
     })
 
     // Create Storage account with Blob storage
@@ -24,18 +30,18 @@ export async function createCluster(clusterId: string, syeEnvironment: string, a
     let createParameters = {
         location: ROOT_LOCATION,
         sku: {
-          name: 'Standard_RAGRS',
+            name: 'Standard_RAGRS',
         },
         kind: 'BlobStorage',
         accessTier: 'Hot',
         tags: {},
-      }
+    }
 
     await storageClient.storageAccounts.create(clusterId, storageAccountName(clusterId), createParameters)
 
     let keys = await storageClient.storageAccounts.listKeys(clusterId, clusterId)
 
-    const blobService = createBlobService(storageAccountName(clusterId),keys.keys[0].value)
+    const blobService = createBlobService(storageAccountName(clusterId), keys.keys[0].value)
     await createPublicContainerIfNotExistsPromise(blobService, publicContainerName())
 
     // TODO: This container should definitely not be public!
@@ -57,12 +63,7 @@ export async function createCluster(clusterId: string, syeEnvironment: string, a
         readPackageFile('sye-cluster-join.sh').toString()
     )
 
-    await createBlockBlobFromLocalFilePromise(
-        blobService,
-        publicContainerName(),
-        'authorized_keys',
-        authorizedKeys
-    )
+    await createBlockBlobFromLocalFilePromise(blobService, publicContainerName(), 'authorized_keys', authorizedKeys)
 
     await createBlockBlobFromLocalFilePromise(
         blobService,
@@ -72,18 +73,27 @@ export async function createCluster(clusterId: string, syeEnvironment: string, a
     )
 }
 
-export async function deleteCluster(_clusterId: string) {
-}
+export async function deleteCluster(_clusterId: string) {}
 
-function createBlockBlobFromTextPromise(blobService: BlobService, container: string, blob: string, content: string): Promise<BlobService.BlobResult> {
-    return new Promise( (resolve, reject) => {
+function createBlockBlobFromTextPromise(
+    blobService: BlobService,
+    container: string,
+    blob: string,
+    content: string
+): Promise<BlobService.BlobResult> {
+    return new Promise((resolve, reject) => {
         blobService.createBlockBlobFromText(container, blob, content, (error, result) => {
             return error ? reject(error) : resolve(result)
         })
     })
 }
-function createBlockBlobFromLocalFilePromise(blobService: BlobService, container: string, blob: string, filename: string): Promise<BlobService.BlobResult> {
-    return new Promise( (resolve, reject) => {
+function createBlockBlobFromLocalFilePromise(
+    blobService: BlobService,
+    container: string,
+    blob: string,
+    filename: string
+): Promise<BlobService.BlobResult> {
+    return new Promise((resolve, reject) => {
         blobService.createBlockBlobFromLocalFile(container, blob, filename, (error, result) => {
             return error ? reject(error) : resolve(result)
         })
@@ -98,9 +108,12 @@ function createBlockBlobFromLocalFilePromise(blobService: BlobService, container
 //     })
 // }
 
-function createPublicContainerIfNotExistsPromise(blobService: BlobService, container: string): Promise<BlobService.ContainerResult> {
-    return new Promise( (resolve, reject) => {
-        blobService.createContainerIfNotExists(container, {publicAccessLevel : 'blob'}, (error, result) => {
+function createPublicContainerIfNotExistsPromise(
+    blobService: BlobService,
+    container: string
+): Promise<BlobService.ContainerResult> {
+    return new Promise((resolve, reject) => {
+        blobService.createContainerIfNotExists(container, { publicAccessLevel: 'blob' }, (error, result) => {
             return error ? reject(error) : resolve(result)
         })
     })

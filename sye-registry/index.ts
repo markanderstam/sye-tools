@@ -32,8 +32,7 @@ export function registryStart(ip, options) {
         try {
             execSync(`curl -s ${checkUrl}`)
             started = true
-        }
-        catch (e) {
+        } catch (e) {
             execSync('sleep 5')
         }
     }
@@ -45,10 +44,9 @@ export function registryStart(ip, options) {
 }
 
 export async function registryAddImages(registryUrl: string, options) {
-
     let registryAddr = getRegistryAddr(registryUrl)
     if (registryRequiresCredentials(registryAddr)) {
-        let [ registryUsername, registryPassword ] = await setRegistryCredentials(registryAddr)
+        let [registryUsername, registryPassword] = await setRegistryCredentials(registryAddr)
         dockerLogin(registryUsername, registryPassword, registryAddr)
     }
 
@@ -69,8 +67,7 @@ export function registryRemove() {
 
         consoleLog('Removing container')
         docker('rm -v registry')
-    }
-    else {
+    } else {
         consoleLog('No registry to remove')
     }
 }
@@ -78,8 +75,7 @@ export function registryRemove() {
 function docker(command: string) {
     try {
         return execSync('docker ' + command).toString()
-    }
-    catch (e) {
+    } catch (e) {
         // Docker prints its error-messages to stderr
         exit(1, 'Docker command failed. Exiting.')
         return ''
@@ -88,8 +84,9 @@ function docker(command: string) {
 
 function dockerLoad(tarFile) {
     let result = docker('load -q -i ' + tarFile)
-    let images = result.split('\n')
-        .filter(s => {
+    let images = result
+        .split('\n')
+        .filter((s) => {
             if (s.match(/no space left on device/)) {
                 consoleLog('Failed to load. No space left on device.')
                 process.exit(1)
@@ -98,7 +95,7 @@ function dockerLoad(tarFile) {
                 return s.match(/^Loaded image: /)
             }
         })
-        .map(s => s.replace(/^Loaded image: /, ''))
+        .map((s) => s.replace(/^Loaded image: /, ''))
     return images
 }
 
@@ -127,14 +124,14 @@ export async function setRegistryCredentials(registryAddr: string) {
 
     if (!(registryUsername && registryPassword)) {
         if (registryAddr.includes('docker.io')) {
-            [ registryUsername, registryPassword ] = promptRegistryCredentials()
+            ;[registryUsername, registryPassword] = promptRegistryCredentials()
         }
         if (registryAddr.includes('amazonaws.com')) {
-            [ registryUsername, registryPassword ] = await authorizeFromECR(registryAddr)
+            ;[registryUsername, registryPassword] = await authorizeFromECR(registryAddr)
         }
     }
 
-    return [ registryUsername, registryPassword ]
+    return [registryUsername, registryPassword]
 }
 
 export function getRegistryAddr(registryUrl: string) {
@@ -155,13 +152,16 @@ async function authorizeFromECR(registryAddr: string) {
     try {
         let c = new aws.ECR({
             endpoint: 'https://' + registryAddr.match(/.*\.dkr\.(ecr\..*)/)[1],
-            region: registryAddr.match(/ecr.(.*).amazonaws.com/)[1]
+            region: registryAddr.match(/ecr.(.*).amazonaws.com/)[1],
         })
         let token = Buffer.from(
-            (await c.getAuthorizationToken({}).promise()).authorizationData[0].authorizationToken, 'base64'
-        ).toString().split(':')[1]
-        return [ 'AWS', token ]
-    } catch(e) {
+            (await c.getAuthorizationToken({}).promise()).authorizationData[0].authorizationToken,
+            'base64'
+        )
+            .toString()
+            .split(':')[1]
+        return ['AWS', token]
+    } catch (e) {
         consoleLog(`Failed to retrieve authorization token from ECR: ${e.message}`)
         let [username, password] = promptRegistryCredentials()
         return [username, password]
@@ -171,7 +171,7 @@ async function authorizeFromECR(registryAddr: string) {
 function promptRegistryCredentials() {
     const registryUsername = prompt('SYE_REGISTRY_USERNAME: ')
     const registryPassword = prompt('SYE_REGISTRY_PASSWORD: ', { echo: '' })
-    return [ registryUsername, registryPassword ]
+    return [registryUsername, registryPassword]
 }
 
 function execSync(cmd: string, options?: cp.ExecSyncOptions) {

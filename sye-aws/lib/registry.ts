@@ -2,7 +2,7 @@ import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import * as EasyTable from 'easy-table'
 import * as url from 'url'
-import {consoleLog} from '../../lib/common'
+import { consoleLog } from '../../lib/common'
 
 const debug = dbg('cluster')
 
@@ -34,7 +34,7 @@ const services = [
     'schema-registry',
     'test',
     'video-source',
-    'zookeeper'
+    'zookeeper',
 ]
 
 function getRegistryUrl(repository: aws.ECR.Repository, prefix: string) {
@@ -50,8 +50,7 @@ function getRegistryUrl(repository: aws.ECR.Repository, prefix: string) {
 function validateRegistryUrl(registryUrl: string) {
     debug('validateRegistryUrl')
     let u = url.parse(registryUrl)
-    return u.hostname.match(/^\d+\.dkr\.ecr\.[a-zA-Z0-9-]+\.amazonaws\.com/)
-        && u.pathname.match(/^\/[a-zA-Z0-9-]+$/)
+    return u.hostname.match(/^\d+\.dkr\.ecr\.[a-zA-Z0-9-]+\.amazonaws\.com/) && u.pathname.match(/^\/[a-zA-Z0-9-]+$/)
 }
 
 function getRegionFromRegistryUrl(registryUrl: string) {
@@ -89,11 +88,12 @@ export async function showRegistry(region: string, output = true, prefix = 'neti
     let ecr = new aws.ECR({ region })
     let logOutput = ''
     let table = []
-    let log = (msg: string) => logOutput += msg + '\n'
+    let log = (msg: string) => (logOutput += msg + '\n')
 
     debug('describeRepositories')
-    let repositories = (await ecr.describeRepositories().promise()).repositories
-        .filter((repo) => repo.repositoryName.match(new RegExp(`${prefix}/`)))
+    let repositories = (await ecr.describeRepositories().promise()).repositories.filter((repo) =>
+        repo.repositoryName.match(new RegExp(`${prefix}/`))
+    )
     if (!repositories.length) {
         throw `No repositories for ${prefix} found in ${region}`
     }
@@ -104,22 +104,22 @@ export async function showRegistry(region: string, output = true, prefix = 'neti
         table.push({
             repositoryName: repo.repositoryName,
             repositoryUri: repo.repositoryUri,
-            createdAt: repo.createdAt
+            createdAt: repo.createdAt,
         })
     })
-    table.sort((r1, r2) => r1.repositoryName < r2.repositoryName ? -1 : 1)
+    table.sort((r1, r2) => (r1.repositoryName < r2.repositoryName ? -1 : 1))
     log(EasyTable.print(table))
 
     let repos = {}
     table.forEach((t) => {
         repos[t.repositoryName] = {
             repositoryUri: t.repositoryUri,
-            createdAt: t.createdAt
+            createdAt: t.createdAt,
         }
     })
     let registry = {
         url: registryUrl,
-        repositories: repos
+        repositories: repos,
     }
 
     if (output) {
@@ -136,21 +136,18 @@ export async function deleteRegistry(registryUrl: string) {
     let region = getRegionFromRegistryUrl(registryUrl)
     let ecr = new aws.ECR({ region })
 
-    let repositories = (await showRegistry(
-        region,
-        false,
-        getPrefixFromRegistryUrl(registryUrl),
-        true)
-    ).repositories
+    let repositories = (await showRegistry(region, false, getPrefixFromRegistryUrl(registryUrl), true)).repositories
     for (let repositoryName of Object.keys(repositories)) {
         debug('listImages')
         let images = await ecr.listImages({ repositoryName }).promise()
         if (images.imageIds.length) {
             debug('batchDeleteImage')
-            await ecr.batchDeleteImage({
-                repositoryName: repositoryName,
-                imageIds: images.imageIds
-            }).promise()
+            await ecr
+                .batchDeleteImage({
+                    repositoryName: repositoryName,
+                    imageIds: images.imageIds,
+                })
+                .promise()
         }
         debug('deleteRepository')
         await ecr.deleteRepository({ repositoryName }).promise()
@@ -172,48 +169,56 @@ export async function grantPermissionRegistry(registryUrl: string, clusterId: st
     for (let service of services) {
         let principal = []
         let repositoryName = `${getPrefixFromRegistryUrl(registryUrl)}/${service}`
-        let repoPolicy = await ecr.getRepositoryPolicy({ repositoryName }).promise()
+        let repoPolicy = await ecr
+            .getRepositoryPolicy({ repositoryName })
+            .promise()
             .catch(() => debug(`No policy is set for repository ${repositoryName}`))
 
         if (repoPolicy) {
             let roleArns = JSON.parse(repoPolicy.policyText).Statement.find((s) => s.Sid === 'read-only').Principal.AWS
             if (typeof roleArns === 'string') {
-                await iam.getRole({ RoleName: roleArns.match(/(?!role\/)([a-zA-Z0-9-.]+)$/)[0] }).promise()
+                await iam
+                    .getRole({ RoleName: roleArns.match(/(?!role\/)([a-zA-Z0-9-.]+)$/)[0] })
+                    .promise()
                     .then(() => principal.push(roleArns))
                     .catch((e) => debug(`Failed to get role for ${roleArns} ${e.message}`))
             } else if (typeof roleArns === 'object') {
-                for(let r of roleArns) {
-                    await iam.getRole({ RoleName: r.match(/(?!role\/)([a-zA-Z0-9-.]+)$/)[0] }).promise()
+                for (let r of roleArns) {
+                    await iam
+                        .getRole({ RoleName: r.match(/(?!role\/)([a-zA-Z0-9-.]+)$/)[0] })
+                        .promise()
                         .then(() => principal.push(r))
                         .catch((e) => debug(`Failed to get role for ${r} ${e.message}`))
                 }
             }
             principal.push(role.Arn)
         } else {
-            principal = [ role.Arn ]
+            principal = [role.Arn]
         }
 
         debug('setRepositoryPolicy', repositoryName)
-        await ecr.setRepositoryPolicy({
-            repositoryName,
-            policyText: JSON.stringify({
-                Version: '2008-10-17',
-                Statement: [
-                    {
-                        Sid: 'read-only',
-                        Effect: 'Allow',
-                        Principal: {
-                            AWS: principal
+        await ecr
+            .setRepositoryPolicy({
+                repositoryName,
+                policyText: JSON.stringify({
+                    Version: '2008-10-17',
+                    Statement: [
+                        {
+                            Sid: 'read-only',
+                            Effect: 'Allow',
+                            Principal: {
+                                AWS: principal,
+                            },
+                            Action: [
+                                'ecr:GetDownloadUrlForLayer',
+                                'ecr:BatchGetImage',
+                                'ecr:BatchCheckLayerAvailability',
+                                'ecr:ListImages',
+                            ],
                         },
-                        Action: [
-                            'ecr:GetDownloadUrlForLayer',
-                            'ecr:BatchGetImage',
-                            'ecr:BatchCheckLayerAvailability',
-                            'ecr:ListImages'
-                        ]
-                    }
-                ]
+                    ],
+                }),
             })
-        }).promise()
+            .promise()
     }
 }

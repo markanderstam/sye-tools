@@ -45,6 +45,7 @@
   "devDependencies": {
     "@types/node": "^8.0.28",
     "multi-tape": "^1.1.1",
+    "prettier": "^1.9.2",
     "purple-tape": "^1.0.3",
     "tslint": "^5.7.0",
     "typescript": "^2.5.2"

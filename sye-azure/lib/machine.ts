@@ -1,9 +1,20 @@
 import * as dbg from 'debug'
 const debug = dbg('azure/machine')
 import NetworkManagementClient = require('azure-arm-network')
-import {validateClusterId, getCredentials, vmName, publicIpName, ipConfigName, nicName, vnetName, subnetName, publicContainerName, privateContainerName} from './common'
+import {
+    validateClusterId,
+    getCredentials,
+    vmName,
+    publicIpName,
+    ipConfigName,
+    nicName,
+    vnetName,
+    subnetName,
+    publicContainerName,
+    privateContainerName,
+} from './common'
 import ComputeClient = require('azure-arm-compute')
-import {exit} from '../../lib/common'
+import { exit } from '../../lib/common'
 
 const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 
@@ -15,9 +26,10 @@ export async function machineAdd(
     instanceType: string,
     roles: string[],
     management: boolean,
-    _storage: number) {
+    _storage: number
+) {
     let args = ''
-    if( management ) {
+    if (management) {
         args += ' --management eth0'
     }
 
@@ -34,18 +46,20 @@ export async function machineAdd(
         let existingVm = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
         debug('existingVm', existingVm)
         exit(`Machine ${machineName} already exists`)
-    }
-    catch (e) {
-        if( e.code !== 'ResourceNotFound')
-            throw e
+    } catch (e) {
+        if (e.code !== 'ResourceNotFound') throw e
     }
 
     let publicIPParameters = {
         location: region,
         publicIPAllocationMethod: 'Dynamic',
-      }
+    }
 
-    let publicIPInfo = await networkClient.publicIPAddresses.createOrUpdate(clusterId, publicIpName(machineName), publicIPParameters)
+    let publicIPInfo = await networkClient.publicIPAddresses.createOrUpdate(
+        clusterId,
+        publicIpName(machineName),
+        publicIPParameters
+    )
 
     debug('publicIPInfo', publicIPInfo)
 
@@ -53,16 +67,20 @@ export async function machineAdd(
     let nicParameters = {
         location: region,
         ipConfigurations: [
-          {
-            name: ipConfigName(machineName),
-            privateIPAllocationMethod: 'Dynamic',
-            subnet: subnetInfo,
-            publicIPAddress: publicIPInfo
-          }
-        ]
-      }
+            {
+                name: ipConfigName(machineName),
+                privateIPAllocationMethod: 'Dynamic',
+                subnet: subnetInfo,
+                publicIPAddress: publicIPInfo,
+            },
+        ],
+    }
 
-    let networkInterface = await networkClient.networkInterfaces.createOrUpdate(clusterId, nicName(machineName), nicParameters)
+    let networkInterface = await networkClient.networkInterfaces.createOrUpdate(
+        clusterId,
+        nicName(machineName),
+        nicParameters
+    )
 
     debug('networkInterface', networkInterface)
 
@@ -78,43 +96,40 @@ export async function machineAdd(
             computerName: vmName(machineName),
             adminUsername: 'netinsight',
             adminPassword: 'neti1A', // TODO Remove password
-            customData: Buffer.from(`#!/bin/sh
+            customData: Buffer.from(
+                `#!/bin/sh
 cd /tmp
 curl -O ${publicStorageUrl}/bootstrap.sh
 chmod +x bootstrap.sh
 ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}" ./bootstrap.sh --machine-name ${machineName} --machine-region ${region} --machine-zone ${availabilityZone} ${args}
-            `).toString('base64')
+            `
+            ).toString('base64'),
         },
         hardwareProfile: {
-            vmSize: instanceType
+            vmSize: instanceType,
         },
         storageProfile: {
             imageReference: {
                 publisher: 'Canonical',
                 offer: 'UbuntuServer',
                 sku: '16.04-LTS',
-                version: 'latest'
+                version: 'latest',
             },
         },
         networkProfile: {
             networkInterfaces: [
-            {
-                id: networkInterface.id,
-                primary: true
-            }
-            ]
-        }
+                {
+                    id: networkInterface.id,
+                    primary: true,
+                },
+            ],
+        },
     }
 
     let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
     debug('vmInfo', vmInfo)
 }
 
-export async function machineDelete(_clusterId: string, _region: string, _name: string) {
+export async function machineDelete(_clusterId: string, _region: string, _name: string) {}
 
-}
-
-export async function machineRedeploy(_clusterId: string, _region: string, _name: string) {
-
-}
-
+export async function machineRedeploy(_clusterId: string, _region: string, _name: string) {}
