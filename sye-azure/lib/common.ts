@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import {exit} from '../../lib/common'
+import { exit } from '../../lib/common'
 import * as MsRest from 'ms-rest-azure'
 
 class MyTokenCache {
@@ -19,7 +19,7 @@ class MyTokenCache {
 
     remove(entries: any, cb: any) {
         this.tokens = this.tokens.filter((e) => {
-            return !(Object.keys(entries[0]).every( key => e[key] === entries[0][key] ))
+            return !Object.keys(entries[0]).every((key) => e[key] === entries[0][key])
         })
         cb()
     }
@@ -31,7 +31,7 @@ class MyTokenCache {
 
     find(query, cb) {
         let result = this.tokens.filter((e) => {
-            return Object.keys(query).every( key => e[key] === query[key] )
+            return Object.keys(query).every((key) => e[key] === query[key])
         })
         cb(null, result)
     }
@@ -59,9 +59,8 @@ class MyTokenCache {
     private load() {
         try {
             this.tokens = JSON.parse(fs.readFileSync(this.filename()).toString())
-            this.tokens.map(t => t.expiresOn = new Date(t.expiresOn))
-        }
-        catch (e) {}
+            this.tokens.map((t) => (t.expiresOn = new Date(t.expiresOn)))
+        } catch (e) {}
     }
 
     save() {
@@ -72,17 +71,18 @@ class MyTokenCache {
     }
 
     private deleteOld() {
-        this.tokens = this.tokens.filter( t => t.expiresOn > Date.now() - 5*60*1000)
+        this.tokens = this.tokens.filter((t) => t.expiresOn > Date.now() - 5 * 60 * 1000)
     }
-
 }
 
-let tokenCache:MyTokenCache
+let tokenCache: MyTokenCache
 
 export function validateClusterId(clusterId: string) {
-    if(!clusterId.match(/^[a-z0-9]{3,24}$/)) {
-        exit(`Invalid cluster id ${clusterId}.\n` +
-        'It must be 3 to 24 characters long and can only contain lowercase letters and numbers')
+    if (!clusterId.match(/^[a-z0-9]{3,24}$/)) {
+        exit(
+            `Invalid cluster id ${clusterId}.\n` +
+                'It must be 3 to 24 characters long and can only contain lowercase letters and numbers'
+        )
     }
 }
 
@@ -90,28 +90,23 @@ export function validateClusterId(clusterId: string) {
 // az ad sp create-for-rbac --name something --password supersekret > ~/.sye/something.azure.json
 export async function getCredentialsServicePrincipal(clusterId: string): Promise<MsRest.ApplicationTokenCredentials> {
     let principal = JSON.parse(fs.readFileSync(`${process.env.HOME}/.sye/${clusterId}.azure.json`).toString())
-    return await MsRest.loginWithServicePrincipalSecret(
-        principal.appId,
-        principal.password,
-        principal.tenant,
-    )
+    return await MsRest.loginWithServicePrincipalSecret(principal.appId, principal.password, principal.tenant)
 }
 
 export async function getCredentials(clusterId: string): Promise<MsRest.DeviceTokenCredentials> {
-    if(!tokenCache) {
+    if (!tokenCache) {
         tokenCache = new MyTokenCache(clusterId)
     }
 
-    if( clusterId !== tokenCache.clusterId ) {
+    if (clusterId !== tokenCache.clusterId) {
         throw `clusterId ${clusterId} !== ${tokenCache.clusterId}`
     }
 
-    if(tokenCache.empty()) {
-        let credentials = await MsRest.interactiveLogin({tokenCache})
+    if (tokenCache.empty()) {
+        let credentials = await MsRest.interactiveLogin({ tokenCache })
         tokenCache.save()
         return credentials
-    }
-    else {
+    } else {
         let options: MsRest.DeviceTokenCredentialsOptions = {}
         let token = tokenCache.first()
         options.tokenCache = tokenCache
@@ -122,7 +117,7 @@ export async function getCredentials(clusterId: string): Promise<MsRest.DeviceTo
     }
 }
 
-export function getPrincipal(clusterId: string): { appId: string, tenant: string, password: string } {
+export function getPrincipal(clusterId: string): { appId: string; tenant: string; password: string } {
     let principal = JSON.parse(fs.readFileSync(`${process.env.HOME}/.sye/${clusterId}.azure.json`).toString())
     return principal
 }

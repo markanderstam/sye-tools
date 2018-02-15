@@ -2,21 +2,19 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import {createCluster, deleteCluster} from '../sye-azure/lib/cluster'
-import {machineAdd, machineDelete, machineRedeploy} from '../sye-azure/lib/machine'
-import {regionAdd, regionDelete} from '../sye-azure/lib/region'
-import {consoleLog} from '../lib/common'
+import { createCluster, deleteCluster } from '../sye-azure/lib/cluster'
+import { machineAdd, machineDelete, machineRedeploy } from '../sye-azure/lib/machine'
+import { regionAdd, regionDelete } from '../sye-azure/lib/region'
+import { consoleLog } from '../lib/common'
 
-program
-    .description('Manage sye-clusters on Azure')
+program.description('Manage sye-clusters on Azure')
 
 program
     .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Azure')
     .action(async (clusterId, syeEnvironment, authorizedKeys) => {
         consoleLog(`Creating cluster ${clusterId}`)
-        await createCluster(clusterId, syeEnvironment, authorizedKeys)
-            .catch(exit)
+        await createCluster(clusterId, syeEnvironment, authorizedKeys).catch(exit)
     })
 
 program
@@ -24,26 +22,24 @@ program
     .description('Delete a sye cluster on Azure')
     .action(async (clusterId) => {
         consoleLog(`Deleting cluster ${clusterId}`)
-        await deleteCluster(clusterId)
-            .catch(exit)
+        await deleteCluster(clusterId).catch(exit)
     })
 
 program
     .command('cluster-show <clusterId>')
     .description('Show all resources used by a cluster')
     .option('--raw', 'Show raw JSON format')
-    // .action(async (clusterId, options) => {
-    //     await showResources(clusterId, true, options.raw)
-    //         .catch(exit)
-    // })
+// .action(async (clusterId, options) => {
+//     await showResources(clusterId, true, options.raw)
+//         .catch(exit)
+// })
 
 program
     .command('region-add <cluster-id> <region>')
     .description('Setup a new region for the cluster')
     .action(async (clusterId: string, region: string) => {
         consoleLog(`Setting up region ${region} for cluster ${clusterId}`)
-        await regionAdd(clusterId, region)
-            .catch(exit)
+        await regionAdd(clusterId, region).catch(exit)
         consoleLog('Done')
     })
 
@@ -52,8 +48,7 @@ program
     .description('Delete a region from the cluster')
     .action(async (clusterId: string, region: string) => {
         consoleLog(`Deleting region ${region} for cluster ${clusterId}`)
-        await regionDelete(clusterId, region)
-            .catch(exit)
+        await regionDelete(clusterId, region).catch(exit)
         consoleLog('Done')
     })
 
@@ -63,13 +58,25 @@ program
     .option('--machine-name [name]', 'Name of machine, defaults to azure instance id')
     .option('--instance-type [type]', 'e.g. Basic_A1, Standard_D5_v2', 'Basic_A1')
     .option('--management', 'Run cluster-join with --management parameter')
-    .option('--role [role]', 'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
-        (role, roles) => roles.push(role) && roles, [])
+    .option(
+        '--role [role]',
+        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
+        (role, roles) => roles.push(role) && roles,
+        []
+    )
     .option('--storage [size]', 'Setup a separate data disk for storing container data. Size in GiB', parseInt, 0)
     .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Adding instance ${options.machineName} in region ${region} for cluster ${clusterId}`)
-        await machineAdd(clusterId, region, options.availabilityZone, options.machineName, options.instanceType, options.role, options.management, options.storage)
-            .catch(exit)
+        await machineAdd(
+            clusterId,
+            region,
+            options.availabilityZone,
+            options.machineName,
+            options.instanceType,
+            options.role,
+            options.management,
+            options.storage
+        ).catch(exit)
         consoleLog('Done')
     })
 
@@ -78,8 +85,7 @@ program
     .description('Delete a machine from the cluster')
     .action(async (clusterId: string, region: string, name: string) => {
         consoleLog(`Deleting instance ${name} in region ${region} for cluster ${clusterId}`)
-        await machineDelete(clusterId, region, name)
-            .catch(exit)
+        await machineDelete(clusterId, region, name).catch(exit)
         consoleLog('Done')
     })
 
@@ -88,18 +94,13 @@ program
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
     .action(async (clusterId: string, region: string, name: string) => {
         consoleLog(`Redeploying instance ${name} in region ${region} for cluster ${clusterId}`)
-        await machineRedeploy(clusterId, region, name)
-            .catch(exit)
+        await machineRedeploy(clusterId, region, name).catch(exit)
         consoleLog('Done')
     })
 
-program
-     .command('*')
-     .action(help)
+program.command('*').action(help)
 
-program
-    .parse(process.argv)
-
+program.parse(process.argv)
 
 if (!process.argv.slice(2).length) {
     help()

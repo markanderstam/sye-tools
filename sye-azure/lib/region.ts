@@ -1,5 +1,5 @@
 import NetworkManagementClient = require('azure-arm-network')
-import {validateClusterId, getCredentials, subnetName, vnetName} from './common'
+import { validateClusterId, getCredentials, subnetName, vnetName } from './common'
 
 const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 
@@ -14,10 +14,9 @@ export async function regionAdd(clusterId: string, region: string): Promise<void
     var vnetParameters = {
         location: region,
         addressSpace: {
-            addressPrefixes: ['10.0.0.0/16']
+            addressPrefixes: ['10.0.0.0/16'],
         },
-        dhcpOptions: {
-        },
+        dhcpOptions: {},
         subnets: [{ name: subnetName(region), addressPrefix: '10.0.0.0/24' }],
     }
 
@@ -27,6 +26,4 @@ export async function regionAdd(clusterId: string, region: string): Promise<void
     // TODO
 }
 
-export async function regionDelete(_clusterId: string, _region: string): Promise<void> {
-
-}
+export async function regionDelete(_clusterId: string, _region: string): Promise<void> {}

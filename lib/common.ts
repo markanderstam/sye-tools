@@ -8,7 +8,7 @@ export function sleep(ms: number, comment: string = ''): Promise<void> {
     if (comment) {
         debug(`Waiting for ${ms}ms: ${comment}`)
     }
-    return new Promise<void>(resolve => {
+    return new Promise<void>((resolve) => {
         setTimeout(resolve, ms)
     })
 }
@@ -63,8 +63,7 @@ export function readPackageFile(filename: string) {
     if (fs.existsSync(resolve(__dirname, filename))) {
         // When used as script
         return fs.readFileSync(resolve(__dirname, filename))
-    }
-    else {
+    } else {
         // When used as module
         return fs.readFileSync(resolve(__dirname, '..', filename))
     }

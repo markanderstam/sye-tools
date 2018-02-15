@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 const program = require('commander')
-import {registryStart, registryAddImages, registryRemove} from '../sye-registry/index'
+import { registryStart, registryAddImages, registryRemove } from '../sye-registry/index'
 
-program
-    .usage('[command] <options>')
+program.usage('[command] <options>')
 
 program
     .command('start <ip>')
@@ -30,12 +29,9 @@ program
     .description('Remove the docker registry running on this machine')
     .action(registryRemove)
 
-program
-    .command('*')
-    .action(help)
+program.command('*').action(help)
 
-program
-    .parse(process.argv)
+program.parse(process.argv)
 
 if (!process.argv.slice(2).length) {
     help()
@@ -46,4 +42,3 @@ function help() {
     console.log('Use <command> -h for help on a specific command.\n') // tslint:disable-line no-console
     process.exit(1)
 }
-
