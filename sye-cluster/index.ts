@@ -22,6 +22,10 @@ export async function clusterCreate(registryUrl, etcdIps, options) {
         releaseVersionFromFile()
     consoleLog(`Using release ${release}`)
 
+    if (options.internalIpv6 && options.internalIpv4Nat) {
+        consoleLog('--internal-ipv6 and --internal-ipv4-nat cannot be used together')
+    }
+
     if (options.check) {
         // Check that the registry URL is valid before creating the cluster config
         try {
@@ -40,6 +44,7 @@ export async function clusterCreate(registryUrl, etcdIps, options) {
             etcdHosts: etcdIps.map((ip) => (net.isIPv6(ip) ? `https://[${ip}]:2379` : `https://${ip}:2379`)),
             release,
             internalIPv6: options.internalIpv6 ? 'yes' : 'no',
+            internalIPv4Nat: options.internalIpv4Nat ? 'yes' : 'no',
         },
         options.output
     )
