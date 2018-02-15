@@ -9,7 +9,7 @@ const debug = require('debug')('sye')
 import { clusterCreate } from '../sye-cluster/index'
 import { registryAddImages, registryStart, registryRemove } from '../sye-registry/index'
 
-const VERSION = require('../package.json').version
+const VERSION = require('../../package.json').version
 
 program.version(VERSION).description('sye-tools. See https://github.com/netinsight/sye-tools')
 

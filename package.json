@@ -4,10 +4,10 @@
   "description": "Tools for installing and managing a Sye Backend",
   "main": "index.js",
   "bin": {
-    "sye": "bin/sye",
-    "sye-aws": "bin/sye-aws",
-    "sye-cluster": "bin/sye-cluster",
-    "sye-registry": "bin/sye-registry"
+    "sye": "build/bin/sye",
+    "sye-aws": "build/bin/sye-aws",
+    "sye-cluster": "build/bin/sye-cluster",
+    "sye-registry": "build/bin/sye-registry"
   },
   "repository": {
     "type": "git",
@@ -20,7 +20,7 @@
     "prepare": "npm run tsc",
     "test": "npm run tsc && multi-tape build/sye-aws/test/test-*.js",
     "lint": "tslint -t stylish -p tsconfig.json",
-    "tsc": "tsc && rm -rf bin && mkdir bin && mv build/cli/sye.js bin/sye && mv build/cli/sye-aws.js bin/sye-aws && mv build/cli/sye-azure.js bin/sye-azure && mv build/cli/sye-cluster.js bin/sye-cluster && mv build/cli/sye-registry.js bin/sye-registry && chmod +x bin/*"
+    "tsc": "tsc && rm -rf build/bin && mkdir build/bin && cp build/cli/sye.js build/bin/sye && cp build/cli/sye-aws.js build/bin/sye-aws && cp build/cli/sye-azure.js build/bin/sye-azure && cp build/cli/sye-cluster.js build/bin/sye-cluster && cp build/cli/sye-registry.js build/bin/sye-registry && chmod +x build/bin/*"
   },
   "author": "Net Insight",
   "license": "MIT",
