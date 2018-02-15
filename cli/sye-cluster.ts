@@ -16,6 +16,7 @@ program
     .option('--release <release>', 'Use a specific release. Defaults to latest available in registry')
     .option('-n, --no-check', "Don't try to connect to registry.")
     .option('--internal-ipv6', 'Use IPv6 for internal communication')
+    .option('--internal-ipv4-nat', 'Use IPv4 with NAT support for internal communication')
     .action(clusterCreate)
 
 program.command('*').action(help)
