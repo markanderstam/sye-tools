@@ -16,24 +16,24 @@ curl -o /home/netinsight/.ssh/authorized_keys $PUBLIC_STORAGE_URL/authorized_key
 chown netinsight:netinsight /home/netinsight/.ssh/authorized_keys
 chmod go-rwx /home/netinsight/.ssh/authorized_keys
 
-# if [ "$ATTACHED_STORAGE" == "true" ]
-# then
-#     while file -L -s /dev/sdb | grep -l '/dev/sdb: cannot open' > /dev/null
-#     do
-#         echo Waiting for data volume to be attached
-#         sleep 5
-#     done
-#     if file -L -s /dev/sdb | grep -l '/dev/sdb: data' > /dev/null
-#     then
-#         echo Formatting data volume
-#         mkfs -t ext4 /dev/sdb
-#     fi
-#     echo Mounting data volume
-#     mkdir -p /var/lib/docker/volumes
-#     UUID=`file -L -s /dev/sdb | sed 's/.*UUID=\([0-9a-f-]*\) .*/\1/'`
-#     echo "UUID=$UUID /var/lib/docker/volumes ext4 defaults 0 2" >> /etc/fstab
-#     mount -a
-# fi
+if [ "$ATTACHED_STORAGE" == "true" ]
+then
+    while file -L -s /dev/sdc | grep -l '/dev/sdc: cannot open' > /dev/null
+    do
+        echo Waiting for data volume to be attached
+        sleep 5
+    done
+    if file -L -s /dev/sdc | grep -l '/dev/sdc: data' > /dev/null
+    then
+        echo Formatting data volume
+        mkfs -t ext4 /dev/sdc
+    fi
+    echo Mounting data volume
+    mkdir -p /var/lib/docker/volumes
+    UUID=`file -L -s /dev/sdc | sed 's/.*UUID=\([0-9a-f-]*\) .*/\1/'`
+    echo "UUID=$UUID /var/lib/docker/volumes ext4 defaults,barrier=0 0 2" >> /etc/fstab
+    mount -a
+fi
 
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
 add-apt-repository \

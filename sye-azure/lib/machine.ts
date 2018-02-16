@@ -14,6 +14,7 @@ import {
     privateContainerName,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
+import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit } from '../../lib/common'
 
 const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
@@ -26,12 +27,14 @@ export async function machineAdd(
     instanceType: string,
     roles: string[],
     management: boolean,
-    _storage: number
+    storage: number
 ) {
     let args = ''
     if (management) {
         args += ' --management eth0'
     }
+
+    let hasStorage = !!storage
 
     validateClusterId(clusterId)
 
@@ -90,7 +93,7 @@ export async function machineAdd(
 
     let envUrl = `https://${clusterId}.blob.core.windows.net/${privateContainerName()}/sye-environment.tar.gz`
     let publicStorageUrl = `https://${clusterId}.blob.core.windows.net/${publicContainerName()}`
-    const vmParameters = {
+    const vmParameters: VirtualMachine = {
         location: region,
         osProfile: {
             computerName: vmName(machineName),
@@ -101,7 +104,7 @@ export async function machineAdd(
 cd /tmp
 curl -O ${publicStorageUrl}/bootstrap.sh
 chmod +x bootstrap.sh
-ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}" ./bootstrap.sh --machine-name ${machineName} --machine-region ${region} --machine-zone ${availabilityZone} ${args}
+ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ./bootstrap.sh --machine-name ${machineName} --machine-region ${region} --machine-zone ${availabilityZone} ${args}
             `
             ).toString('base64'),
         },
@@ -115,7 +118,9 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
                 sku: '16.04-LTS',
                 version: 'latest',
             },
+            dataDisks: [],
         },
+
         networkProfile: {
             networkInterfaces: [
                 {
@@ -124,6 +129,17 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
                 },
             ],
         },
+    }
+
+    if (storage) {
+        vmParameters.storageProfile.dataDisks.push({
+            lun: 0,
+            diskSizeGB: storage,
+            createOption: 'Empty',
+            managedDisk: {
+                storageAccountType: 'Premium_LRS',
+            },
+        })
     }
 
     let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
