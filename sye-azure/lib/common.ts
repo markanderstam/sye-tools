@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import { exit } from '../../lib/common'
+import { exit, consoleLog } from '../../lib/common'
 import * as MsRest from 'ms-rest-azure'
 
 class MyTokenCache {
@@ -104,6 +104,7 @@ export async function getCredentials(clusterId: string): Promise<MsRest.DeviceTo
 
     if (tokenCache.empty()) {
         let credentials = await MsRest.interactiveLogin({ tokenCache })
+        consoleLog('Login successful')
         tokenCache.save()
         return credentials
     } else {
