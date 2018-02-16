@@ -12,6 +12,8 @@ echo ELASTIC_FILE_SYSTEM_DNS $ELASTIC_FILE_SYSTEM_DNS
 
 echo Arguments "${@:1}"
 
+passwd -d netinsight
+
 curl -o /home/netinsight/.ssh/authorized_keys $PUBLIC_STORAGE_URL/authorized_keys
 chown netinsight:netinsight /home/netinsight/.ssh/authorized_keys
 chmod go-rwx /home/netinsight/.ssh/authorized_keys
