@@ -56,7 +56,7 @@ program
     .command('machine-add <cluster-id> <region>')
     .description('Add a new machine to the cluster')
     .option('--machine-name [name]', 'Name of machine, defaults to azure instance id')
-    .option('--instance-type [type]', 'e.g. Basic_A1, Standard_D5_v2', 'Basic_A1')
+    .option('--instance-type [type]', 'e.g. Basic_A1, Standard_D5_v2', 'Standard_DS2_v2')
     .option('--management', 'Run cluster-join with --management parameter')
     .option(
         '--role [role]',
