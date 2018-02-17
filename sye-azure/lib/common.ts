@@ -159,3 +159,7 @@ export function publicContainerName() {
 export function privateContainerName() {
     return 'private'
 }
+
+export function dataDiskName(machineName: string) {
+    return `${machineName}-data`
+}

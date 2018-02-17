@@ -12,6 +12,7 @@ import {
     subnetName,
     publicContainerName,
     privateContainerName,
+    dataDiskName,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
@@ -133,6 +134,7 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
 
     if (storage) {
         vmParameters.storageProfile.dataDisks.push({
+            name: dataDiskName(machineName),
             lun: 0,
             diskSizeGB: storage,
             createOption: 'Empty',
