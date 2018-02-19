@@ -2,7 +2,7 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import { createCluster, deleteCluster } from '../sye-azure/lib/cluster'
+import { createCluster, deleteCluster, showResources } from '../sye-azure/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy } from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog } from '../lib/common'
@@ -29,10 +29,9 @@ program
     .command('cluster-show <clusterId>')
     .description('Show all resources used by a cluster')
     .option('--raw', 'Show raw JSON format')
-// .action(async (clusterId, options) => {
-//     await showResources(clusterId, true, options.raw)
-//         .catch(exit)
-// })
+    .action(async (clusterId, options) => {
+        await showResources(clusterId, true, options.raw).catch(exit)
+    })
 
 program
     .command('region-add <cluster-id> <region>')
