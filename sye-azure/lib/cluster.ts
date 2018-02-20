@@ -13,7 +13,7 @@ import {
     publicContainerName,
     privateContainerName,
 } from './common'
-import { NetworkInterfaceIPConfiguration } from 'azure-arm-network/lib/models'
+import { NetworkInterface, PublicIPAddress } from 'azure-arm-network/lib/models'
 
 const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 const ROOT_LOCATION = 'westus'
@@ -101,13 +101,13 @@ export async function showResources(clusterId: string, _b: boolean, _rw: boolean
 
     // Find all the NICs in the resource group
     const networkClient = new NetworkClient(credentials, SUBSCRIPTION_ID)
-    const nicMap: { [id: string]: NetworkInterfaceIPConfiguration } = {}
+    const nicMap: { [id: string]: NetworkInterface } = {}
     for (const nic of await networkClient.networkInterfaces.list(clusterId)) {
         nicMap[nic.id] = nic
     }
 
     // Find all the Public IPs in the resource group
-    const publicIpMap: { [id: string]: NetworkInterfaceIPConfiguration } = {}
+    const publicIpMap: { [id: string]: PublicIPAddress } = {}
     for (const publicIp of await networkClient.publicIPAddresses.list(clusterId)) {
         publicIpMap[publicIp.id] = publicIp
     }
@@ -124,12 +124,12 @@ export async function showResources(clusterId: string, _b: boolean, _rw: boolean
         if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
             for (const nic of vm.networkProfile!.networkInterfaces!) {
                 const enrichedNic = nicMap[nic.id]
-                const publicIp = publicIpMap[enrichedNic['ipConfigurations'][0].publicIPAddress.id]
+                const publicIp = publicIpMap[enrichedNic.ipConfigurations[0].publicIPAddress.id]
                 tableData.push({
                     Region: vm.location,
                     Name: vm.name,
-                    PrivateIpAddress: enrichedNic['ipConfigurations'][0].privateIPAddress,
-                    PublicIpAddress: publicIp['ipAddress'],
+                    PrivateIpAddress: enrichedNic.ipConfigurations[0].privateIPAddress,
+                    PublicIpAddress: publicIp.ipAddress,
                 })
             }
         }
