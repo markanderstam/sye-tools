@@ -43,6 +43,7 @@ function validateMachineTags() {
 
 function extractConfigurationFile() {
     mkdir -p ${CONFDIR}/instance-data
+    chmod 600 ${CONFDIR}
     tar -xzf ${FILE} -C ${CONFDIR} -o
     cat << EOF > ${CONFDIR}/machine.json
 {"location":"${LOCATION}","machineName":"${MACHINE_NAME}"}

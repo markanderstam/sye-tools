@@ -2,7 +2,7 @@
   "name": "@netinsight/sye-tools",
   "version": "0.9.9",
   "description": "Tools for installing and managing a Sye Backend",
-  "main": "index.js",
+  "main": "build/index.js",
   "bin": {
     "sye": "build/bin/sye",
     "sye-aws": "build/bin/sye-aws",
