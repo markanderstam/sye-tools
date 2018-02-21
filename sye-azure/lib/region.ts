@@ -1,5 +1,7 @@
 import NetworkManagementClient = require('azure-arm-network')
+import ComputeClient = require('azure-arm-compute')
 import { validateClusterId, getCredentials, getSubscription, subnetName, vnetName } from './common'
+import { machineDelete } from './machine'
 
 export async function regionAdd(clusterId: string, region: string): Promise<void> {
     validateClusterId(clusterId)
@@ -25,4 +27,15 @@ export async function regionAdd(clusterId: string, region: string): Promise<void
     // TODO
 }
 
-export async function regionDelete(_clusterId: string, _region: string): Promise<void> {}
+export async function regionDelete(clusterId: string, region: string): Promise<void> {
+    validateClusterId(clusterId)
+    let credentials = await getCredentials(clusterId)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    await Promise.all(
+        (await computeClient.virtualMachines.list(clusterId))
+            .filter((vm) => vm.location === region)
+            .map((vm) => machineDelete(clusterId, vm.name))
+    )
+}
