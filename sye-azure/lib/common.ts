@@ -1,9 +1,9 @@
 import * as fs from 'fs'
+import * as crypto from 'crypto'
 import { exit, consoleLog } from '../../lib/common'
 import * as MsRest from 'ms-rest-azure'
 import { ResourceManagementClient, SubscriptionClient } from 'azure-arm-resource'
 import { Subscription } from 'azure-arm-resource/lib/subscription/models'
-import * as md5 from 'md5'
 const debug = require('debug')('azure/common')
 
 class MyTokenCache {
@@ -189,7 +189,8 @@ export function subnetName(region: string) {
 
 export function storageAccountName(accountId: string, clusterId: string) {
     const MAX_STORAGE_ACCOUNT_NAME_LENGTH = 24
-    return `${clusterId}${md5(accountId)}`.substring(0, MAX_STORAGE_ACCOUNT_NAME_LENGTH) // Cannot contain dashes
+    const accountHash = crypto.createHash('md5').update(accountId).digest("hex")
+    return `${clusterId}${accountHash}`.substring(0, MAX_STORAGE_ACCOUNT_NAME_LENGTH) // Cannot contain dashes
 }
 
 export function publicContainerName() {
