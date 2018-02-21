@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import * as crypto from 'crypto'
 import { exit, consoleLog } from '../../lib/common'
 import * as MsRest from 'ms-rest-azure'
 import { ResourceManagementClient, SubscriptionClient } from 'azure-arm-resource'
@@ -111,7 +112,7 @@ export async function getSubscription(
         }
         subscriptionsFound.push(subscription)
     }
-    debug(`Discovered subscriptions: ${subscriptionsFound}`)
+    debug('Discovered subscriptions:', subscriptionsFound)
     switch (subscriptionsFound.length) {
         case 0:
             throw new Error(`Could not find any matching subscription`)
@@ -186,8 +187,10 @@ export function subnetName(region: string) {
     return `${region}-subnet`
 }
 
-export function storageAccountName(clusterId: string) {
-    return `${clusterId}` // Cannot contain dashes
+export function storageAccountName(accountId: string, clusterId: string) {
+    const MAX_STORAGE_ACCOUNT_NAME_LENGTH = 24
+    const accountHash = crypto.createHash('md5').update(accountId).digest("hex")
+    return `${clusterId}${accountHash}`.substring(0, MAX_STORAGE_ACCOUNT_NAME_LENGTH) // Cannot contain dashes
 }
 
 export function publicContainerName() {

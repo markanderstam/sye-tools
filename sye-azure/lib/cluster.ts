@@ -4,6 +4,7 @@ import StorageManagementClient = require('azure-arm-storage')
 import ComputeClient = require('azure-arm-compute')
 import NetworkClient = require('azure-arm-network')
 import * as EasyTable from 'easy-table'
+const debug = require('debug')('azure/cluster')
 
 import { createBlobService, BlobService } from 'azure-storage'
 import {
@@ -28,6 +29,7 @@ export async function createCluster(
     const credentials = await getCredentials(clusterId)
     const subscriptionId = (await getSubscription(credentials, { subscription: subscription })).subscriptionId
 
+    debug('Creating SYE cluster in Azure subscription', subscriptionId)
     let resourceClient = new ResourceManagementClient(credentials, subscriptionId)
     await resourceClient.resourceGroups.createOrUpdate(clusterId, {
         location: ROOT_LOCATION,
@@ -46,11 +48,15 @@ export async function createCluster(
         tags: {},
     }
 
-    await storageClient.storageAccounts.create(clusterId, storageAccountName(clusterId), createParameters)
+    const storageAcctname = storageAccountName(subscriptionId, clusterId)
+    debug('Creating storage account', storageAcctname)
+    await storageClient.storageAccounts.create(clusterId, storageAcctname, createParameters)
 
-    let keys = await storageClient.storageAccounts.listKeys(clusterId, clusterId)
+    debug('Listing keys in the storage account')
+    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
 
-    const blobService = createBlobService(storageAccountName(clusterId), keys.keys[0].value)
+    debug('Create BLOB service', keys.keys[0].value)
+    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
     await createPublicContainerIfNotExistsPromise(blobService, publicContainerName())
 
     // TODO: This container should definitely not be public!
@@ -153,6 +159,7 @@ function createBlockBlobFromTextPromise(
     blob: string,
     content: string
 ): Promise<BlobService.BlobResult> {
+    debug('createBlockBlobFromTextPromise', container, blob)
     return new Promise((resolve, reject) => {
         blobService.createBlockBlobFromText(container, blob, content, (error, result) => {
             return error ? reject(error) : resolve(result)
@@ -165,6 +172,7 @@ function createBlockBlobFromLocalFilePromise(
     blob: string,
     filename: string
 ): Promise<BlobService.BlobResult> {
+    debug('createBlockBlobFromLocalFilePromise', container, blob)
     return new Promise((resolve, reject) => {
         blobService.createBlockBlobFromLocalFile(container, blob, filename, (error, result) => {
             return error ? reject(error) : resolve(result)
@@ -184,6 +192,7 @@ function createPublicContainerIfNotExistsPromise(
     blobService: BlobService,
     container: string
 ): Promise<BlobService.ContainerResult> {
+    debug('Create public container', container)
     return new Promise((resolve, reject) => {
         blobService.createContainerIfNotExists(container, { publicAccessLevel: 'blob' }, (error, result) => {
             return error ? reject(error) : resolve(result)
