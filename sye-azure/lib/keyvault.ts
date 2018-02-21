@@ -3,13 +3,12 @@ import KeyVault = require('azure-keyvault')
 import * as MsRest from 'ms-rest-azure'
 import { AuthenticationContext, TokenResponse } from 'adal-node'
 import * as dbg from 'debug'
-import { getPrincipal } from './common'
+import { getPrincipal, getSubscription } from './common'
 
 // This is the objectId of the mattias-test2 application, i.e. the objectId corresponding to the
 // applicationId
 
 const OBJECT_ID = '8b750d09-eeae-4361-9c5a-74b4d4c2f460'
-const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 const ROOT_LOCATION = 'westus'
 
 const debug = dbg('azure/cluster')
@@ -41,7 +40,8 @@ export async function createKeyVault(clusterId: string, credentials: any) {
         )
     }
 
-    let keyVaultManagementClient = new KeyVaultManagementClient(credentials, SUBSCRIPTION_ID)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    let keyVaultManagementClient = new KeyVaultManagementClient(credentials, subscription.subscriptionId)
 
     let keyvault = await keyVaultManagementClient.vaults.createOrUpdate(clusterId, keyvaultName(clusterId), {
         location: ROOT_LOCATION,

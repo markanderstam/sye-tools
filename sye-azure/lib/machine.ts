@@ -4,6 +4,7 @@ import NetworkManagementClient = require('azure-arm-network')
 import {
     validateClusterId,
     getCredentials,
+    getSubscription,
     vmName,
     publicIpName,
     ipConfigName,
@@ -17,8 +18,6 @@ import {
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit } from '../../lib/common'
-
-const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 
 export async function machineAdd(
     clusterId: string,
@@ -41,8 +40,10 @@ export async function machineAdd(
 
     let credentials = await getCredentials(clusterId)
 
-    const networkClient = new NetworkManagementClient(credentials, SUBSCRIPTION_ID)
-    const computeClient = new ComputeClient(credentials, SUBSCRIPTION_ID)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
     let subnetInfo = await networkClient.subnets.get(clusterId, vnetName(region), subnetName(region))
 
     // Check if machine exists before trying to create it
@@ -148,6 +149,44 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
     debug('vmInfo', vmInfo)
 }
 
-export async function machineDelete(_clusterId: string, _region: string, _name: string) {}
+export async function machineDelete(clusterId: string, machineName: string) {
+    validateClusterId(clusterId)
+
+    let credentials = await getCredentials(clusterId)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+
+    const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
+    await computeClient.virtualMachines.deleteMethod(clusterId, vmName(machineName))
+
+    const promises = new Array<Promise<any>>()
+    // Delete nics and public IP addresses
+    if (vmInfo.networkProfile && vmInfo.networkProfile.networkInterfaces) {
+        vmInfo.networkProfile.networkInterfaces.forEach(async (i) => {
+            const nicName = i.id.substr(i.id.lastIndexOf('/') + 1)
+            const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName)
+            await networkClient.networkInterfaces.deleteMethod(clusterId, nicName)
+            if (nicInfo.ipConfigurations) {
+                nicInfo.ipConfigurations.forEach((ip) => {
+                    const ipName = ip.publicIPAddress.id.substr(ip.publicIPAddress.id.lastIndexOf('/') + 1)
+                    promises.push(networkClient.publicIPAddresses.deleteMethod(clusterId, ipName))
+                })
+            }
+        })
+    }
+    // Delete OS disk and data disk
+    if (vmInfo.storageProfile && vmInfo.storageProfile) {
+        if (vmInfo.storageProfile.osDisk) {
+            promises.push(computeClient.disks.deleteMethod(clusterId, vmInfo.storageProfile.osDisk.name))
+        }
+        if (vmInfo.storageProfile.dataDisks)
+            vmInfo.storageProfile.dataDisks.forEach(async (d) => {
+                promises.push(computeClient.disks.deleteMethod(clusterId, d.name))
+            })
+    }
+    await Promise.all(promises)
+}
 
 export async function machineRedeploy(_clusterId: string, _region: string, _name: string) {}

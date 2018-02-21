@@ -1,15 +1,14 @@
 import NetworkManagementClient = require('azure-arm-network')
-import { validateClusterId, getCredentials, subnetName, vnetName } from './common'
-
-const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
+import { validateClusterId, getCredentials, getSubscription, subnetName, vnetName } from './common'
 
 export async function regionAdd(clusterId: string, region: string): Promise<void> {
     validateClusterId(clusterId)
     // Create Resource Group
     let credentials = await getCredentials(clusterId)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     // Create VNet
-    const networkClient = new NetworkManagementClient(credentials, SUBSCRIPTION_ID)
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
 
     var vnetParameters = {
         location: region,
