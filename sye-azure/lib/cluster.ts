@@ -9,27 +9,33 @@ import { createBlobService, BlobService } from 'azure-storage'
 import {
     validateClusterId,
     getCredentials,
+    getSubscription,
     storageAccountName,
     publicContainerName,
     privateContainerName,
 } from './common'
 import { NetworkInterface, PublicIPAddress } from 'azure-arm-network/lib/models'
 
-const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 const ROOT_LOCATION = 'westus'
 
-export async function createCluster(clusterId: string, syeEnvironment: string, authorizedKeys: string) {
+export async function createCluster(
+    clusterId: string,
+    syeEnvironment: string,
+    authorizedKeys: string,
+    subscription: string | null
+) {
     validateClusterId(clusterId)
-    let credentials = await getCredentials(clusterId)
+    const credentials = await getCredentials(clusterId)
+    const subscriptionId = (await getSubscription(credentials, { subscription: subscription })).subscriptionId
 
-    let resourceClient = new ResourceManagementClient(credentials, SUBSCRIPTION_ID)
+    let resourceClient = new ResourceManagementClient(credentials, subscriptionId)
     await resourceClient.resourceGroups.createOrUpdate(clusterId, {
         location: ROOT_LOCATION,
         tags: {},
     })
 
     // Create Storage account with Blob storage
-    let storageClient = new StorageManagementClient(credentials, SUBSCRIPTION_ID)
+    let storageClient = new StorageManagementClient(credentials, subscriptionId)
     let createParameters = {
         location: ROOT_LOCATION,
         sku: {
@@ -79,8 +85,9 @@ export async function createCluster(clusterId: string, syeEnvironment: string, a
 export async function deleteCluster(clusterId: string) {
     validateClusterId(clusterId)
     const credentials = await getCredentials(clusterId)
+    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
 
-    const resourceClient = new ResourceManagementClient(credentials, SUBSCRIPTION_ID)
+    const resourceClient = new ResourceManagementClient(credentials, subscriptionId)
     await resourceClient.resourceGroups.deleteMethod(clusterId)
 }
 
@@ -88,19 +95,22 @@ export async function showResources(clusterId: string, _b: boolean, _rw: boolean
     validateClusterId(clusterId)
     const credentials = await getCredentials(clusterId)
 
-    const resourceClient = new ResourceManagementClient(credentials, SUBSCRIPTION_ID)
+    //const subscriptionClient = await subscriptionManagement.createSubscriptionClient(credentials)
 
-    const exists = await resourceClient.resourceGroups.checkExistence(clusterId)
-    if (!exists) {
-        console.log(`The cluster '${clusterId}' does not exist`)
-        return
-    }
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
+
     const resourceGroup = await resourceClient.resourceGroups.get(clusterId)
-    console.log(`Cluster '${clusterId}' is located in '${resourceGroup.location}'`)
+    console.log('')
+    console.log(`Cluster '${clusterId}'`)
+    console.log(`  Subscription: '${subscription.displayName}' (${subscription.subscriptionId})`)
+    console.log(`  Resource group: '${resourceGroup.name}'`)
+    console.log(`  Location: '${resourceGroup.location}'`)
     console.log('')
 
     // Find all the NICs in the resource group
-    const networkClient = new NetworkClient(credentials, SUBSCRIPTION_ID)
+    const networkClient = new NetworkClient(credentials, subscription.subscriptionId)
     const nicMap: { [id: string]: NetworkInterface } = {}
     for (const nic of await networkClient.networkInterfaces.list(clusterId)) {
         nicMap[nic.id] = nic
@@ -119,7 +129,7 @@ export async function showResources(clusterId: string, _b: boolean, _rw: boolean
         PrivateIpAddress: string
         PublicIpAddress: string
     }[] = []
-    const computeClient = new ComputeClient(credentials, SUBSCRIPTION_ID)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
     for (const vm of await computeClient.virtualMachines.list(clusterId)) {
         if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
             for (const nic of vm.networkProfile!.networkInterfaces!) {

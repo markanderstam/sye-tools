@@ -1,6 +1,9 @@
 import * as fs from 'fs'
 import { exit, consoleLog } from '../../lib/common'
 import * as MsRest from 'ms-rest-azure'
+import { ResourceManagementClient, SubscriptionClient } from 'azure-arm-resource'
+import { Subscription } from 'azure-arm-resource/lib/subscription/models'
+const debug = require('debug')('azure/common')
 
 class MyTokenCache {
     private tokens: any[] = []
@@ -83,6 +86,41 @@ export function validateClusterId(clusterId: string) {
             `Invalid cluster id ${clusterId}.\n` +
                 'It must be 3 to 24 characters long and can only contain lowercase letters and numbers'
         )
+    }
+}
+
+function matchSubscription(nameOrId: string, subscription: Subscription): boolean {
+    if (subscription.displayName === nameOrId) return true
+    if (subscription.subscriptionId === nameOrId) return true
+    return false
+}
+
+export async function getSubscription(
+    credentials: MsRest.DeviceTokenCredentials,
+    filter: { subscription?: string; resourceGroup?: string } = {}
+): Promise<Subscription> {
+    const subscriptionClient = new SubscriptionClient(credentials)
+    const subscriptionsFound: Subscription[] = []
+    for (const subscription of await subscriptionClient.subscriptions.list()) {
+        const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
+        if (filter.resourceGroup && !await resourceClient.resourceGroups.checkExistence(filter.resourceGroup)) {
+            continue
+        }
+        if (filter.subscription && !matchSubscription(filter.subscription, subscription)) {
+            continue
+        }
+        subscriptionsFound.push(subscription)
+    }
+    debug(`Discovered subscriptions: ${subscriptionsFound}`)
+    switch (subscriptionsFound.length) {
+        case 0:
+            throw new Error(`Could not find any matching subscription`)
+        case 1:
+            return subscriptionsFound[0]
+        default:
+            throw new Error(
+                `Cannot figure out which subscription to use: ${subscriptionsFound.map((s) => s.subscriptionId)}`
+            )
     }
 }
 

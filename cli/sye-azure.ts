@@ -12,9 +12,11 @@ program.description('Manage sye-clusters on Azure')
 program
     .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Azure')
-    .action(async (clusterId, syeEnvironment, authorizedKeys) => {
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .action(async (clusterId, syeEnvironment, authorizedKeys, options) => {
         consoleLog(`Creating cluster ${clusterId}`)
-        await createCluster(clusterId, syeEnvironment, authorizedKeys).catch(exit)
+        const subscription = options.subscription || process.env.AZURE_SUBSCRIPTION_ID
+        await createCluster(clusterId, syeEnvironment, authorizedKeys, subscription).catch(exit)
     })
 
 program
