@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { clusterCreate } from '../sye-cluster/index'
-
+import { syeEnvironmentFile } from '../lib/common'
 const program = require('commander')
 program.usage('[command] <options>')
 
@@ -10,8 +10,8 @@ program
     .description('Create a configuration file for a cluster')
     .option(
         '-o, --output <filename>',
-        'configuration filename, default sye-environment.tar.gz',
-        './sye-environment.tar.gz'
+        'configuration filename, default ./' + syeEnvironmentFile,
+        './' + syeEnvironmentFile
     )
     .option('--release <release>', 'Use a specific release. Defaults to latest available in registry')
     .option('-n, --no-check', "Don't try to connect to registry.")

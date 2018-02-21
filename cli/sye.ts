@@ -8,6 +8,7 @@ import { resolve } from 'path'
 const debug = require('debug')('sye')
 import { clusterCreate } from '../sye-cluster/index'
 import { registryAddImages, registryStart, registryRemove } from '../sye-registry/index'
+import { syeEnvironmentFile } from '../lib/common'
 
 const VERSION = require('../../package.json').version
 
@@ -24,8 +25,8 @@ program
     .description('Create a configuration file for a cluster')
     .option(
         '-o, --output <filename>',
-        'configuration filename, default sye-environment.tar.gz',
-        './sye-environment.tar.gz'
+        'configuration filename, default ./' + syeEnvironmentFile,
+        './' + syeEnvironmentFile
     )
     .option('--release <release>', 'Use a specific release. Defaults to latest available in registry')
     .option('-n, --no-check', "Don't try to connect to registry.")
@@ -88,7 +89,7 @@ function singleServer(networkInterface, options) {
     console.log(
         `\n> sye cluster-create ${registryUrl} 127.0.0.1 ${options.release ? '--release ' + options.release : ''}`
     ) // tslint:disable-line no-console
-    clusterCreate(registryUrl, ['127.0.0.1'], { output: './sye-environment.tar.gz', release: options.release })
+    clusterCreate(registryUrl, ['127.0.0.1'], { output: './' + syeEnvironmentFile, release: options.release })
 
     console.log('\n> sye cluster-join') // tslint:disable-line no-console
     execSync(
@@ -101,7 +102,7 @@ function singleServer(networkInterface, options) {
         )
     )
 
-    execSync(`rm sye-environment.tar.gz`)
+    execSync(`rm ${syeEnvironmentFile}`)
 
     console.log('System is starting. Will be available on http://' + ip + ':81') // tslint:disable-line no-console
 }
