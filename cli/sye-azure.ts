@@ -82,11 +82,11 @@ program
     })
 
 program
-    .command('machine-delete <cluster-id> <region> <instance-name|instance-id>')
+    .command('machine-delete <cluster-id> <instance-name|instance-id>')
     .description('Delete a machine from the cluster')
-    .action(async (clusterId: string, region: string, name: string) => {
-        consoleLog(`Deleting instance ${name} in region ${region} for cluster ${clusterId}`)
-        await machineDelete(clusterId, region, name).catch(exit)
+    .action(async (clusterId: string, name: string) => {
+        consoleLog(`Deleting instance ${name} for cluster ${clusterId}`)
+        await machineDelete(clusterId, name).catch(exit)
         consoleLog('Done')
     })
 
