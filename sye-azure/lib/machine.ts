@@ -4,6 +4,7 @@ import NetworkManagementClient = require('azure-arm-network')
 import {
     validateClusterId,
     getCredentials,
+    getSubscription,
     vmName,
     publicIpName,
     ipConfigName,
@@ -17,8 +18,6 @@ import {
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit } from '../../lib/common'
-
-const SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID
 
 export async function machineAdd(
     clusterId: string,
@@ -41,8 +40,10 @@ export async function machineAdd(
 
     let credentials = await getCredentials(clusterId)
 
-    const networkClient = new NetworkManagementClient(credentials, SUBSCRIPTION_ID)
-    const computeClient = new ComputeClient(credentials, SUBSCRIPTION_ID)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
     let subnetInfo = await networkClient.subnets.get(clusterId, vnetName(region), subnetName(region))
 
     // Check if machine exists before trying to create it
@@ -152,8 +153,10 @@ export async function machineDelete(clusterId: string, machineName: string) {
     validateClusterId(clusterId)
 
     let credentials = await getCredentials(clusterId)
-    const computeClient = new ComputeClient(credentials, SUBSCRIPTION_ID)
-    const networkClient = new NetworkManagementClient(credentials, SUBSCRIPTION_ID)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
 
     const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
     await computeClient.virtualMachines.deleteMethod(clusterId, vmName(machineName))
