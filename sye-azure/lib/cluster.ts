@@ -1,4 +1,4 @@
-import { readPackageFile } from '../../lib/common'
+import { readPackageFile, syeEnvironmentFile } from '../../lib/common'
 import { ResourceManagementClient } from 'azure-arm-resource'
 import StorageManagementClient = require('azure-arm-storage')
 import ComputeClient = require('azure-arm-compute')
@@ -59,9 +59,7 @@ export async function createCluster(
     const blobService = createBlobService(storageAcctname, keys.keys[0].value)
     await createPublicContainerIfNotExistsPromise(blobService, publicContainerName())
 
-    // TODO: This container should definitely not be public!
-    // Must figure out how to access it from the VMs
-    await createPublicContainerIfNotExistsPromise(blobService, privateContainerName())
+    await createPrivateContainerIfNotExistsPromise(blobService, privateContainerName())
 
     // Upload files to blob storage
     await createBlockBlobFromTextPromise(
@@ -80,12 +78,7 @@ export async function createCluster(
 
     await createBlockBlobFromLocalFilePromise(blobService, publicContainerName(), 'authorized_keys', authorizedKeys)
 
-    await createBlockBlobFromLocalFilePromise(
-        blobService,
-        privateContainerName(),
-        'sye-environment.tar.gz',
-        syeEnvironment
-    )
+    await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
 }
 
 export async function deleteCluster(clusterId: string) {
@@ -180,13 +173,16 @@ function createBlockBlobFromLocalFilePromise(
     })
 }
 
-// function createContainerIfNotExistsPromise(blobService: BlobService, container: string): Promise<BlobService.ContainerResult> {
-//     return new Promise( (resolve, reject) => {
-//         blobService.createContainerIfNotExists(container, (error, result) => {
-//             return error ? reject(error) : resolve(result)
-//         })
-//     })
-// }
+function createPrivateContainerIfNotExistsPromise(
+    blobService: BlobService,
+    container: string
+): Promise<BlobService.ContainerResult> {
+    return new Promise((resolve, reject) => {
+        blobService.createContainerIfNotExists(container, (error, result) => {
+            return error ? reject(error) : resolve(result)
+        })
+    })
+}
 
 function createPublicContainerIfNotExistsPromise(
     blobService: BlobService,

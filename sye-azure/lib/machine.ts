@@ -1,6 +1,9 @@
 import * as dbg from 'debug'
 const debug = dbg('azure/machine')
 import NetworkManagementClient = require('azure-arm-network')
+import StorageManagementClient = require('azure-arm-storage')
+import { createBlobService, BlobUtilities } from 'azure-storage'
+
 import {
     validateClusterId,
     getCredentials,
@@ -14,10 +17,11 @@ import {
     publicContainerName,
     privateContainerName,
     dataDiskName,
+    storageAccountName,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
-import { exit } from '../../lib/common'
+import { exit, syeEnvironmentFile } from '../../lib/common'
 
 export async function machineAdd(
     clusterId: string,
@@ -93,8 +97,33 @@ export async function machineAdd(
     // let version = imageInfo[0].name
     // debug('imageInfo', imageInfo)
 
-    let envUrl = `https://${clusterId}.blob.core.windows.net/${privateContainerName()}/sye-environment.tar.gz`
-    let publicStorageUrl = `https://${clusterId}.blob.core.windows.net/${publicContainerName()}`
+    let storageAccount = storageAccountName(subscription.subscriptionId, clusterId)
+
+    let storageClient = new StorageManagementClient(credentials, subscription.subscriptionId)
+    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAccount)
+    const blobService = createBlobService(storageAccount, keys.keys[0].value)
+
+    let startDate = new Date()
+    startDate.setMinutes(startDate.getMinutes() - 5)
+    let expiryDate = new Date()
+    expiryDate.setMinutes(expiryDate.getMinutes() + 10)
+
+    var sharedAccessPolicy = {
+        AccessPolicy: {
+            Permissions: BlobUtilities.SharedAccessPermissions.READ,
+            Start: startDate,
+            Expiry: expiryDate,
+        },
+    }
+    let sasToken = blobService.generateSharedAccessSignature(
+        privateContainerName(),
+        syeEnvironmentFile,
+        sharedAccessPolicy
+    )
+
+    let envUrl = blobService.getUrl(privateContainerName(), syeEnvironmentFile, sasToken, true)
+    let publicStorageUrl = blobService.getUrl(publicContainerName())
+
     const vmParameters: VirtualMachine = {
         location: region,
         osProfile: {

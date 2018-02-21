@@ -187,9 +187,12 @@ export function subnetName(region: string) {
     return `${region}-subnet`
 }
 
-export function storageAccountName(accountId: string, clusterId: string) {
+export function storageAccountName(subscriptionId: string, clusterId: string) {
     const MAX_STORAGE_ACCOUNT_NAME_LENGTH = 24
-    const accountHash = crypto.createHash('md5').update(accountId).digest("hex")
+    const accountHash = crypto
+        .createHash('md5')
+        .update(subscriptionId)
+        .digest('hex')
     return `${clusterId}${accountHash}`.substring(0, MAX_STORAGE_ACCOUNT_NAME_LENGTH) // Cannot contain dashes
 }
 
