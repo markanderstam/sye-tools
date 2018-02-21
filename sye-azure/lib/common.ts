@@ -3,6 +3,7 @@ import { exit, consoleLog } from '../../lib/common'
 import * as MsRest from 'ms-rest-azure'
 import { ResourceManagementClient, SubscriptionClient } from 'azure-arm-resource'
 import { Subscription } from 'azure-arm-resource/lib/subscription/models'
+import * as md5 from 'md5'
 const debug = require('debug')('azure/common')
 
 class MyTokenCache {
@@ -111,7 +112,7 @@ export async function getSubscription(
         }
         subscriptionsFound.push(subscription)
     }
-    debug(`Discovered subscriptions: ${subscriptionsFound}`)
+    debug('Discovered subscriptions:', subscriptionsFound)
     switch (subscriptionsFound.length) {
         case 0:
             throw new Error(`Could not find any matching subscription`)
@@ -186,8 +187,9 @@ export function subnetName(region: string) {
     return `${region}-subnet`
 }
 
-export function storageAccountName(clusterId: string) {
-    return `${clusterId}` // Cannot contain dashes
+export function storageAccountName(accountId: string, clusterId: string) {
+    const MAX_STORAGE_ACCOUNT_NAME_LENGTH = 24
+    return `${clusterId}${md5(accountId)}`.substring(0, MAX_STORAGE_ACCOUNT_NAME_LENGTH) // Cannot contain dashes
 }
 
 export function publicContainerName() {
