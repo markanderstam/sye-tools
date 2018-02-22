@@ -82,10 +82,10 @@ program
     })
 
 program
-    .command('machine-delete <cluster-id> <instance-name|instance-id>')
+    .command('machine-delete <cluster-id> <machine-name>')
     .description('Delete a machine from the cluster')
     .action(async (clusterId: string, name: string) => {
-        consoleLog(`Deleting instance ${name} for cluster ${clusterId}`)
+        consoleLog(`Deleting machine ${name} for cluster ${clusterId}`)
         await machineDelete(clusterId, name).catch(exit)
         consoleLog('Done')
     })
@@ -94,7 +94,9 @@ program
     .command('machine-redeploy <cluster-id> <region> <instance-name|instance-id>')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
     .action(async (clusterId: string, region: string, name: string) => {
-        consoleLog(`Redeploying instance ${name} in region ${region} for cluster ${clusterId}`)
+        consoleLog('Not implemented')
+        process.exit(1)
+        consoleLog(`Redeploying machine ${name} in region ${region} for cluster ${clusterId}`)
         await machineRedeploy(clusterId, region, name).catch(exit)
         consoleLog('Done')
     })
