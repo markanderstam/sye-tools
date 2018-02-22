@@ -1,7 +1,7 @@
 import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import { buildTags, tagResource, getTag } from './common'
-import { consoleLog } from '../../lib/common'
+import { consoleLog, syeEnvironmentFile } from '../../lib/common'
 import { getVpc, getSubnet, getSecurityGroups, efsAvailableInRegion, getElasticFileSystem } from './region'
 
 const debug = dbg('machine')
@@ -63,7 +63,7 @@ async function buildUserData(
             'getObject',
             {
                 Bucket: clusterId,
-                Key: 'private/sye-environment.tar.gz',
+                Key: 'private/' + syeEnvironmentFile,
                 Expires: 10 * 60, // The URL will expire after 10 minutes
             },
             (err, url) => {

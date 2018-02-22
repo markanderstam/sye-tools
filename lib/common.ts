@@ -68,3 +68,5 @@ export function readPackageFile(filename: string) {
         return fs.readFileSync(resolve(__dirname, '..', filename))
     }
 }
+
+export const syeEnvironmentFile = 'sye-environment.tar.gz'

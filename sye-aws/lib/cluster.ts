@@ -14,7 +14,7 @@ import * as fs from 'fs'
 import * as EasyTable from 'easy-table'
 import { getInstances } from './machine'
 import { getTag } from './common'
-import { consoleLog, readPackageFile } from '../../lib/common'
+import { consoleLog, readPackageFile, syeEnvironmentFile } from '../../lib/common'
 
 const debug = dbg('cluster')
 
@@ -203,7 +203,7 @@ async function createBucket(bucketName: string, syeEnvironment: string, authoriz
     await s3
         .upload({
             Bucket: bucketName,
-            Key: 'private/sye-environment.tar.gz',
+            Key: 'private/' + syeEnvironmentFile,
             Body: fs.readFileSync(syeEnvironment),
             ContentType: 'application/x-gzip',
         })
