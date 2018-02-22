@@ -47,6 +47,8 @@ To create the _Resource group_ and _Storage account_ in Azure for the cluster, r
 
     sye azure cluster-create my-cluster ./sye-environment.tar.gz ./authorized_keys
 
+This will create a cluster named "my-cluster" on Azure. The cluster name must be unique for this Azure account.
+
 The authorized_keys file shall contain a set of ssh-keys that shall be allowed to login to all machines.
 See the [man-page for sshd](<https://www.freebsd.org/cgi/man.cgi?sshd(8)>) for a specification of the authorized_keys file-format.
 
@@ -78,8 +80,18 @@ Now you should add DNS names for the etcd-machines:
 
 The DNS-names should point to the public IPv4 addresses for the each etcd machine.
 
-The system can now be managed by pointing your browser
+Now wait for the DNS information to propagate and for the cluster to build itself.
+
+When this is done, the system can be managed by pointing your browser
 to the public IP address of the machine named "etcd1" (since we passed the --management parameter when we created that machine), port 81.
+
+## Delete machines
+
+To delete one specific machine
+
+    sye azure machine-delete my-cluster <machine-name>
+
+This will delete the machine, including any storage created for the machine.
 
 # Deleting a cluster
 
