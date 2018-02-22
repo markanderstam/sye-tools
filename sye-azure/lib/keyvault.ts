@@ -5,10 +5,10 @@ import { AuthenticationContext, TokenResponse } from 'adal-node'
 import * as dbg from 'debug'
 import { getPrincipal, getSubscription } from './common'
 
-// This is the objectId of the mattias-test2 application, i.e. the objectId corresponding to the
+// This is the objectId of an application, i.e. the objectId corresponding to the
 // applicationId
 
-const OBJECT_ID = '8b750d09-eeae-4361-9c5a-74b4d4c2f460'
+const OBJECT_ID = ''
 const ROOT_LOCATION = 'westus'
 
 const debug = dbg('azure/cluster')
