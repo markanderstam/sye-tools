@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] - Unreleased
+## [] - Unreleased
+
+## [1.0.0] - 2018-02-23
 
 Initial support for multi-region clusters on Azure. See [sye-azure/README.md](sye-azure/README.md) for details.
 
