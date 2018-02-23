@@ -12,7 +12,11 @@ The `sye azure` command is currently in beta, and we will make backwards incompa
 
 ## Authentication
 
-Authentication against Azure is performed using an interactive login. The first time you run the `sye azure` command for a cluster, it will prompt you to open a web-browser and login. When you have logged in, the generated credentials will be stored under `~/.sye/`. The stored credentials are normally only valid for one hour and then you have to login again.
+Authentication against Azure is performed using an interactive login. The first time you run the `sye azure` command for a cluster (or explicitly issue a `sye azure login` command), it will prompt you to open a web-browser and login. When you have logged in, the generated credentials will be stored under `~/.sye/`. The stored credentials are normally only valid for one hour and then you have to login again.
+
+The default file used to store the credentials is `default.tokens.json` which can be changed using the `--profile` parameter for all the `sye azure` commands. This enables the use of more than one parallel session.
+
+A session may be invalidated using the `sye azure logout` command.
 
 ## Cluster resources
 

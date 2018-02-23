@@ -2,60 +2,90 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import { createCluster, deleteCluster, showResources } from '../sye-azure/lib/cluster'
+import { login, logout, createCluster, deleteCluster, showResources } from '../sye-azure/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy, ensureMachineSecurityRules } from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog, exit } from '../lib/common'
+import { getProfileName } from '../sye-azure/lib/common'
 
 program.description('Manage sye-clusters on Azure')
 
 program
+    .command('login')
+    .description('Login into Azure')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (options: any) => {
+        const profile = getProfileName(options)
+        await login(profile).catch(exit)
+    })
+
+program
+    .command('logout')
+    .description('Logout from Azure')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (options: any) => {
+        const profile = getProfileName(options)
+        await logout(profile).catch(exit)
+    })
+
+program
     .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Azure')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .option('--subscription [name or id]', 'The Azure subscription')
-    .action(async (clusterId, syeEnvironment, authorizedKeys, options) => {
+    .action(async (clusterId: string, syeEnvironment: string, authorizedKeys: string, options: any) => {
         consoleLog(`Creating cluster ${clusterId}`)
         const subscription = options.subscription || process.env.AZURE_SUBSCRIPTION_ID
-        await createCluster(clusterId, syeEnvironment, authorizedKeys, subscription).catch(exit)
+        const profile = getProfileName(options)
+        await createCluster(profile, clusterId, syeEnvironment, authorizedKeys, subscription).catch(exit)
     })
 
 program
     .command('cluster-delete <clusterId>')
     .description('Delete a sye cluster on Azure')
-    .action(async (clusterId) => {
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, options: any) => {
         consoleLog(`Deleting cluster ${clusterId}`)
-        await deleteCluster(clusterId).catch(exit)
+        const profile = getProfileName(options)
+        await deleteCluster(profile, clusterId).catch(exit)
     })
 
 program
     .command('cluster-show <clusterId>')
     .description('Show all resources used by a cluster')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .option('--raw', 'Show raw JSON format')
-    .action(async (clusterId, options) => {
-        await showResources(clusterId, true, options.raw).catch(exit)
+    .action(async (clusterId: string, options: any) => {
+        const profile = getProfileName(options)
+        await showResources(profile, clusterId, true, options.raw).catch(exit)
     })
 
 program
     .command('region-add <cluster-id> <region>')
     .description('Setup a new region for the cluster')
-    .action(async (clusterId: string, region: string) => {
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Setting up region ${region} for cluster ${clusterId}`)
-        await regionAdd(clusterId, region).catch(exit)
+        const profile = getProfileName(options)
+        await regionAdd(profile, clusterId, region).catch(exit)
         consoleLog('Done')
     })
 
 program
     .command('region-delete <cluster-id> <region>')
     .description('Delete a region from the cluster')
-    .action(async (clusterId: string, region: string) => {
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Deleting region ${region} for cluster ${clusterId}`)
-        await regionDelete(clusterId, region).catch(exit)
+        const profile = getProfileName(options)
+        await regionDelete(profile, clusterId, region).catch(exit)
         consoleLog('Done')
     })
 
 program
     .command('machine-add <cluster-id> <region>')
     .description('Add a new machine to the cluster')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .option('--machine-name [name]', 'Name of machine, defaults to azure instance id')
     .option('--instance-type [type]', 'e.g. Basic_A1, Standard_D5_v2', 'Standard_DS2_v2')
     .option('--management', 'Run cluster-join with --management parameter')
@@ -72,7 +102,9 @@ program
     )
     .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Adding instance ${options.machineName} in region ${region} for cluster ${clusterId}`)
+        const profile = getProfileName(options)
         await machineAdd(
+            profile,
             clusterId,
             region,
             'N/A',
@@ -89,19 +121,23 @@ program
 program
     .command('machine-delete <cluster-id> <machine-name>')
     .description('Delete a machine from the cluster')
-    .action(async (clusterId: string, name: string) => {
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, name: string, options: any) => {
         consoleLog(`Deleting machine ${name} for cluster ${clusterId}`)
-        await machineDelete(clusterId, name).catch(exit)
+        const profile = getProfileName(options)
+        await machineDelete(profile, clusterId, name).catch(exit)
         consoleLog('Done')
     })
 
 program
     .command('machine-redeploy <cluster-id> <region> <instance-name|instance-id>')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
-    .action(async (clusterId: string, region: string, name: string) => {
+    .action(async (clusterId: string, region: string, name: string, options: any) => {
         exit('Not implemented')
         consoleLog(`Redeploying machine ${name} in region ${region} for cluster ${clusterId}`)
-        await machineRedeploy(clusterId, region, name).catch(exit)
+        const profile = getProfileName(options)
+        await machineRedeploy(profile, clusterId, region, name).catch(exit)
         consoleLog('Done')
     })
 

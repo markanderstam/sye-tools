@@ -8,6 +8,7 @@ const debug = require('debug')('azure/cluster')
 
 import { createBlobService, BlobService } from 'azure-storage'
 import {
+    deleteCredentials,
     validateClusterId,
     getCredentials,
     getSubscription,
@@ -19,14 +20,23 @@ import { NetworkInterface, PublicIPAddress } from 'azure-arm-network/lib/models'
 
 const ROOT_LOCATION = 'westus'
 
+export async function login(profile: string): Promise<void> {
+    await getCredentials(profile)
+}
+
+export async function logout(profile: string): Promise<void> {
+    deleteCredentials(profile)
+}
+
 export async function createCluster(
+    profile: string,
     clusterId: string,
     syeEnvironment: string,
     authorizedKeys: string,
     subscription: string | null
 ) {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(clusterId)
+    const credentials = await getCredentials(profile)
     const subscriptionId = (await getSubscription(credentials, { subscription: subscription })).subscriptionId
 
     debug('Creating SYE cluster in Azure subscription', subscriptionId)
@@ -81,18 +91,18 @@ export async function createCluster(
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
 }
 
-export async function deleteCluster(clusterId: string) {
+export async function deleteCluster(profile: string, clusterId: string) {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(clusterId)
+    const credentials = await getCredentials(profile)
     const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
 
     const resourceClient = new ResourceManagementClient(credentials, subscriptionId)
     await resourceClient.resourceGroups.deleteMethod(clusterId)
 }
 
-export async function showResources(clusterId: string, _b: boolean, _rw: boolean): Promise<void> {
+export async function showResources(profile: string, clusterId: string, _b: boolean, _rw: boolean): Promise<void> {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(clusterId)
+    const credentials = await getCredentials(profile)
 
     //const subscriptionClient = await subscriptionManagement.createSubscriptionClient(credentials)
 

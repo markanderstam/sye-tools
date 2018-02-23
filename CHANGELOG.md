@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 * AWS: Create and delete DNS records
 * Remove obsolete `cluster-create` command. Use `cluster create` instead.
 * Azure: Added support for setting security groups. See [sye-azure/README.md](sye-azure/README.md) for details.
+* Azure: Support for multiple profiles (`--profile`).
 
 ## [1.0.0] - 2018-02-23
 
