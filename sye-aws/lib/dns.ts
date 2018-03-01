@@ -4,28 +4,21 @@ import * as dbg from 'debug'
 
 const debug = dbg('dns')
 
-export function createDnsRecord(
-    name: string,
-    ip: string,
-    ttl = 300
-): Promise<Route53.Types.ChangeResourceRecordSetsResponse> {
-    return changeEtcdDnsRecord(name, ip, ttl, 'CREATE')
+export function createDnsRecord(name: string, ip: string, ttl = 300, wait = false): Promise<void> {
+    return changeEtcdDnsRecord(name, ip, ttl, wait, 'CREATE')
 }
 
-export function deleteDnsRecord(
-    name: string,
-    ip: string,
-    ttl = 300
-): Promise<Route53.Types.ChangeResourceRecordSetsResponse> {
-    return changeEtcdDnsRecord(name, ip, ttl, 'DELETE')
+export function deleteDnsRecord(name: string, ip: string, ttl = 300, wait = false): Promise<void> {
+    return changeEtcdDnsRecord(name, ip, ttl, wait, 'DELETE')
 }
 
 async function changeEtcdDnsRecord(
     name: string,
     ip: string,
     ttl: number,
+    wait: boolean,
     changeAction: 'CREATE' | 'DELETE'
-): Promise<Route53.Types.ChangeResourceRecordSetsResponse> {
+): Promise<void> {
     name += name.endsWith('.') ? '' : '.'
 
     const type = isIPv6(ip) ? 'AAAA' : 'A'
@@ -45,7 +38,7 @@ async function changeEtcdDnsRecord(
     const hostedZoneId = hostedZones.HostedZones[0].Id
 
     debug(`${changeAction} resource: zone=${hostedZoneId}, name=${name}, ip=${ip}, type=${type}, ttl=${ttl}`)
-    return route53
+    const resourceChange = await route53
         .changeResourceRecordSets({
             HostedZoneId: hostedZoneId,
             ChangeBatch: {
@@ -67,4 +60,13 @@ async function changeEtcdDnsRecord(
             },
         })
         .promise()
+
+    if (wait) {
+        const res = await route53.waitFor('resourceRecordSetsChanged', { Id: resourceChange.ChangeInfo.Id }).promise()
+        if (res.ChangeInfo.Status !== 'INSYNC') {
+            throw `Expected the DNS record change '${changeAction}' of '${name}' to be INSYNC, got ${
+                res.ChangeInfo.Status
+            }`
+        }
+    }
 }

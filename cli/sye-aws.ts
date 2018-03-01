@@ -15,9 +15,10 @@ program
     .command('dns-record-create <name> <ip>')
     .description('Create a DNS record for an IPv4 or IPv6 address')
     .option('--ttl [ttl]', 'The resource record cache time to live in seconds', '300')
-    .action(async (name: string, ip: string, options: { ttl: string }) => {
+    .option('--wait', 'Wait for the DNS record change to be INSYNC')
+    .action(async (name: string, ip: string, options: { ttl: string; wait: boolean }) => {
         consoleLog(`Creating DNS record ${name} for ip ${ip}`)
-        await createDnsRecord(name, ip, parseInt(options.ttl)).catch(exit)
+        await createDnsRecord(name, ip, parseInt(options.ttl), options.wait).catch(exit)
         consoleLog('Done')
     })
 
@@ -25,9 +26,10 @@ program
     .command('dns-record-delete <name> <ip>')
     .description('Delete a DNS record')
     .option('--ttl [ttl]', 'The resource record cache time to live in seconds', '300')
-    .action(async (name: string, ip: string, options: { ttl: string }) => {
+    .option('--wait', 'Wait for the DNS record change to be INSYNC')
+    .action(async (name: string, ip: string, options: { ttl: string; wait: boolean }) => {
         consoleLog(`Deleting DNS record ${name} for ip ${ip}`)
-        await deleteDnsRecord(name, ip, parseInt(options.ttl)).catch(exit)
+        await deleteDnsRecord(name, ip, parseInt(options.ttl), options.wait).catch(exit)
         consoleLog('Done')
     })
 
