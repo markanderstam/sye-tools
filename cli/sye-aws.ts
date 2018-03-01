@@ -167,6 +167,5 @@ if (!process.argv.slice(2).length) {
 
 function help() {
     program.outputHelp()
-    consoleLog('Use <command> -h for help on a specific command.\n')
-    process.exit(1)
+    exit('Use <command> -h for help on a specific command.\n')
 }

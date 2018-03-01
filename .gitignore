@@ -3,3 +3,4 @@ build/
 bin/
 sye-environment.tar.gz
 .idea/
+npm-debug.log

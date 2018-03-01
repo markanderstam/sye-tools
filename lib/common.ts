@@ -1,5 +1,6 @@
 import * as dbg from 'debug'
 import * as fs from 'fs'
+import * as cp from 'child_process'
 import { resolve } from 'path'
 
 const debug = dbg('common')
@@ -21,8 +22,8 @@ export function consoleLog(msg: string, error = false): void {
     }
 }
 
-export function exit(err) {
-    consoleLog(err, true)
+export function exit(message) {
+    consoleLog(message, true)
     process.exit(1)
 }
 
@@ -67,6 +68,11 @@ export function readPackageFile(filename: string) {
         // When used as module
         return fs.readFileSync(resolve(__dirname, '..', filename))
     }
+}
+
+export function execSync(cmd: string, options?: cp.ExecSyncOptions) {
+    debug(cmd)
+    return cp.execSync(cmd, options)
 }
 
 export const syeEnvironmentFile = 'sye-environment.tar.gz'

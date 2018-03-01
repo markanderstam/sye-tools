@@ -5,8 +5,15 @@
         "no-eval": true,
         "no-internal-module": true,
         "no-unsafe-finally": true,
-        "no-floating-promises": false,
+        "no-floating-promises": true,
         "await-promise": true,
-        "variable-name": [true, "ban-keywords"]
+        "variable-name": [
+            true,
+            "ban-keywords"
+        ],
+        "no-console": [
+            true,
+            "log", "error"
+        ]
     }
 }

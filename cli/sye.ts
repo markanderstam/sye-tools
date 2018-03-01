@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 
-const program = require('commander')
-import * as cp from 'child_process'
+import * as program from 'commander'
 import * as os from 'os'
 import { resolve } from 'path'
-
-const debug = require('debug')('sye')
 import { clusterCreate } from '../sye-cluster/index'
 import { registryAddImages, registryStart, registryRemove } from '../sye-registry/index'
-import { syeEnvironmentFile } from '../lib/common'
+import { syeEnvironmentFile, consoleLog, exit, execSync } from '../lib/common'
 
 const VERSION = require('../../package.json').version
 
@@ -49,10 +46,9 @@ program
 
 program.parse(process.argv)
 
-function singleServer(networkInterface, options) {
+async function singleServer(networkInterface, options) {
     if (options.localRegistry && options.registryUrl) {
-        console.log('Unable to use both local and external registry') // tslint:disable-line no-console
-        process.exit(1)
+        exit('Unable to use both local and external registry')
     }
 
     verifyRoot('single-server')
@@ -64,34 +60,33 @@ function singleServer(networkInterface, options) {
     } catch (e) {}
 
     if (!ip) {
-        console.log('Failed to find ip address of interface ' + networkInterface) // tslint:disable-line no-console
-        process.exit(1)
+        exit('Failed to find ip address of interface ' + networkInterface)
     }
 
-    console.log('\n> sye cluster-leave') // tslint:disable-line no-console
+    consoleLog('\n> sye cluster-leave')
     execSync(resolve(__dirname, '..', './sye-cluster-leave.sh'))
 
     let registryUrl = 'https://docker.io/netisye'
     if (options.localRegistry) {
         registryUrl = 'http://127.0.0.1:5000/ott'
-        console.log('\n> sye registry-remove') // tslint:disable-line no-console
+        consoleLog('\n> sye registry-remove')
         registryRemove()
 
-        console.log('\n> sye registry-start 127.0.0.1') // tslint:disable-line no-console
+        consoleLog('\n> sye registry-start 127.0.0.1')
         registryStart('127.0.0.1', { prefix: 'ott', file: './registry.tar' })
 
-        console.log(`\n> sye registry-add-release http://127.0.0.1:5000/ott`) // tslint:disable-line no-console
-        registryAddImages('http://127.0.0.1:5000/ott', { file: './images.tar' })
+        consoleLog(`\n> sye registry-add-release http://127.0.0.1:5000/ott`)
+        await registryAddImages('http://127.0.0.1:5000/ott', { file: './images.tar' })
     } else if (options.registryUrl) {
         registryUrl = options.registryUrl
     }
 
-    console.log(
+    consoleLog(
         `\n> sye cluster-create ${registryUrl} 127.0.0.1 ${options.release ? '--release ' + options.release : ''}`
-    ) // tslint:disable-line no-console
-    clusterCreate(registryUrl, ['127.0.0.1'], { output: './' + syeEnvironmentFile, release: options.release })
+    )
+    await clusterCreate(registryUrl, ['127.0.0.1'], { output: './' + syeEnvironmentFile, release: options.release })
 
-    console.log('\n> sye cluster-join') // tslint:disable-line no-console
+    consoleLog('\n> sye cluster-join')
     execSync(
         resolve(
             __dirname,
@@ -104,12 +99,12 @@ function singleServer(networkInterface, options) {
 
     execSync(`rm ${syeEnvironmentFile}`)
 
-    console.log('System is starting. Will be available on http://' + ip + ':81') // tslint:disable-line no-console
+    consoleLog('System is starting. Will be available on http://' + ip + ':81')
 }
 
 function verifyRoot(command) {
     if (os.userInfo().uid !== 0) {
-        exit(1, `${command} must be run as root`)
+        exit(`${command} must be run as root`)
     }
 }
 
@@ -122,17 +117,7 @@ function configSystemForLogService() {
         )
         execSync('sysctl -p')
     } catch (e) {
-        console.log(e) // tslint:disable-line no-console
-        exit(1, `Cannot set the OS parameter 'vm.max_map_count' to 262144. Exiting.`)
+        consoleLog(e, true)
+        exit(`Cannot set the OS parameter 'vm.max_map_count' to 262144. Exiting.`)
     }
-}
-
-function execSync(cmd: string, options?: cp.ExecSyncOptions) {
-    debug(cmd)
-    return cp.execSync(cmd, options)
-}
-
-function exit(code, message) {
-    console.log(message) // tslint:disable-line no-console
-    process.exit(code)
 }

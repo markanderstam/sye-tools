@@ -21,7 +21,6 @@ interface CoreRegion {
     securityGroups: SecurityGroups
 }
 
-// There seems to be a limit of max 5 VPCs per region
 async function createVPC(ec2: aws.EC2, clusterId: string, cidrBlock: string) {
     debug('createVPC', clusterId)
     let result = await ec2
@@ -116,7 +115,7 @@ async function setupRouteTable(ec2: aws.EC2, clusterId: string, vpcid: string, g
         })
         .promise()
     let routeTableId = result.RouteTable.RouteTableId
-    tagResource(ec2, routeTableId, clusterId, 'sye-cluster-route-table')
+    await tagResource(ec2, routeTableId, clusterId, 'sye-cluster-route-table')
     await ec2
         .createRoute({
             RouteTableId: routeTableId,

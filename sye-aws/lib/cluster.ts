@@ -1,13 +1,3 @@
-/*
-Create s3 bucket named after clusterId
-Upload sye-cluster-join
-Upload sye-environment
-Upload metadata for cluster?
-- Name of ssh key?
-- Name of vpc in each region in case we are reusing VPCs.
-- List of regions if we need it.
-*/
-
 import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import * as fs from 'fs'

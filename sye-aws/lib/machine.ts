@@ -75,16 +75,14 @@ async function buildUserData(
         )
     })
     debug('envUrl', envUrl)
-    const efsDns = fileSystemId ? `${fileSystemId}.efs.${region}.amazonaws.com` : undefined
+    const efsDns = fileSystemId ? `${fileSystemId}.efs.${region}.amazonaws.com` : ''
     debug('efsDns', efsDns)
     return Buffer.from(
         `#!/bin/sh
 cd /tmp
 aws s3 cp s3://${clusterId}/public/bootstrap.sh bootstrap.sh
 chmod +x bootstrap.sh
-ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ELASTIC_FILE_SYSTEM_DNS="${
-            efsDns ? efsDns : ''
-        }" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
+ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ELASTIC_FILE_SYSTEM_DNS="${efsDns}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
 `
     ).toString('base64')
 }
