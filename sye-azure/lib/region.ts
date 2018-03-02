@@ -22,9 +22,6 @@ export async function regionAdd(clusterId: string, region: string): Promise<void
     }
 
     await networkClient.virtualNetworks.createOrUpdate(clusterId, vnetName(region), vnetParameters)
-
-    // Create security groups
-    // TODO
 }
 
 export async function regionDelete(clusterId: string, region: string): Promise<void> {

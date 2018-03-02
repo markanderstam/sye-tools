@@ -22,7 +22,15 @@ When the cluster is created, a Resource Group named after the cluster is created
 
 ## Firewall
 
-The current version of `sye azure` does not setup any firewall rules or security groups on the VMs created in Azure. This means that all services are available to any internet-connected computer. The internal communication in a Sye cluster is protected with [TLS Mutual Authentication](https://en.wikipedia.org/wiki/Mutual_authentication) for all services except the Log service (elasticsearch). To protect the elasticsearch service, you need to purchase an [X-pack license](https://www.elastic.co/products/x-pack) from [Elastic](https://www.elastic.co).
+Azure requires us to use public IPv4 addresses in order to run a multi-region cluster. This means all security rules must include the IP addresses of all VMs in the cluster. Security groups and security rules are set on each network interface for each machine in the cluster. Each time a machine is added or deleted the security rules for all network interfaces in the cluster must be rewritten. This is time consuming. Because of this there is an option to skip creating the security rules for the `machine-add` and `machine-delete` commands in order to allow setting them once with the `ensure-security-rules` command.
+
+* All traffic is allowed from all cluster public IPs
+* Port 22 is open to all VMs
+* Machines with the management flag allow all TCP traffic to ports 81 and 4433.
+* Machines with the frontend-balancer role allow all TCP traffic to ports 80 and 443.
+* Machines with the pitcher role allow all UDP traffic to ports 2123-2130.
+
+The internal communication in a Sye cluster is protected with [TLS Mutual Authentication](https://en.wikipedia.org/wiki/Mutual_authentication) for all services except the Log service (elasticsearch). To protect the elasticsearch service, you need to purchase an [X-pack license](https://www.elastic.co/products/x-pack) from [Elastic](https://www.elastic.co).
 
 ## Create the cluster configuration
 
@@ -63,10 +71,11 @@ The region-add command will create all region-specific resources necessary to ru
 
 ## Add machines
 
-    sye azure machine-add my-cluster eastus --machine-name etcd1 --storage 30 --role log --management
-    sye azure machine-add my-cluster eastus --machine-name etcd2 --storage 30
-    sye azure machine-add my-cluster eastus --machine-name etcd3 --storage 30
-    sye azure machine-add my-cluster westus --machine-name egress --role pitcher
+    sye azure machine-add my-cluster eastus --machine-name etcd1 --storage 30 --role log --role frontend-balancer --management --skip-security-rules
+    sye azure machine-add my-cluster eastus --machine-name etcd2 --storage 30 --skip-security-rules
+    sye azure machine-add my-cluster eastus --machine-name etcd3 --storage 30 --skip-security-rules
+    sye azure machine-add my-cluster westus --machine-name egress --role pitcher --skip-security-rules
+    sye azure ensure-security-rules my-cluster
 
     sye azure cluster-show my-cluster
 
