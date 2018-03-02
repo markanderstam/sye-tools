@@ -75,7 +75,7 @@ program
         await machineAdd(
             clusterId,
             region,
-            options.availabilityZone,
+            'N/A',
             options.machineName,
             options.instanceType,
             options.role,
