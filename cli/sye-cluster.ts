@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { clusterCreate } from '../sye-cluster/index'
-import { syeEnvironmentFile } from '../lib/common'
-const program = require('commander')
+import { syeEnvironmentFile, exit } from '../lib/common'
+import * as program from 'commander'
+
 program.usage('[command] <options>')
 
 program
@@ -29,6 +30,5 @@ if (!process.argv.slice(2).length) {
 
 function help() {
     program.outputHelp()
-    console.log('Use <command> -h for help on a specific command.\n') // tslint:disable-line no-console
-    process.exit(1)
+    exit('Use <command> -h for help on a specific command.\n')
 }

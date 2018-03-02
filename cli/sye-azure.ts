@@ -5,7 +5,7 @@ import * as program from 'commander'
 import { createCluster, deleteCluster, showResources } from '../sye-azure/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy } from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
-import { consoleLog } from '../lib/common'
+import { consoleLog, exit } from '../lib/common'
 
 program.description('Manage sye-clusters on Azure')
 
@@ -94,8 +94,7 @@ program
     .command('machine-redeploy <cluster-id> <region> <instance-name|instance-id>')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
     .action(async (clusterId: string, region: string, name: string) => {
-        consoleLog('Not implemented')
-        process.exit(1)
+        exit('Not implemented')
         consoleLog(`Redeploying machine ${name} in region ${region} for cluster ${clusterId}`)
         await machineRedeploy(clusterId, region, name).catch(exit)
         consoleLog('Done')
@@ -112,9 +111,4 @@ if (!process.argv.slice(2).length) {
 function help() {
     program.outputHelp()
     exit('Use <command> -h for help on a specific command.\n')
-}
-
-function exit(err) {
-    consoleLog(err, true)
-    process.exit(1)
 }

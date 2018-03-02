@@ -23,7 +23,7 @@ Create the IAM Role and the s3-bucket:
 
 ## Add regions
 
-Setup new regions for the cluster:
+Setup new regions for the cluster (start with the core region):
 
     sye aws region-add my-cluster.example.com eu-central-1
     sye aws region-add my-cluster.example.com eu-west-2
@@ -45,22 +45,36 @@ Now you should add DNS names for the etcd-machines:
 
 The DNS-names should point to the public IPv6 addresses for the machines.
 
-The system can now be managed by pointing your browser
-to the private IP address of the machine named "core1", port 81.
+## Create DNS records
+
+    sye aws dns-record-create my-cluster-etcd1.example.com 2001:0db8:85a3:0:0:8a2e:0370:7334
+    sye aws dns-record-create my-cluster-etcd2.example.com 2001:0db8:85a3:0:0:8a2e:0370:7335
+    sye aws dns-record-create my-cluster-etcd3.example.com 2001:0db8:85a3:0:0:8a2e:0370:7336
 
 # Shutting down a cluster
 
 To shut down a cluster, start by shutting down all machines with machine-delete:
 
     sye aws machine-delete my-cluster.example.com eu-central-1 core1
+    sye aws machine-delete my-cluster.example.com eu-central-1 core2
+    sye aws machine-delete my-cluster.example.com eu-central-1 core3
+    sye aws machine-delete my-cluster.example.com eu-west-2 pitcher
 
-Wait for the machine to be terminated. Then you can remove regions with
+Wait for the machine to be terminated. Then you can remove regions with (start with non-core regions)
 
+    sye aws region-add my-cluster.example.com eu-west-2
     sye aws region-delete my-cluster.example.com eu-central-1
 
 And finally delete the cluster with
 
     sye aws cluster-delete my-cluster.example.com
+
+The DNS records can be deleted at any point, using dns-record-delete with the same arguments and options
+as when creating the DNS records:
+
+    sye aws dns-record-delete my-cluster-etcd1.example.com 2001:0db8:85a3:0:0:8a2e:0370:7334
+    sye aws dns-record-delete my-cluster-etcd2.example.com 2001:0db8:85a3:0:0:8a2e:0370:7335
+    sye aws dns-record-delete my-cluster-etcd3.example.com 2001:0db8:85a3:0:0:8a2e:0370:7336
 
 Note that cluster-delete does NOT delete the s3-bucket with the same name as the cluster.
 The reason for this is that you will then lose ownership of that bucket name.

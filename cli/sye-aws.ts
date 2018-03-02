@@ -6,9 +6,32 @@ import { createCluster, deleteCluster, showResources } from '../sye-aws/lib/clus
 import { machineAdd, machineDelete, machineRedeploy } from '../sye-aws/lib/machine'
 import { regionAdd, regionDelete } from '../sye-aws/lib/region'
 import { createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry } from '../sye-aws/lib/registry'
+import { createDnsRecord, deleteDnsRecord } from '../sye-aws/lib/dns'
 import { consoleLog, exit } from '../lib/common'
 
 program.description('Manage sye-clusters on Amazon')
+
+program
+    .command('dns-record-create <name> <ip>')
+    .description('Create a DNS record for an IPv4 or IPv6 address')
+    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', '300')
+    .option('--wait', 'Wait for the DNS record change to be INSYNC')
+    .action(async (name: string, ip: string, options: { ttl: string; wait: boolean }) => {
+        consoleLog(`Creating DNS record ${name} for ip ${ip}`)
+        await createDnsRecord(name, ip, parseInt(options.ttl), options.wait).catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('dns-record-delete <name> <ip>')
+    .description('Delete a DNS record')
+    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', '300')
+    .option('--wait', 'Wait for the DNS record change to be INSYNC')
+    .action(async (name: string, ip: string, options: { ttl: string; wait: boolean }) => {
+        consoleLog(`Deleting DNS record ${name} for ip ${ip}`)
+        await deleteDnsRecord(name, ip, parseInt(options.ttl), options.wait).catch(exit)
+        consoleLog('Done')
+    })
 
 program
     .command('registry-create <region>')
@@ -146,6 +169,5 @@ if (!process.argv.slice(2).length) {
 
 function help() {
     program.outputHelp()
-    consoleLog('Use <command> -h for help on a specific command.\n')
-    process.exit(1)
+    exit('Use <command> -h for help on a specific command.\n')
 }

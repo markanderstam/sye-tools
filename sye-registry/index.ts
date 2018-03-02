@@ -1,9 +1,8 @@
-import * as cp from 'child_process'
 import * as url from 'url'
 import * as aws from 'aws-sdk'
 import * as promptSync from 'prompt-sync'
+import { consoleLog, exit, execSync } from '../lib/common'
 
-const debug = require('debug')('sye')
 const prompt = promptSync()
 
 export function registryStart(ip, options) {
@@ -13,8 +12,7 @@ export function registryStart(ip, options) {
     let registryUrl = `http://${ip}:${port}/${options.prefix}`
     let images = dockerLoad(options.file)
     if (images.length !== 1) {
-        consoleLog(`Found ${images.length} images in ${options.file}, expected 1`)
-        process.exit(1)
+        exit(`Found ${images.length} images in ${options.file}, expected 1`)
     }
     let image = images[0]
     consoleLog(`Using image ${image}`)
@@ -37,8 +35,7 @@ export function registryStart(ip, options) {
         }
     }
     if (!started) {
-        consoleLog('Failed to start docker registry')
-        process.exit(1)
+        exit('Failed to start docker registry')
     }
     consoleLog(`Registry URL: ${registryUrl}`)
 }
@@ -77,7 +74,7 @@ function docker(command: string) {
         return execSync('docker ' + command).toString()
     } catch (e) {
         // Docker prints its error-messages to stderr
-        exit(1, 'Docker command failed. Exiting.')
+        exit('Docker command failed. Exiting.')
         return ''
     }
 }
@@ -88,8 +85,7 @@ function dockerLoad(tarFile) {
         .split('\n')
         .filter((s) => {
             if (s.match(/no space left on device/)) {
-                consoleLog('Failed to load. No space left on device.')
-                process.exit(1)
+                exit('Failed to load. No space left on device.')
                 return ''
             } else {
                 return s.match(/^Loaded image: /)
@@ -172,18 +168,4 @@ function promptRegistryCredentials() {
     const registryUsername = prompt('SYE_REGISTRY_USERNAME: ')
     const registryPassword = prompt('SYE_REGISTRY_PASSWORD: ', { echo: '' })
     return [registryUsername, registryPassword]
-}
-
-function execSync(cmd: string, options?: cp.ExecSyncOptions) {
-    debug(cmd)
-    return cp.execSync(cmd, options)
-}
-
-function exit(code: number, message: string) {
-    consoleLog(message)
-    process.exit(code)
-}
-
-function consoleLog(msg: string): void {
-    console.log(msg) // tslint:disable-line no-console
 }

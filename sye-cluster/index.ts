@@ -1,12 +1,10 @@
-import * as cp from 'child_process'
 import * as os from 'os'
 import * as fs from 'fs'
 import * as url from 'url'
 import * as semver from 'semver'
 import * as net from 'net'
 import { registryRequiresCredentials, setRegistryCredentials, getRegistryAddr } from '../sye-registry'
-
-const debug = require('debug')('sye')
+import { consoleLog, exit, execSync } from '../lib/common'
 
 export async function clusterCreate(registryUrl, etcdIps, options) {
     let registryUsername
@@ -31,8 +29,7 @@ export async function clusterCreate(registryUrl, etcdIps, options) {
         try {
             validateRegistryUrl(registryUrl, registryUsername, registryPassword, release)
         } catch (e) {
-            consoleLog(`Failed to get ${registryUrl}. Check that the registry url is correct. ${e}`)
-            process.exit(1)
+            exit(`Failed to get ${registryUrl}. Check that the registry url is correct. ${e}`)
         }
     }
 
@@ -59,8 +56,7 @@ function getTokenFromDockerHub(username, password, repo, permissions) {
         ).toString()
         return JSON.parse(authRes).token
     } catch (e) {
-        consoleLog('Docker authentication failed. Exiting.')
-        process.exit(1)
+        exit('Docker authentication failed. Exiting.')
     }
 }
 
@@ -192,15 +188,6 @@ function createConfigurationFile(content, output) {
     execSync(`cat ${tmpfile} | gzip > ${output}`)
     execSync(`rm -rf ${dir}`)
     consoleLog('Cluster configuration written to ' + output)
-}
-
-function execSync(cmd: string, options?: cp.ExecSyncOptions) {
-    debug(cmd)
-    return cp.execSync(cmd, options)
-}
-
-function consoleLog(msg: string): void {
-    console.log(msg) // tslint:disable-line no-console
 }
 
 function opensslConf() {

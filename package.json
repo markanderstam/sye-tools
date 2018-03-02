@@ -19,7 +19,8 @@
   "scripts": {
     "prepare": "npm run tsc",
     "test": "npm run tsc && multi-tape build/sye-aws/test/test-*.js",
-    "lint": "tslint -t stylish -p tsconfig.json",
+    "lint": "prettier --list-different \"{,**/**}*.ts\" && tslint -t stylish -p tsconfig.json",
+    "prettier": "prettier --write \"{,**/**}*.ts\"",
     "tsc": "tsc && rm -rf build/bin && mkdir build/bin && cp build/cli/sye.js build/bin/sye && cp build/cli/sye-aws.js build/bin/sye-aws && cp build/cli/sye-azure.js build/bin/sye-azure && cp build/cli/sye-cluster.js build/bin/sye-cluster && cp build/cli/sye-registry.js build/bin/sye-registry && chmod +x build/bin/* && cp sye-azure/bootstrap.sh build/sye-azure && cp sye-aws/bootstrap.sh build/sye-aws/ && cp sye-cluster-*.sh build/"
   },
   "author": "Net Insight",
@@ -44,6 +45,8 @@
     "source-map-support": "^0.4.18"
   },
   "devDependencies": {
+    "@types/commander": "^2.12.2",
+    "@types/debug": "0.0.30",
     "@types/node": "^8.0.28",
     "multi-tape": "^1.1.1",
     "prettier": "^1.9.2",

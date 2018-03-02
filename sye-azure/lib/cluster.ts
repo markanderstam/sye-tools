@@ -1,4 +1,4 @@
-import { readPackageFile, syeEnvironmentFile } from '../../lib/common'
+import { readPackageFile, syeEnvironmentFile, consoleLog } from '../../lib/common'
 import { ResourceManagementClient } from 'azure-arm-resource'
 import StorageManagementClient = require('azure-arm-storage')
 import ComputeClient = require('azure-arm-compute')
@@ -101,12 +101,12 @@ export async function showResources(clusterId: string, _b: boolean, _rw: boolean
     const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
 
     const resourceGroup = await resourceClient.resourceGroups.get(clusterId)
-    console.log('')
-    console.log(`Cluster '${clusterId}'`)
-    console.log(`  Subscription: '${subscription.displayName}' (${subscription.subscriptionId})`)
-    console.log(`  Resource group: '${resourceGroup.name}'`)
-    console.log(`  Location: '${resourceGroup.location}'`)
-    console.log('')
+    consoleLog('')
+    consoleLog(`Cluster '${clusterId}'`)
+    consoleLog(`  Subscription: '${subscription.displayName}' (${subscription.subscriptionId})`)
+    consoleLog(`  Resource group: '${resourceGroup.name}'`)
+    consoleLog(`  Location: '${resourceGroup.location}'`)
+    consoleLog('')
 
     // Find all the NICs in the resource group
     const networkClient = new NetworkClient(credentials, subscription.subscriptionId)
@@ -143,7 +143,7 @@ export async function showResources(clusterId: string, _b: boolean, _rw: boolean
             }
         }
     }
-    console.log(EasyTable.print(tableData))
+    consoleLog(EasyTable.print(tableData))
 }
 
 function createBlockBlobFromTextPromise(
