@@ -20,10 +20,16 @@ import {
     storageAccountName,
     securityGroupName,
     securityRuleName,
+    getSecurityGroupType,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit, syeEnvironmentFile } from '../../lib/common'
+
+const SG_TYPE_DEFAULT = 'a'
+const SG_TYPE_FRONTEND_BALANCER = 'b'
+const SG_TYPE_MANAGEMENT = 'c'
+const SG_TYPE_PITCHER = 'd'
 
 export async function machineAdd(
     clusterId: string,
@@ -75,9 +81,28 @@ export async function machineAdd(
 
     debug('publicIPInfo', publicIPInfo)
 
+    const tags = {}
+    if (management) {
+        tags['management'] = 'yes'
+    }
+    roles.forEach((r) => {
+        tags[r] = 'yes'
+    })
+
+    let nsgType = SG_TYPE_DEFAULT
+    if (tags['frontend-balancer'] && tags['frontend-balancer'] === 'yes') {
+        nsgType += SG_TYPE_FRONTEND_BALANCER
+    }
+    if (tags['management'] && tags['management'] === 'yes') {
+        nsgType += SG_TYPE_MANAGEMENT
+    }
+    if (tags['pitcher'] && tags['pitcher'] === 'yes') {
+        nsgType += SG_TYPE_PITCHER
+    }
+
     const networkSecurityGroup = await networkClient.networkSecurityGroups.createOrUpdate(
         clusterId,
-        securityGroupName(clusterId, region, machineName),
+        securityGroupName(clusterId, region, nsgType),
         {
             location: region,
         }
@@ -135,14 +160,6 @@ export async function machineAdd(
 
     let envUrl = blobService.getUrl(privateContainerName(), syeEnvironmentFile, sasToken, true)
     let publicStorageUrl = blobService.getUrl(publicContainerName())
-
-    const tags = {}
-    if (management) {
-        tags['management'] = 'yes'
-    }
-    roles.forEach((r) => {
-        tags[r] = 'yes'
-    })
 
     const vmParameters: VirtualMachine = {
         location: region,
@@ -358,27 +375,30 @@ export async function ensureMachineSecurityRules(clusterId: string) {
         },
     ]
 
+    const networkSecurityGroups = await networkClient.networkSecurityGroups.list(clusterId)
+
     const promises = new Array<Promise<void>>()
-    for (let i = 0; i < vms.length; i++) {
-        const vm = vms[i]
+    for (let i = 0; i < networkSecurityGroups.length; i++) {
+        const group = networkSecurityGroups[i]
+        const type = getSecurityGroupType(group.name)
         const rules = []
         rules.push(...defaultSecurityRuleDefs)
-        if (vm.tags['frontend-balancer'] && vm.tags['frontend-balancer'] === 'yes') {
+        if (type.includes(SG_TYPE_FRONTEND_BALANCER)) {
             rules.push(...frontendBalancerSecurityRuleDefs)
         }
-        if (vm.tags['management'] && vm.tags['management'] === 'yes') {
+        if (type.includes(SG_TYPE_MANAGEMENT)) {
             rules.push(...managementSecurityRuleDefs)
         }
-        if (vm.tags['pitcher'] && vm.tags['pitcher'] === 'yes') {
+        if (type.includes(SG_TYPE_PITCHER)) {
             rules.push(...pitcherSecurityRuleDefs)
         }
 
-        promises.push(setSecurityRules(clusterId, vm.name, vm.location, rules))
+        promises.push(setSecurityRules(clusterId, group.location, type, rules))
     }
     await Promise.all(promises)
 }
 
-export async function setSecurityRules(clusterId: string, vmName: string, location: string, rules: any[]) {
+export async function setSecurityRules(clusterId: string, location: string, type: string, rules: any[]) {
     validateClusterId(clusterId)
     let credentials = await getCredentials(clusterId)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
@@ -388,8 +408,8 @@ export async function setSecurityRules(clusterId: string, vmName: string, locati
         const def = rules[j]
         await networkClient.securityRules.createOrUpdate(
             clusterId,
-            securityGroupName(clusterId, location, vmName),
-            securityRuleName(clusterId, location, vmName, def.type),
+            securityGroupName(clusterId, location, type),
+            securityRuleName(clusterId, location, type, def.type),
             def.rule
         )
     }

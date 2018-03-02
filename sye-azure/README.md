@@ -22,7 +22,7 @@ When the cluster is created, a Resource Group named after the cluster is created
 
 ## Firewall
 
-Azure requires us to use public IPv4 addresses in order to run a multi-region cluster. This means all security rules must include the IP addresses of all VMs in the cluster. Security groups and security rules are set on each network interface for each machine in the cluster. Each time a machine is added or deleted the security rules for all network interfaces in the cluster must be rewritten. This is time consuming. Because of this there is an option to skip creating the security rules for the `machine-add` and `machine-delete` commands in order to allow setting them once with the `ensure-security-rules` command.
+Azure requires us to use public IPv4 addresses in order to run a multi-region cluster. This means all security rules must include the IP addresses of all VMs in the cluster. Security groups are set on each network interface for each machine in the cluster. Each time a machine is added or deleted the security rules for all security groups in the cluster must be rewritten. This is time consuming. Because of this there is an option to skip creating the security rules for the `machine-add` and `machine-delete` commands in order to allow setting them once with the `ensure-security-rules` command.
 
 * All traffic is allowed from all cluster public IPs
 * Port 22 is open to all VMs
