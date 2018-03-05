@@ -18,19 +18,6 @@ program
     .command('cluster [subcommand]', 'define a sye cluster')
 
 program
-    .command('cluster-create <registry-url> <etcd-ip...>')
-    .description('Create a configuration file for a cluster')
-    .option(
-        '-o, --output <filename>',
-        'configuration filename, default ./' + syeEnvironmentFile,
-        './' + syeEnvironmentFile
-    )
-    .option('--release <release>', 'Use a specific release. Defaults to latest available in registry')
-    .option('-n, --no-check', "Don't try to connect to registry.")
-    .option('--internal-ipv6', 'Use IPv6 for internal communication')
-    .action(clusterCreate)
-
-program
     .command('single-server <interface>')
     .description('Start a single server installation')
     .option('-l, --local-registry', 'Use a local Docker registry')

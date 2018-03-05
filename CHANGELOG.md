@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [] - Unreleased
 
 * AWS: Create and delete DNS records
+* Remove obsolete `cluster-create` command. Use `cluster create` instead.
 
 ## [1.0.0] - 2018-02-23
 
