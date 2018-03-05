@@ -3,7 +3,7 @@
 import 'source-map-support/register'
 import * as program from 'commander'
 import { createCluster, deleteCluster, showResources } from '../sye-azure/lib/cluster'
-import { machineAdd, machineDelete, machineRedeploy } from '../sye-azure/lib/machine'
+import { machineAdd, machineDelete, machineRedeploy, ensureMachineSecurityRules } from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog, exit } from '../lib/common'
 
@@ -61,22 +61,27 @@ program
     .option('--management', 'Run cluster-join with --management parameter')
     .option(
         '--role [role]',
-        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
+        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management frontend-balancer',
         (role, roles) => roles.push(role) && roles,
         []
     )
     .option('--storage [size]', 'Setup a separate data disk for storing container data. Size in GiB', parseInt, 0)
+    .option(
+        '--skip-security-rules',
+        'Skip setting security rules. Useful when adding multiple machines at the same time. You should then run the ensure-security-rules command afterwards.'
+    )
     .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Adding instance ${options.machineName} in region ${region} for cluster ${clusterId}`)
         await machineAdd(
             clusterId,
             region,
-            options.availabilityZone,
+            'N/A',
             options.machineName,
             options.instanceType,
             options.role,
             options.management,
-            options.storage
+            options.storage,
+            options.skipSecurityRules
         ).catch(exit)
         consoleLog('Done')
     })
@@ -97,6 +102,15 @@ program
         exit('Not implemented')
         consoleLog(`Redeploying machine ${name} in region ${region} for cluster ${clusterId}`)
         await machineRedeploy(clusterId, region, name).catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('ensure-security-rules <cluster-id>')
+    .description('Ensure security rules are correct for the specified cluster.')
+    .action(async (clusterId: string) => {
+        consoleLog(`Ensuring security rules for cluster ${clusterId}`)
+        await ensureMachineSecurityRules(clusterId).catch(exit)
         consoleLog('Done')
     })
 

@@ -18,10 +18,18 @@ import {
     privateContainerName,
     dataDiskName,
     storageAccountName,
+    securityGroupName,
+    securityRuleName,
+    getSecurityGroupType,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit, syeEnvironmentFile } from '../../lib/common'
+
+const SG_TYPE_DEFAULT = 'a'
+const SG_TYPE_FRONTEND_BALANCER = 'b'
+const SG_TYPE_MANAGEMENT = 'c'
+const SG_TYPE_PITCHER = 'd'
 
 export async function machineAdd(
     clusterId: string,
@@ -31,7 +39,8 @@ export async function machineAdd(
     instanceType: string,
     roles: string[],
     management: boolean,
-    storage: number
+    storage: number,
+    skipSecurityRules = false
 ) {
     let args = ''
     if (management) {
@@ -72,6 +81,33 @@ export async function machineAdd(
 
     debug('publicIPInfo', publicIPInfo)
 
+    const tags = {}
+    if (management) {
+        tags['management'] = 'yes'
+    }
+    roles.forEach((r) => {
+        tags[r] = 'yes'
+    })
+
+    let nsgType = SG_TYPE_DEFAULT
+    if (tags['frontend-balancer'] && tags['frontend-balancer'] === 'yes') {
+        nsgType += SG_TYPE_FRONTEND_BALANCER
+    }
+    if (tags['management'] && tags['management'] === 'yes') {
+        nsgType += SG_TYPE_MANAGEMENT
+    }
+    if (tags['pitcher'] && tags['pitcher'] === 'yes') {
+        nsgType += SG_TYPE_PITCHER
+    }
+
+    const networkSecurityGroup = await networkClient.networkSecurityGroups.createOrUpdate(
+        clusterId,
+        securityGroupName(clusterId, region, nsgType),
+        {
+            location: region,
+        }
+    )
+
     // Need to configure SR-IOV here!
     let nicParameters = {
         location: region,
@@ -83,6 +119,7 @@ export async function machineAdd(
                 publicIPAddress: publicIPInfo,
             },
         ],
+        networkSecurityGroup: networkSecurityGroup,
     }
 
     let networkInterface = await networkClient.networkInterfaces.createOrUpdate(
@@ -126,6 +163,7 @@ export async function machineAdd(
 
     const vmParameters: VirtualMachine = {
         location: region,
+        tags: tags,
         osProfile: {
             computerName: vmName(machineName),
             adminUsername: 'netinsight',
@@ -176,9 +214,12 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
 
     let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
     debug('vmInfo', vmInfo)
+    if (!skipSecurityRules) {
+        await ensureMachineSecurityRules(clusterId)
+    }
 }
 
-export async function machineDelete(clusterId: string, machineName: string) {
+export async function machineDelete(clusterId: string, machineName: string, skipSecurityRules = false) {
     validateClusterId(clusterId)
 
     let credentials = await getCredentials(clusterId)
@@ -216,6 +257,160 @@ export async function machineDelete(clusterId: string, machineName: string) {
             })
     }
     await Promise.all(promises)
+    await networkClient.networkSecurityGroups.deleteMethod(
+        clusterId,
+        securityGroupName(clusterId, vmInfo.location, vmInfo.name)
+    )
+    if (!skipSecurityRules) {
+        await ensureMachineSecurityRules(clusterId)
+    }
 }
 
 export async function machineRedeploy(_clusterId: string, _region: string, _name: string) {}
+
+export async function ensureMachineSecurityRules(clusterId: string) {
+    validateClusterId(clusterId)
+    let credentials = await getCredentials(clusterId)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+
+    const vms = await computeClient.virtualMachines.list(clusterId)
+    const ips = new Array<string>()
+
+    for (let i = 0; i < vms.length; i++) {
+        const vm = vms[i]
+        if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
+            for (let j = 0; j < vm.networkProfile.networkInterfaces.length; j++) {
+                const nic = vm.networkProfile.networkInterfaces[j]
+                const nicName = nic.id.substr(nic.id.lastIndexOf('/') + 1)
+                const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName)
+                if (nicInfo.ipConfigurations) {
+                    for (let k = 0; k < nicInfo.ipConfigurations.length; k++) {
+                        const ip = nicInfo.ipConfigurations[k]
+                        const ipName = ip.publicIPAddress.id.substr(ip.publicIPAddress.id.lastIndexOf('/') + 1)
+                        const ipInfo = await networkClient.publicIPAddresses.get(clusterId, ipName)
+                        ips.push(ipInfo.ipAddress)
+                    }
+                }
+            }
+        }
+    }
+
+    const frontendBalancerSecurityRuleDefs = [
+        {
+            type: 'tcp-frontend-balancer',
+            rule: {
+                priority: 100,
+                access: 'Allow',
+                direction: 'inbound',
+                sourceAddressPrefix: '*',
+                sourcePortRange: '*',
+                destinationAddressPrefix: '*',
+                destinationPortRanges: ['80', '443'],
+                protocol: 'TCP',
+            },
+        },
+    ]
+
+    const managementSecurityRuleDefs = [
+        {
+            type: 'tcp-management',
+            rule: {
+                priority: 200,
+                access: 'Allow',
+                direction: 'inbound',
+                sourceAddressPrefix: '*',
+                sourcePortRange: '*',
+                destinationAddressPrefix: '*',
+                destinationPortRanges: ['81', '4433'],
+                protocol: 'TCP',
+            },
+        },
+    ]
+
+    const pitcherSecurityRuleDefs = [
+        {
+            type: 'udp-pitcher',
+            rule: {
+                priority: 300,
+                access: 'Allow',
+                direction: 'inbound',
+                sourceAddressPrefix: '*',
+                sourcePortRange: '*',
+                destinationAddressPrefix: '*',
+                destinationPortRange: '2123-2130',
+                protocol: 'UDP',
+            },
+        },
+    ]
+
+    const defaultSecurityRuleDefs = [
+        {
+            type: 'ssh-default',
+            rule: {
+                priority: 1000,
+                access: 'Allow',
+                direction: 'inbound',
+                sourcePortRange: '*',
+                sourceAddressPrefix: '*',
+                destinationPortRanges: ['22'],
+                destinationAddressPrefix: 'VirtualNetwork',
+                protocol: 'TCP',
+            },
+        },
+        {
+            type: 'cluster-default',
+            rule: {
+                priority: 1100,
+                access: 'Allow',
+                direction: 'inbound',
+                sourceAddressPrefixes: ips,
+                sourcePortRange: '*',
+                destinationAddressPrefix: 'VirtualNetwork',
+                destinationPortRange: '*',
+                protocol: '*',
+            },
+        },
+    ]
+
+    const networkSecurityGroups = await networkClient.networkSecurityGroups.list(clusterId)
+
+    const promises = new Array<Promise<void>>()
+    for (let i = 0; i < networkSecurityGroups.length; i++) {
+        const group = networkSecurityGroups[i]
+        const type = getSecurityGroupType(group.name)
+        const rules = []
+        rules.push(...defaultSecurityRuleDefs)
+        if (type.includes(SG_TYPE_FRONTEND_BALANCER)) {
+            rules.push(...frontendBalancerSecurityRuleDefs)
+        }
+        if (type.includes(SG_TYPE_MANAGEMENT)) {
+            rules.push(...managementSecurityRuleDefs)
+        }
+        if (type.includes(SG_TYPE_PITCHER)) {
+            rules.push(...pitcherSecurityRuleDefs)
+        }
+
+        promises.push(setSecurityRules(clusterId, group.location, type, rules))
+    }
+    await Promise.all(promises)
+}
+
+export async function setSecurityRules(clusterId: string, location: string, type: string, rules: any[]) {
+    validateClusterId(clusterId)
+    let credentials = await getCredentials(clusterId)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    for (let j = 0; j < rules.length; j++) {
+        const def = rules[j]
+        await networkClient.securityRules.createOrUpdate(
+            clusterId,
+            securityGroupName(clusterId, location, type),
+            securityRuleName(clusterId, location, type, def.type),
+            def.rule
+        )
+    }
+}

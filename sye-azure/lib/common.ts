@@ -207,3 +207,15 @@ export function privateContainerName() {
 export function dataDiskName(machineName: string) {
     return `${machineName}-data`
 }
+
+export function securityGroupName(clusterId: string, region: string, type: string) {
+    return `${clusterId}-${region}-${type}-security-group`
+}
+
+export function getSecurityGroupType(securityGroupName: string) {
+    return securityGroupName.split('-')[2]
+}
+
+export function securityRuleName(clusterId: string, region: string, groupType: string, type: string) {
+    return `${clusterId}-${region}-${groupType}-${type}-security-group-rule`
+}
