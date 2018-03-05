@@ -7,7 +7,7 @@ All machines will communicate with each other over IPv6.
 
 Create the sye-environment.tar.gz describing the cluster using the sye-command:
 
-    sye cluster-create --release r23.175 --internal-ipv6 https://docker.io/netisye my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
+    sye cluster create --release r23.175 --internal-ipv6 https://docker.io/netisye my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
 
 This creates a file called sye-environment.tar.gz in the current directory.
 This file contains all secret credentials for the cluster and should be protected
@@ -100,7 +100,7 @@ To set up a sye backend using ECR, you should follow the steps shown below:
 
     sye aws registry-create eu-central-1
 
-    sye cluster-create --release r23.175 --internal-ipv6 https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
+    sye cluster create --release r23.175 --internal-ipv6 https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
 
     sye aws cluster-create my-cluster.example.com ./sye-environment.tar.gz ./authorized_keys
 

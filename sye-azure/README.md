@@ -36,16 +36,16 @@ The internal communication in a Sye cluster is protected with [TLS Mutual Authen
 
 First you need to create the `sye-environment.tar.gz` describing the cluster using the sye-command:
 
-    sye cluster-create --release r28.0 --internal-ipv4-nat https://docker.io/netisye my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
+    sye cluster create --release r28.0 --internal-ipv4-nat https://docker.io/netisye my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
 
 To run a multi-region cluster on Azure you need to specify `--internal-ipv4-nat` to tell all services
 in the cluster to announce the public IP address of the machine to other instances.
 
 The first non-option parameter (https://docker.io/netisye) is the address of a docker registry where the system can download a sye release. The command will ask you for credentials to download the release from the specified registry.
 
-All the following parameters are addresses where the etcd-instances will listen for commands. When you run the cluster-create command, these addresses should normally not resolve to any IP addresses. The DNS records can be updated after you have deployed the machines that should run etcd and know which IP address they have.
+All the following parameters are addresses where the etcd-instances will listen for commands. When you run the `cluster create` command, these addresses should normally not resolve to any IP addresses. The DNS records can be updated after you have deployed the machines that should run etcd and know which IP address they have.
 
-The cluster-create command creates a file called sye-environment.tar.gz in the current directory.
+The `cluster create` command creates a file called sye-environment.tar.gz in the current directory.
 This file contains all secret credentials for the cluster and should be protected
 from unauthorized access.
 
