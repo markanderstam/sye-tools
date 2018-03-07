@@ -51,4 +51,11 @@ export async function regionDelete(clusterId: string, region: string): Promise<v
             .filter((vm) => vm.location === region)
             .map((vm) => machineDelete(clusterId, vm.name))
     )
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    await Promise.all(
+        SG_TYPES.map((type) =>
+            networkClient.networkSecurityGroups.deleteMethod(clusterId, securityGroupName(clusterId, region, type))
+        )
+    )
 }
