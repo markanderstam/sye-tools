@@ -153,7 +153,7 @@ export async function getCredentials(profile: string): Promise<MsRest.DeviceToke
     }
 
     if (profile !== tokenCache.profile) {
-        throw `clusterId ${profile} !== ${tokenCache.profile}`
+        throw `profile mismatch: ${profile} !== ${tokenCache.profile}`
     }
 
     if (tokenCache.empty()) {

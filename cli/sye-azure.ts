@@ -143,10 +143,12 @@ program
 
 program
     .command('ensure-security-rules <cluster-id>')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .description('Ensure security rules are correct for the specified cluster.')
-    .action(async (clusterId: string) => {
+    .action(async (clusterId: string, options: any) => {
         consoleLog(`Ensuring security rules for cluster ${clusterId}`)
-        await ensureMachineSecurityRules(clusterId).catch(exit)
+        const profile = getProfileName(options)
+        await ensureMachineSecurityRules(profile, clusterId).catch(exit)
         consoleLog('Done')
     })
 
