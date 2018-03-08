@@ -13,8 +13,8 @@ const ROOT_LOCATION = 'westus'
 
 const debug = dbg('azure/cluster')
 
-export async function createKeyVault(clusterId: string, credentials: any) {
-    let principal = getPrincipal(clusterId)
+export async function createKeyVault(profile: string, clusterId: string, credentials: any) {
+    let principal = getPrincipal(profile)
 
     // Create keyvault
     let authenticator = function(challenge, callback) {

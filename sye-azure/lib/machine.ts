@@ -33,6 +33,7 @@ import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit, syeEnvironmentFile } from '../../lib/common'
 
 export async function machineAdd(
+    profile: string,
     clusterId: string,
     region: string,
     availabilityZone: string,
@@ -52,7 +53,7 @@ export async function machineAdd(
 
     validateClusterId(clusterId)
 
-    let credentials = await getCredentials(clusterId)
+    let credentials = await getCredentials(profile)
 
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
@@ -232,14 +233,14 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
     let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
     debug('vmInfo', vmInfo)
     if (!skipSecurityRules) {
-        await ensureMachineSecurityRules(clusterId)
+        await ensureMachineSecurityRules(profile, clusterId)
     }
 }
 
-export async function machineDelete(clusterId: string, machineName: string, skipSecurityRules = false) {
+export async function machineDelete(profile: string, clusterId: string, machineName: string, skipSecurityRules = false) {
     validateClusterId(clusterId)
 
-    let credentials = await getCredentials(clusterId)
+    let credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
@@ -279,15 +280,17 @@ export async function machineDelete(clusterId: string, machineName: string, skip
         securityGroupName(clusterId, vmInfo.location, vmInfo.name)
     )
     if (!skipSecurityRules) {
-        await ensureMachineSecurityRules(clusterId)
+        await ensureMachineSecurityRules(profile, clusterId)
     }
 }
 
-export async function machineRedeploy(_clusterId: string, _region: string, _name: string) {}
+export async function machineRedeploy(_profile: string, _clusterId: string, _region: string, _name: string) {
+    throw new Error('Not yet implemented!')
+}
 
-export async function ensureMachineSecurityRules(clusterId: string) {
+export async function ensureMachineSecurityRules(profile: string, clusterId: string) {
     validateClusterId(clusterId)
-    let credentials = await getCredentials(clusterId)
+    let credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
@@ -419,14 +422,14 @@ export async function ensureMachineSecurityRules(clusterId: string) {
                     rules.push(...pitcherSecurityRuleDefs)
                     break
             }
-            return setSecurityRules(clusterId, group.location, type, rules)
+            return setSecurityRules(profile, clusterId, group.location, type, rules)
         })
     )
 }
 
-export async function setSecurityRules(clusterId: string, location: string, type: string, rules: any[]) {
+export async function setSecurityRules(profile: string, clusterId: string, location: string, type: string, rules: any[]) {
     validateClusterId(clusterId)
-    let credentials = await getCredentials(clusterId)
+    let credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)

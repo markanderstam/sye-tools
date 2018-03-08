@@ -24,7 +24,7 @@ export const SG_TYPES = [
 
 class MyTokenCache {
     private tokens: any[] = []
-    constructor(readonly clusterId: string) {
+    constructor(readonly profile: string) {
         this.load()
     }
 
@@ -73,7 +73,7 @@ class MyTokenCache {
     }
 
     private filename(): string {
-        return `${this.directoryName()}/${this.clusterId}.tokens.json`
+        return `${this.directoryName()}/${this.profile}.tokens.json`
     }
 
     private load() {
@@ -88,6 +88,12 @@ class MyTokenCache {
             fs.mkdirSync(this.directoryName())
         }
         fs.writeFileSync(this.filename(), JSON.stringify(this.tokens))
+    }
+
+    delete() {
+        if (fs.existsSync(this.filename())) {
+            fs.unlinkSync(this.filename())
+        }
     }
 
     private deleteOld() {
@@ -141,20 +147,13 @@ export async function getSubscription(
     }
 }
 
-// Generate principal secret with
-// az ad sp create-for-rbac --name something --password supersekret > ~/.sye/something.azure.json
-export async function getCredentialsServicePrincipal(clusterId: string): Promise<MsRest.ApplicationTokenCredentials> {
-    let principal = JSON.parse(fs.readFileSync(`${process.env.HOME}/.sye/${clusterId}.azure.json`).toString())
-    return await MsRest.loginWithServicePrincipalSecret(principal.appId, principal.password, principal.tenant)
-}
-
-export async function getCredentials(clusterId: string): Promise<MsRest.DeviceTokenCredentials> {
+export async function getCredentials(profile: string): Promise<MsRest.DeviceTokenCredentials> {
     if (!tokenCache) {
-        tokenCache = new MyTokenCache(clusterId)
+        tokenCache = new MyTokenCache(profile)
     }
 
-    if (clusterId !== tokenCache.clusterId) {
-        throw `clusterId ${clusterId} !== ${tokenCache.clusterId}`
+    if (profile !== tokenCache.profile) {
+        throw `profile mismatch: ${profile} !== ${tokenCache.profile}`
     }
 
     if (tokenCache.empty()) {
@@ -173,9 +172,20 @@ export async function getCredentials(clusterId: string): Promise<MsRest.DeviceTo
     }
 }
 
-export function getPrincipal(clusterId: string): { appId: string; tenant: string; password: string } {
-    let principal = JSON.parse(fs.readFileSync(`${process.env.HOME}/.sye/${clusterId}.azure.json`).toString())
+export function deleteCredentials(profile: string): void {
+    if (!tokenCache) {
+        tokenCache = new MyTokenCache(profile)
+    }
+    tokenCache.delete()
+}
+
+export function getPrincipal(profile: string): { appId: string; tenant: string; password: string } {
+    let principal = JSON.parse(fs.readFileSync(`${process.env.HOME}/.sye/${profile}.azure.json`).toString())
     return principal
+}
+
+export function getProfileName(options: any): string {
+    return options.profile || process.env.AZURE_PROFILE || 'default'
 }
 
 // https://docs.microsoft.com/en-us/azure/architecture/best-practices/naming-conventions
