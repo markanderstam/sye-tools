@@ -90,16 +90,30 @@ export async function machineAdd(
     })
 
     let nsgType = SG_TYPE_SINGLE
-    if (tags['frontend-balancer'] && tags['frontend-balancer'] === 'yes') {
-        if (tags['management'] && tags['management'] === 'yes') {
-            nsgType = SG_TYPE_FRONTEND_BALANCER_MGMT
-        } else {
-            nsgType = SG_TYPE_FRONTEND_BALANCER
-        }
-    } else if (tags['management'] && tags['management'] === 'yes') {
-        nsgType = SG_TYPE_MANAGEMENT
-    } else if (tags['pitcher'] && tags['pitcher'] === 'yes') {
+
+    let mgmt = tags['management'] === 'yes'
+    let fb = tags['frontend-balancer'] === 'yes'
+    let pitcher = tags['pitcher'] === 'yes'
+
+    if (pitcher) {
         nsgType = SG_TYPE_PITCHER
+    }
+    if (mgmt) {
+        nsgType = SG_TYPE_MANAGEMENT
+    }
+    if (fb) {
+        nsgType = SG_TYPE_FRONTEND_BALANCER
+    }
+    if (mgmt && fb) {
+        nsgType = SG_TYPE_FRONTEND_BALANCER_MGMT
+    }
+    if (mgmt && fb && pitcher) {
+        nsgType = SG_TYPE_SINGLE
+    }
+    if ((mgmt && pitcher && !fb) || (fb && pitcher && !mgmt)) {
+        nsgType = SG_TYPE_SINGLE
+        // tslint:disable-next-line
+        console.log(`WARN: ${machineName} role combination not supported. Using Network Security Group type SINGLE`)
     }
 
     const networkSecurityGroup = await networkClient.networkSecurityGroups.createOrUpdate(
