@@ -26,6 +26,7 @@ import {
     SG_TYPE_MANAGEMENT,
     SG_TYPE_PITCHER,
     SG_TYPE_SINGLE,
+    SG_TYPE_DEFAULT,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
@@ -89,7 +90,7 @@ export async function machineAdd(
         tags[r] = 'yes'
     })
 
-    let nsgType = SG_TYPE_SINGLE
+    let nsgType = SG_TYPE_DEFAULT
 
     let mgmt = tags['management'] === 'yes'
     let fb = tags['frontend-balancer'] === 'yes'
