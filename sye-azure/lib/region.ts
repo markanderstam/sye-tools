@@ -1,6 +1,14 @@
 import NetworkManagementClient = require('azure-arm-network')
 import ComputeClient = require('azure-arm-compute')
-import { validateClusterId, getCredentials, getSubscription, subnetName, vnetName } from './common'
+import {
+    validateClusterId,
+    getCredentials,
+    getSubscription,
+    subnetName,
+    vnetName,
+    securityGroupName,
+    SG_TYPES,
+} from './common'
 import { machineDelete } from './machine'
 
 export async function regionAdd(clusterId: string, region: string): Promise<void> {
@@ -22,6 +30,14 @@ export async function regionAdd(clusterId: string, region: string): Promise<void
     }
 
     await networkClient.virtualNetworks.createOrUpdate(clusterId, vnetName(region), vnetParameters)
+
+    await Promise.all(
+        SG_TYPES.map((type) =>
+            networkClient.networkSecurityGroups.createOrUpdate(clusterId, securityGroupName(clusterId, region, type), {
+                location: region,
+            })
+        )
+    )
 }
 
 export async function regionDelete(clusterId: string, region: string): Promise<void> {
@@ -34,5 +50,12 @@ export async function regionDelete(clusterId: string, region: string): Promise<v
         (await computeClient.virtualMachines.list(clusterId))
             .filter((vm) => vm.location === region)
             .map((vm) => machineDelete(clusterId, vm.name))
+    )
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    await Promise.all(
+        SG_TYPES.map((type) =>
+            networkClient.networkSecurityGroups.deleteMethod(clusterId, securityGroupName(clusterId, region, type))
+        )
     )
 }

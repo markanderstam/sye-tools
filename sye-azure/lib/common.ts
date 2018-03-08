@@ -6,6 +6,20 @@ import { ResourceManagementClient, SubscriptionClient } from 'azure-arm-resource
 import { Subscription } from 'azure-arm-resource/lib/subscription/models'
 const debug = require('debug')('azure/common')
 
+export const SG_TYPE_SINGLE = 'single'
+export const SG_TYPE_FRONTEND_BALANCER = 'fb'
+export const SG_TYPE_FRONTEND_BALANCER_MGMT = 'fbmgmt'
+export const SG_TYPE_MANAGEMENT = 'mgmt'
+export const SG_TYPE_PITCHER = 'pitcher'
+
+export const SG_TYPES = [
+    SG_TYPE_SINGLE,
+    SG_TYPE_FRONTEND_BALANCER,
+    SG_TYPE_FRONTEND_BALANCER_MGMT,
+    SG_TYPE_MANAGEMENT,
+    SG_TYPE_PITCHER,
+]
+
 class MyTokenCache {
     private tokens: any[] = []
     constructor(readonly clusterId: string) {

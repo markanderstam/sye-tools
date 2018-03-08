@@ -21,15 +21,15 @@ import {
     securityGroupName,
     securityRuleName,
     getSecurityGroupType,
+    SG_TYPE_FRONTEND_BALANCER,
+    SG_TYPE_FRONTEND_BALANCER_MGMT,
+    SG_TYPE_MANAGEMENT,
+    SG_TYPE_PITCHER,
+    SG_TYPE_SINGLE,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine } from 'azure-arm-compute/lib/models'
 import { exit, syeEnvironmentFile } from '../../lib/common'
-
-const SG_TYPE_DEFAULT = 'a'
-const SG_TYPE_FRONTEND_BALANCER = 'b'
-const SG_TYPE_MANAGEMENT = 'c'
-const SG_TYPE_PITCHER = 'd'
 
 export async function machineAdd(
     clusterId: string,
@@ -89,15 +89,31 @@ export async function machineAdd(
         tags[r] = 'yes'
     })
 
-    let nsgType = SG_TYPE_DEFAULT
-    if (tags['frontend-balancer'] && tags['frontend-balancer'] === 'yes') {
-        nsgType += SG_TYPE_FRONTEND_BALANCER
+    let nsgType = SG_TYPE_SINGLE
+
+    let mgmt = tags['management'] === 'yes'
+    let fb = tags['frontend-balancer'] === 'yes'
+    let pitcher = tags['pitcher'] === 'yes'
+
+    if (pitcher) {
+        nsgType = SG_TYPE_PITCHER
     }
-    if (tags['management'] && tags['management'] === 'yes') {
-        nsgType += SG_TYPE_MANAGEMENT
+    if (mgmt) {
+        nsgType = SG_TYPE_MANAGEMENT
     }
-    if (tags['pitcher'] && tags['pitcher'] === 'yes') {
-        nsgType += SG_TYPE_PITCHER
+    if (fb) {
+        nsgType = SG_TYPE_FRONTEND_BALANCER
+    }
+    if (mgmt && fb) {
+        nsgType = SG_TYPE_FRONTEND_BALANCER_MGMT
+    }
+    if (mgmt && fb && pitcher) {
+        nsgType = SG_TYPE_SINGLE
+    }
+    if ((mgmt && pitcher && !fb) || (fb && pitcher && !mgmt)) {
+        nsgType = SG_TYPE_SINGLE
+        // tslint:disable-next-line
+        console.log(`WARN: ${machineName} role combination not supported. Using Network Security Group type SINGLE`)
     }
 
     const networkSecurityGroup = await networkClient.networkSecurityGroups.createOrUpdate(
@@ -377,25 +393,34 @@ export async function ensureMachineSecurityRules(clusterId: string) {
 
     const networkSecurityGroups = await networkClient.networkSecurityGroups.list(clusterId)
 
-    const promises = new Array<Promise<void>>()
-    for (let i = 0; i < networkSecurityGroups.length; i++) {
-        const group = networkSecurityGroups[i]
-        const type = getSecurityGroupType(group.name)
-        const rules = []
-        rules.push(...defaultSecurityRuleDefs)
-        if (type.includes(SG_TYPE_FRONTEND_BALANCER)) {
-            rules.push(...frontendBalancerSecurityRuleDefs)
-        }
-        if (type.includes(SG_TYPE_MANAGEMENT)) {
-            rules.push(...managementSecurityRuleDefs)
-        }
-        if (type.includes(SG_TYPE_PITCHER)) {
-            rules.push(...pitcherSecurityRuleDefs)
-        }
-
-        promises.push(setSecurityRules(clusterId, group.location, type, rules))
-    }
-    await Promise.all(promises)
+    await Promise.all(
+        networkSecurityGroups.map((group) => {
+            const type = getSecurityGroupType(group.name)
+            const rules = []
+            rules.push(...defaultSecurityRuleDefs)
+            switch (type) {
+                case SG_TYPE_FRONTEND_BALANCER:
+                    rules.push(...frontendBalancerSecurityRuleDefs)
+                    break
+                case SG_TYPE_FRONTEND_BALANCER_MGMT:
+                    rules.push(...frontendBalancerSecurityRuleDefs)
+                    rules.push(...managementSecurityRuleDefs)
+                    break
+                case SG_TYPE_MANAGEMENT:
+                    rules.push(...managementSecurityRuleDefs)
+                    break
+                case SG_TYPE_PITCHER:
+                    rules.push(...pitcherSecurityRuleDefs)
+                    break
+                case SG_TYPE_SINGLE:
+                    rules.push(...frontendBalancerSecurityRuleDefs)
+                    rules.push(...managementSecurityRuleDefs)
+                    rules.push(...pitcherSecurityRuleDefs)
+                    break
+            }
+            return setSecurityRules(clusterId, group.location, type, rules)
+        })
+    )
 }
 
 export async function setSecurityRules(clusterId: string, location: string, type: string, rules: any[]) {
