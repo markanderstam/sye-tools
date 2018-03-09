@@ -2,8 +2,6 @@
 
 set -o errexit -o pipefail
 
-CONFDIR="/etc/sye"
-
 function usage() {
     cat << EOF
 description: Add this machine to a cluster
@@ -25,6 +23,87 @@ options:
 -h, --help                                     show brief help
 EOF
     exit 0
+}
+
+function setGlobalVariablesFromArgs() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                usage
+                ;;
+            -f|--file)
+                validateFlag --file $2
+                FILE=$2
+                shift
+                ;;
+            -mcv|--mc-version)
+                validateFlag --mc-version $2
+                MACHINE_VERSION=$2
+                shift
+                ;;
+            -mp|--management-port)
+                validateFlag --management-port $2
+                MANAGEMENT_PORT=$2
+                shift
+                ;;
+            -mtp|--management-tls-port)
+                validateFlag --management-tls-port $2
+                MANAGEMENT_TLS_PORT=$2
+                shift
+                ;;
+            -mn|--machine-name)
+                validateFlag --machine-name $2
+                MACHINE_NAME=$2
+                shift
+                ;;
+            -l|--location)
+                validateFlag --location $2
+                LOCATION=$2
+                shift
+                ;;
+            -mr|--machine-region)
+                validateFlag --machine-region $2
+                MACHINE_REGION=$2
+                shift
+                ;;
+            -mz|--machine-zone)
+                validateFlag --machine-zone $2
+                MACHINE_ZONE=$2
+                shift
+                ;;
+            -mt|--machine-tags)
+                validateFlag --machine-tags $2
+                MACHINE_TAGS=$2
+                shift
+                ;;
+            --single)
+                SINGLE=$2
+                shift
+                ;;
+            --management)
+                MANAGEMENT=$2
+                shift
+                ;;
+            *)
+                echo "Unknown option $1"
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
+
+function setGlobalVariablesDefaults() {
+    CONFDIR="/etc/sye"
+    # Set default values
+    FILE=${FILE:-"./sye-environment.tar.gz"}
+    MANAGEMENT_PORT=${MANAGEMENT_PORT:-"81"}
+    MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT:-"4433"}
+    MACHINE_NAME=${MACHINE_NAME:-$(hostname --fqdn)}
+    LOCATION=${LOCATION:-"Unknown"}
+    MACHINE_REGION=${MACHINE_REGION:-"default"}
+    MACHINE_ZONE=${MACHINE_ZONE:-"default"}
+    MACHINE_TAGS=${MACHINE_TAGS:-""}
 }
 
 function validateFlag() {
@@ -131,82 +210,9 @@ function getTokenFromDockerHub() {
     curl -s -u ${REGISTRY_USERNAME}:${REGISTRY_PASSWORD} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/'
 }
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -h|--help)
-            usage
-            ;;
-        -f|--file)
-            validateFlag --file $2
-            FILE=$2
-            shift
-            ;;
-        -mcv|--mc-version)
-            validateFlag --mc-version $2
-            MACHINE_VERSION=$2
-            shift
-            ;;
-        -mp|--management-port)
-            validateFlag --management-port $2
-            MANAGEMENT_PORT=$2
-            shift
-            ;;
-        -mtp|--management-tls-port)
-            validateFlag --management-tls-port $2
-            MANAGEMENT_TLS_PORT=$2
-            shift
-            ;;
-        -mn|--machine-name)
-            validateFlag --machine-name $2
-            MACHINE_NAME=$2
-            shift
-            ;;
-        -l|--location)
-            validateFlag --location $2
-            LOCATION=$2
-            shift
-            ;;
-        -mr|--machine-region)
-            validateFlag --machine-region $2
-            MACHINE_REGION=$2
-            shift
-            ;;
-        -mz|--machine-zone)
-            validateFlag --machine-zone $2
-            MACHINE_ZONE=$2
-            shift
-            ;;
-        -mt|--machine-tags)
-            validateFlag --machine-tags $2
-            MACHINE_TAGS=$2
-            shift
-            ;;
-        --single)
-            SINGLE=$2
-            shift
-            ;;
-        --management)
-            MANAGEMENT=$2
-            shift
-            ;;
-        *)
-            echo "Unknown option $1"
-            exit 1
-            ;;
-    esac
-    shift
-done
-
 function main {
-    # Set default values
-    FILE=${FILE:-"./sye-environment.tar.gz"}
-    MANAGEMENT_PORT=${MANAGEMENT_PORT:-"81"}
-    MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT:-"4433"}
-    MACHINE_NAME=${MACHINE_NAME:-$(hostname --fqdn)}
-    LOCATION=${LOCATION:-"Unknown"}
-    MACHINE_REGION=${MACHINE_REGION:-"default"}
-    MACHINE_ZONE=${MACHINE_ZONE:-"default"}
-    MACHINE_TAGS=${MACHINE_TAGS:-""}
+    setGlobalVariablesDefaults
+    setGlobalVariablesFromArgs $@
 
     validateMachineTags $MACHINE_TAGS
 
