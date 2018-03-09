@@ -140,13 +140,15 @@ function getPublicIpv4Interfaces() {
 }
 
 function extractConfigurationFile() {
-    if [[ ! -r ${FILE} ]]; then
-        echo "Configuration file ${FILE} missing, exiting"
+    local file=$1
+    local confDir=$2
+    if [[ ! -r ${file} ]]; then
+        echo "Configuration file ${file} missing, exiting"
         exit 1
     fi
-    mkdir -p ${CONFDIR}/instance-data
-    chmod 0600 ${CONFDIR}
-    tar -xzf ${FILE} -C ${CONFDIR} -o
+    mkdir -p ${confDir}/instance-data
+    chmod 0600 ${confDir}
+    tar -xzf ${file} -C ${confDir} -o
 }
 
 function buildMachineJsonConfig() {
