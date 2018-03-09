@@ -26,6 +26,7 @@ function item_in_array {
         "-l" "--location"
         "-mz" "--machine-zone"
         "-mt" "--machine-tags"
+        "--public-ipv4"
     )
     for parameter in ${value_parameters[@]}; do
         run setGlobalVariablesFromArgs ${parameter} ""
@@ -58,6 +59,7 @@ function item_in_array {
         "LOCATION"
         "MACHINE_REGION"
         "MACHINE_TAGS"
+        "PUBLIC_INTERFACES"
     )
     # Make sure we do not already have globals set.
     local var=
@@ -77,6 +79,43 @@ function item_in_array {
     done
 
     [ "${failures}" -eq 0 ]
+}
+
+
+@test "Build machine.json with location, machineName" {
+    local location="location"
+    local machine_name="name"
+    local expected_config='{"location":"location","machineName":"name"}'
+
+    run buildMachineJsonConfig ${location} ${machine_name}
+    echo "${output}"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "${expected_config}" ]
+}
+
+
+@test "Get list of public ipv4 interfaces from string" {
+    run getPublicIpv4Interfaces "eth0=1.2.3.4,br0=5.4.3.2"
+
+    echo "${status} ${output}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "eth0=1.2.3.4 br0=5.4.3.2" ]
+}
+
+
+@test "Build machine.json with interfaces" {
+    local location="location"
+    local machine_name="name"
+    local expected_interfaces='"interfaces":{"eth0":{"publicIpv4":"1.2.3.4"},"eth1":{"publicIpv4":"2.3.4.5"}}'
+
+    run buildMachineJsonConfig ${location} ${machine_name} "eth0=1.2.3.4 eth1=2.3.4.5"
+    [ "$status" -eq 0 ]
+    [ "$output" = '{"location":"location","machineName":"name",'${expected_interfaces}'}' ]
+
+    run buildMachineJsonConfig ${location} ${machine_name} ""
+    [ "$status" -eq 0 ]
+    [ "$output" = '{"location":"location","machineName":"name"}' ]
 }
 
 
@@ -108,32 +147,31 @@ function item_in_array {
 
 
 @test "Extract configuration files" {
-    local CONFDIR=${BATS_TMPDIR}/$(random_str)
-    local FILE=${BATS_TEST_DIRNAME}/test-config.tar.gz
+    local conf_dir=${BATS_TMPDIR}/$(random_str)
+    local file=${BATS_TEST_DIRNAME}/test-config.tar.gz
 
-    run extractConfigurationFile
+    run extractConfigurationFile ${file} ${conf_dir}
     [ "$status" -eq 0 ]
 
-    [[ -d "${CONFDIR}/instance-data" ]]
-    [[ -d "${CONFDIR}/keys" ]]
-    [ $(stat -c %a ${CONFDIR}) -eq 600 ]
-    [[ -f "${CONFDIR}/machine.json" ]]
-    [[ -f "${CONFDIR}/global.json" ]]
+    [[ -d "${conf_dir}/instance-data" ]]
+    [[ -d "${conf_dir}/keys" ]]
+    [ $(stat -c %a ${conf_dir}) -eq 600 ]
+    [[ -f "${conf_dir}/global.json" ]]
 
-    rm -rf ${CONFDIR}
+    rm -rf ${conf_dir}
 }
 
 
 @test "Extract configuration files from missing archive" {
-    local CONFDIR=${BATS_TMPDIR}/$(random_str)
-    local FILE=${BATS_TEST_DIRNAME}/missing.tar.gz
+    local conf_dir=${BATS_TMPDIR}/$(random_str)
+    local file=${BATS_TEST_DIRNAME}/missing.tar.gz
 
-    [[ ! -f ${FILE} ]]
+    [[ ! -f ${file} ]]
 
-    run extractConfigurationFile
+    run extractConfigurationFile ${file} ${conf_dir}
     [ "$status" -eq 1 ]
-    [ "$output" = "Configuration file ${FILE} missing, exiting" ]
-    [[ ! -d ${CONFDIR} ]]
+    [ "$output" = "Configuration file ${file} missing, exiting" ]
+    [[ ! -d ${conf_dir} ]]
 }
 
 
