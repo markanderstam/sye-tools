@@ -63,3 +63,56 @@ function random_str {
     [ "$output" = "Configuration file ${FILE} missing, exiting" ]
     [[ ! -d ${CONFDIR} ]]
 }
+
+
+@test "Validate machine tags" {
+    local failure=0
+    local valid_tags=(
+        "tag1"
+        "tag-2"
+        "test_3"
+        "test-123"
+        "t1,t2,t3,t4"
+    )
+    for tags in ${valid_tags[@]}; do
+        run validateMachineTags ${tags}
+        if [ "$status" -ne 0 ]; then
+            echo "$output"
+            failure+=1
+        fi
+    done
+
+    local boundary_cases=(
+        "1,1"
+        "_,_"
+        ",1"
+        ",-"
+        ",,1"
+        $(random_str 1000)
+        $(printf '_%.0s' {1..1000})
+        $(printf '\-%.0s' {1..1000})
+        $(printf '1%.0s' {1..1000})
+    )
+
+    for tags in ${boundary_cases[@]}; do
+        run validateMachineTags ${tags}
+        if [ "$status" -ne 0 ]; then
+            echo "$output"
+            failure+=1
+        fi
+    done
+
+    [ "${failure}" -eq 0 ]
+
+    local invalid_tags=(
+        ","
+        ",,"
+        "¨"
+    )
+
+    for tags in ${invalid_tags[@]}; do
+        run validateMachineTags ${tags}
+        [ "$status" -eq 1 ]
+        [ "$output" = "Invalid machine tags: ${tags}" ]
+    done
+}
