@@ -128,12 +128,16 @@ function extractConfigurationFile() {
     mkdir -p ${CONFDIR}/instance-data
     chmod 600 ${CONFDIR}
     tar -xzf ${FILE} -C ${CONFDIR} -o
+}
 
+function buildMachineJsonConfig() {
+    local location=$1
+    local machineName=$2
     local contents
     read -r -d '' contents << EOF
-{"location":"${LOCATION}","machineName":"${MACHINE_NAME}"}
+{"location":"${location}","machineName":"${machineName}"}
 EOF
-    writeConfigurationFile ${CONFDIR} machine.json "${contents}"
+    echo "${contents}"
 }
 
 function writeConfigurationFile() {
@@ -222,6 +226,7 @@ function main {
     fi
 
     extractConfigurationFile
+    writeConfigurationFile ${CONFDIR} machine.json $(buildMachineJsonConfig ${LOCATION} ${MACHINE_NAME})
 
     RELEASE_VERSION=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
     REGISTRY_URL=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )

@@ -80,6 +80,19 @@ function item_in_array {
 }
 
 
+@test "Build machine.json with location, machineName" {
+    local location="location"
+    local machine_name="name"
+    local expected_config='{"location":"location","machineName":"name"}'
+
+    run buildMachineJsonConfig ${location} ${machine_name}
+
+    [ "$status" -eq 0 ]
+    echo "${output}"
+    [ "$output" = "${expected_config}" ]
+}
+
+
 @test "Write configuration file" {
     local testfile=${BATS_TMPDIR}/machine.json
     local contents='{"test": "config write"}'
@@ -117,7 +130,6 @@ function item_in_array {
     [[ -d "${CONFDIR}/instance-data" ]]
     [[ -d "${CONFDIR}/keys" ]]
     [ $(stat -c %a ${CONFDIR}) -eq 600 ]
-    [[ -f "${CONFDIR}/machine.json" ]]
     [[ -f "${CONFDIR}/global.json" ]]
 
     rm -rf ${CONFDIR}
