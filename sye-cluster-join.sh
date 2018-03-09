@@ -106,6 +106,12 @@ function setGlobalVariablesDefaults() {
     MACHINE_TAGS=${MACHINE_TAGS:-""}
 }
 
+function join_elements {
+    local IFS="$1";
+    shift;
+    echo "$*";
+}
+
 function validateFlag() {
     if [ -z $2 ]; then
         echo 'No value provided for '$1
@@ -133,11 +139,16 @@ function extractConfigurationFile() {
 function buildMachineJsonConfig() {
     local location=$1
     local machineName=$2
-    local contents
-    read -r -d '' contents << EOF
-{"location":"${location}","machineName":"${machineName}"}
+
+    local elements=()
+    while read line; do
+        [ -n ${line} ] && elements+=(${line})
+    done << EOF
+"location":"${location}"
+"machineName":"${machineName}"
 EOF
-    echo "${contents}"
+
+    echo "{$(join_elements "," "${elements[@]}")}"
 }
 
 function writeConfigurationFile() {
