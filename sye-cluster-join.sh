@@ -17,6 +17,7 @@ options:
 -mr, --machine-region <machine-region>         region for this machine, default "default"
 -mz, --machine-zone <machine-zone>             zone for this machine, default "default"
 -mt, --machine-tags <machine-tags>             optional tags for this machine
+--public-ipv4 <interface>=<address>,...        the publicly accessible ip address for one or more interfaces
 
 --single <interface-name>                      start single-pitcher services listening on an interface
 --management <interface-name>                  start management services listening on an interface
@@ -76,6 +77,11 @@ function setGlobalVariablesFromArgs() {
                 MACHINE_TAGS=$2
                 shift
                 ;;
+            --public-ipv4)
+                validateFlag --public-ipv4 $2
+                PUBLIC_INTERFACES=$2
+                shift
+                ;;
             --single)
                 SINGLE=$2
                 shift
@@ -94,7 +100,7 @@ function setGlobalVariablesFromArgs() {
 }
 
 function setGlobalVariablesDefaults() {
-    CONFDIR="/etc/sye"
+    CONFDIR=${CONFDIR:-"/etc/sye"}
     # Set default values
     FILE=${FILE:-"./sye-environment.tar.gz"}
     MANAGEMENT_PORT=${MANAGEMENT_PORT:-"81"}
@@ -104,6 +110,7 @@ function setGlobalVariablesDefaults() {
     MACHINE_REGION=${MACHINE_REGION:-"default"}
     MACHINE_ZONE=${MACHINE_ZONE:-"default"}
     MACHINE_TAGS=${MACHINE_TAGS:-""}
+    PUBLIC_INTERFACES=${PUBLIC_INTERFACES:-""}
 }
 
 function join_elements {
@@ -126,19 +133,26 @@ function validateMachineTags() {
     fi
 }
 
+function getPublicIpv4Interfaces() {
+    # We do not really want to validate neither the ipv4 format or the interface name
+    # Just look for key=value pairs, separated by comma (,)
+    echo "${1/,/ }"
+}
+
 function extractConfigurationFile() {
     if [[ ! -r ${FILE} ]]; then
         echo "Configuration file ${FILE} missing, exiting"
         exit 1
     fi
     mkdir -p ${CONFDIR}/instance-data
-    chmod 600 ${CONFDIR}
+    chmod 0600 ${CONFDIR}
     tar -xzf ${FILE} -C ${CONFDIR} -o
 }
 
 function buildMachineJsonConfig() {
     local location=$1
     local machineName=$2
+    local publicInterfaces=("${3}")
 
     local elements=()
     while read line; do
@@ -147,6 +161,17 @@ function buildMachineJsonConfig() {
 "location":"${location}"
 "machineName":"${machineName}"
 EOF
+
+    if [ ${#publicInterfaces[@]} -ne 0 ]; then
+        local interfaces=()
+        local i=
+        for interface in ${publicInterfaces[@]}; do
+            interfaces+=("\"${interface%%=*}\":{\"publicIpv4\":\"${interface#*=}\"}")
+        done
+        if [ ${#interfaces[@]} -ne 0 ]; then
+            elements+=("\"interfaces\":{$(join_elements "," "${interfaces[@]}")}")
+        fi
+    fi
 
     echo "{$(join_elements "," "${elements[@]}")}"
 }
@@ -237,7 +262,11 @@ function main {
     fi
 
     extractConfigurationFile
-    writeConfigurationFile ${CONFDIR} machine.json $(buildMachineJsonConfig ${LOCATION} ${MACHINE_NAME})
+    writeConfigurationFile ${CONFDIR} machine.json $( \
+        buildMachineJsonConfig ${LOCATION} ${MACHINE_NAME} "$(getPublicIpv4Interfaces ${PUBLIC_INTERFACES})" \
+    )
+
+    exit 1
 
     RELEASE_VERSION=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
     REGISTRY_URL=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )

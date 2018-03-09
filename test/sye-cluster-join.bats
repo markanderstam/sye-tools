@@ -26,6 +26,7 @@ function item_in_array {
         "-l" "--location"
         "-mz" "--machine-zone"
         "-mt" "--machine-tags"
+        "--public-ipv4"
     )
     for parameter in ${value_parameters[@]}; do
         run setGlobalVariablesFromArgs ${parameter} ""
@@ -58,6 +59,7 @@ function item_in_array {
         "LOCATION"
         "MACHINE_REGION"
         "MACHINE_TAGS"
+        "PUBLIC_INTERFACES"
     )
     # Make sure we do not already have globals set.
     local var=
@@ -86,10 +88,34 @@ function item_in_array {
     local expected_config='{"location":"location","machineName":"name"}'
 
     run buildMachineJsonConfig ${location} ${machine_name}
+    echo "${output}"
 
     [ "$status" -eq 0 ]
-    echo "${output}"
     [ "$output" = "${expected_config}" ]
+}
+
+
+@test "Get list of public ipv4 interfaces from string" {
+    run getPublicIpv4Interfaces "eth0=1.2.3.4,br0=5.4.3.2"
+
+    echo "${status} ${output}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "eth0=1.2.3.4 br0=5.4.3.2" ]
+}
+
+
+@test "Build machine.json with interfaces" {
+    local location="location"
+    local machine_name="name"
+    local expected_interfaces='"interfaces":{"eth0":{"publicIpv4":"1.2.3.4"},"eth1":{"publicIpv4":"2.3.4.5"}}'
+
+    run buildMachineJsonConfig ${location} ${machine_name} "eth0=1.2.3.4 eth1=2.3.4.5"
+    [ "$status" -eq 0 ]
+    [ "$output" = '{"location":"location","machineName":"name",'${expected_interfaces}'}' ]
+
+    run buildMachineJsonConfig ${location} ${machine_name} ""
+    [ "$status" -eq 0 ]
+    [ "$output" = '{"location":"location","machineName":"name"}' ]
 }
 
 
