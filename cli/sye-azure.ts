@@ -134,14 +134,13 @@ program
     })
 
 program
-    .command('machine-redeploy <cluster-id> <region> <instance-name|instance-id>')
+    .command('machine-redeploy <cluster-id> <machine-name>')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
-    .action(async (clusterId: string, region: string, name: string, options: any) => {
-        exit('Not implemented')
-        consoleLog(`Redeploying machine ${name} in region ${region} for cluster ${clusterId}`)
+    .action(async (clusterId: string, name: string, options: any) => {
+        consoleLog(`Redeploying machine ${name} for cluster ${clusterId}`)
         const profile = getProfileName(options)
-        await machineRedeploy(profile, clusterId, region, name).catch(exit)
+        await machineRedeploy(profile, clusterId, name).catch(exit)
         consoleLog('Done')
     })
 

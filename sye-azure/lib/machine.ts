@@ -29,8 +29,8 @@ import {
     SG_TYPE_DEFAULT,
 } from './common'
 import ComputeClient = require('azure-arm-compute')
-import { VirtualMachine } from 'azure-arm-compute/lib/models'
-import { exit, syeEnvironmentFile } from '../../lib/common'
+import { VirtualMachine, DataDisk } from 'azure-arm-compute/lib/models'
+import { exit, syeEnvironmentFile, consoleLog } from '../../lib/common'
 
 export async function machineAdd(
     profile: string,
@@ -41,7 +41,7 @@ export async function machineAdd(
     instanceType: string,
     roles: string[],
     management: boolean,
-    storage: number,
+    storage: number | DataDisk[],
     skipSecurityRules = false
 ) {
     let args = ''
@@ -49,7 +49,7 @@ export async function machineAdd(
         args += ' --management eth0'
     }
 
-    let hasStorage = !!storage
+    let hasStorage = typeof storage === 'number' ? !!storage : storage.length > 0
 
     validateClusterId(clusterId)
 
@@ -114,8 +114,7 @@ export async function machineAdd(
     }
     if ((mgmt && pitcher && !fb) || (fb && pitcher && !mgmt)) {
         nsgType = SG_TYPE_SINGLE
-        // tslint:disable-next-line
-        console.log(`WARN: ${machineName} role combination not supported. Using Network Security Group type SINGLE`)
+        consoleLog(`WARN: ${machineName} role combination not supported. Using Network Security Group type SINGLE`)
     }
 
     const networkSecurityGroup = await networkClient.networkSecurityGroups.createOrUpdate(
@@ -147,10 +146,6 @@ export async function machineAdd(
     )
 
     debug('networkInterface', networkInterface)
-
-    // let imageInfo = await computeClient.virtualMachineImages.list(region, 'Canonical', 'UbuntuServer', '16.04-LTS', { top: 1 }) // Finds the OLDEST version
-    // let version = imageInfo[0].name
-    // debug('imageInfo', imageInfo)
 
     let storageAccount = storageAccountName(subscription.subscriptionId, clusterId)
 
@@ -218,16 +213,20 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
         },
     }
 
-    if (storage) {
-        vmParameters.storageProfile.dataDisks.push({
-            name: dataDiskName(machineName),
-            lun: 0,
-            diskSizeGB: storage,
-            createOption: 'Empty',
-            managedDisk: {
-                storageAccountType: 'Premium_LRS',
-            },
-        })
+    if (hasStorage) {
+        if (typeof storage === 'number') {
+            vmParameters.storageProfile.dataDisks.push({
+                name: dataDiskName(machineName),
+                lun: 0,
+                diskSizeGB: storage,
+                createOption: 'Empty',
+                managedDisk: {
+                    storageAccountType: 'Premium_LRS',
+                },
+            })
+        } else {
+            vmParameters.storageProfile.dataDisks = storage
+        }
     }
 
     let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
@@ -289,8 +288,42 @@ export async function machineDelete(
     }
 }
 
-export async function machineRedeploy(_profile: string, _clusterId: string, _region: string, _name: string) {
-    throw new Error('Not yet implemented!')
+export async function machineRedeploy(profile: string, clusterId: string, machineName: string) {
+    validateClusterId(clusterId)
+    const credentials = await getCredentials(profile)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+
+    const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
+
+    debug('Power off machine', vmInfo)
+    await computeClient.virtualMachines.powerOff(clusterId, vmInfo.name)
+
+    const dataDisks = vmInfo.storageProfile.dataDisks
+    if (dataDisks.length > 0) {
+        debug('Detach data disks', dataDisks)
+        vmInfo.storageProfile.dataDisks = []
+        await computeClient.virtualMachines.createOrUpdate(clusterId, vmInfo.name, vmInfo)
+
+        dataDisks.forEach((d) => (d.createOption = 'Attach'))
+    }
+
+    debug('Delete machine')
+    await machineDelete(profile, clusterId, machineName, true)
+
+    debug('Add machine')
+    await machineAdd(
+        profile,
+        clusterId,
+        vmInfo.location,
+        'N/A',
+        machineName,
+        vmInfo.hardwareProfile.vmSize,
+        Object.keys(vmInfo.tags),
+        !!vmInfo.tags.management,
+        dataDisks
+    )
 }
 
 export async function ensureMachineSecurityRules(profile: string, clusterId: string) {
