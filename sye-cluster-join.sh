@@ -183,62 +183,68 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# Set default values
-FILE=${FILE:-"./sye-environment.tar.gz"}
-MANAGEMENT_PORT=${MANAGEMENT_PORT:-"81"}
-MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT:-"4433"}
-MACHINE_NAME=${MACHINE_NAME:-$(hostname --fqdn)}
-LOCATION=${LOCATION:-"Unknown"}
-MACHINE_REGION=${MACHINE_REGION:-"default"}
-MACHINE_ZONE=${MACHINE_ZONE:-"default"}
-MACHINE_TAGS=${MACHINE_TAGS:-""}
+function main {
+    # Set default values
+    FILE=${FILE:-"./sye-environment.tar.gz"}
+    MANAGEMENT_PORT=${MANAGEMENT_PORT:-"81"}
+    MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT:-"4433"}
+    MACHINE_NAME=${MACHINE_NAME:-$(hostname --fqdn)}
+    LOCATION=${LOCATION:-"Unknown"}
+    MACHINE_REGION=${MACHINE_REGION:-"default"}
+    MACHINE_ZONE=${MACHINE_ZONE:-"default"}
+    MACHINE_TAGS=${MACHINE_TAGS:-""}
 
-validateMachineTags $MACHINE_TAGS
+    validateMachineTags $MACHINE_TAGS
 
-if [[ ${SINGLE} && ${MANAGEMENT} ]]; then
-    echo "Cannot be both single-server and management at the same time. Single-server includes management. Exiting."
-    exit 1
-fi
+    if [[ ${SINGLE} && ${MANAGEMENT} ]]; then
+        echo "Cannot be both single-server and management at the same time. Single-server includes management. Exiting."
+        exit 1
+    fi
 
-extractConfigurationFile
+    extractConfigurationFile
 
-RELEASE_VERSION=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
-REGISTRY_URL=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
-REGISTRY_USERNAME=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
-REGISTRY_PASSWORD=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    RELEASE_VERSION=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    REGISTRY_URL=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    REGISTRY_USERNAME=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    REGISTRY_PASSWORD=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
-dockerRegistryLogin
+    dockerRegistryLogin
 
-mkdir -p /sharedData/timeshift
-chown -R sye:sye /sharedData
+    mkdir -p /sharedData/timeshift
+    chown -R sye:sye /sharedData
 
-RUNNING_CONTAINER=$(docker ps --quiet --filter "name=machine-controller-")
-if [[ ${RUNNING_CONTAINER} ]]; then
-    echo "Machine controller already running as ${RUNNING_CONTAINER}"
-else
-    echo "Starting machine-controller"
-    docker run -d \
-        -e "SINGLE_SERVER_IF=${SINGLE}" \
-        -e "BOOTSTRAP_IF=${MANAGEMENT}" \
-        -e "CONTAINER_NAME=machine-controller-1" \
-        -e "MEMORY_LIMIT=256" \
-        -e "MACHINE_REGION=${MACHINE_REGION}" \
-        -e "MACHINE_ZONE=${MACHINE_ZONE}" \
-        -e "MACHINE_TAGS=${MACHINE_TAGS}" \
-        -e "MANAGEMENT_PORT=${MANAGEMENT_PORT}" \
-        -e "MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT}" \
-        -v /etc/sye:/etc/sye:rw \
-        -v /var/lib/docker/volumes:/var/lib/docker/volumes:rw \
-        -v /tmp/cores:/tmp/cores:rw \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v /etc/passwd:/etc/passwd:ro \
-        -v /etc/group:/etc/group:ro \
-        --net=host \
-        --log-driver=json-file \
-        --log-opt max-size=20m \
-        --log-opt max-file=10 \
-        --memory 256M \
-        --restart always \
-        --name machine-controller-1 \
-        $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+    RUNNING_CONTAINER=$(docker ps --quiet --filter "name=machine-controller-")
+    if [[ ${RUNNING_CONTAINER} ]]; then
+        echo "Machine controller already running as ${RUNNING_CONTAINER}"
+    else
+        echo "Starting machine-controller"
+        docker run -d \
+            -e "SINGLE_SERVER_IF=${SINGLE}" \
+            -e "BOOTSTRAP_IF=${MANAGEMENT}" \
+            -e "CONTAINER_NAME=machine-controller-1" \
+            -e "MEMORY_LIMIT=256" \
+            -e "MACHINE_REGION=${MACHINE_REGION}" \
+            -e "MACHINE_ZONE=${MACHINE_ZONE}" \
+            -e "MACHINE_TAGS=${MACHINE_TAGS}" \
+            -e "MANAGEMENT_PORT=${MANAGEMENT_PORT}" \
+            -e "MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT}" \
+            -v /etc/sye:/etc/sye:rw \
+            -v /var/lib/docker/volumes:/var/lib/docker/volumes:rw \
+            -v /tmp/cores:/tmp/cores:rw \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /etc/passwd:/etc/passwd:ro \
+            -v /etc/group:/etc/group:ro \
+            --net=host \
+            --log-driver=json-file \
+            --log-opt max-size=20m \
+            --log-opt max-file=10 \
+            --memory 256M \
+            --restart always \
+            --name machine-controller-1 \
+            $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+    fi
+}
+
+if [[ ${FUNCNAME[0]} == "main" ]]; then
+    main $@
 fi
