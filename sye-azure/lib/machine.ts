@@ -237,7 +237,12 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
     }
 }
 
-export async function machineDelete(profile: string, clusterId: string, machineName: string, skipSecurityRules = false) {
+export async function machineDelete(
+    profile: string,
+    clusterId: string,
+    machineName: string,
+    skipSecurityRules = false
+) {
     validateClusterId(clusterId)
 
     let credentials = await getCredentials(profile)
@@ -265,7 +270,7 @@ export async function machineDelete(profile: string, clusterId: string, machineN
         })
     }
     // Delete OS disk and data disk
-    if (vmInfo.storageProfile && vmInfo.storageProfile) {
+    if (vmInfo.storageProfile) {
         if (vmInfo.storageProfile.osDisk) {
             promises.push(computeClient.disks.deleteMethod(clusterId, vmInfo.storageProfile.osDisk.name))
         }
@@ -427,7 +432,13 @@ export async function ensureMachineSecurityRules(profile: string, clusterId: str
     )
 }
 
-export async function setSecurityRules(profile: string, clusterId: string, location: string, type: string, rules: any[]) {
+export async function setSecurityRules(
+    profile: string,
+    clusterId: string,
+    location: string,
+    type: string,
+    rules: any[]
+) {
     validateClusterId(clusterId)
     let credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })

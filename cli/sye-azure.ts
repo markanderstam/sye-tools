@@ -122,10 +122,14 @@ program
     .command('machine-delete <cluster-id> <machine-name>')
     .description('Delete a machine from the cluster')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .option(
+        '--skip-security-rules',
+        'Skip setting security rules. Useful when deleting multiple machines at the same time. You should then run the ensure-security-rules command afterwards.'
+    )
     .action(async (clusterId: string, name: string, options: any) => {
         consoleLog(`Deleting machine ${name} for cluster ${clusterId}`)
         const profile = getProfileName(options)
-        await machineDelete(profile, clusterId, name).catch(exit)
+        await machineDelete(profile, clusterId, name, options.skipSecurityRules).catch(exit)
         consoleLog('Done')
     })
 

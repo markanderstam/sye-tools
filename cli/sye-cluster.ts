@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { clusterCreate } from '../sye-cluster/index'
+import { clusterCreate, ClusterCreateOptions } from '../sye-cluster/index'
 import { syeEnvironmentFile, exit } from '../lib/common'
 import * as program from 'commander'
 
@@ -18,7 +18,9 @@ program
     .option('-n, --no-check', "Don't try to connect to registry.")
     .option('--internal-ipv6', 'Use IPv6 for internal communication')
     .option('--internal-ipv4-nat', 'Use IPv4 with NAT support for internal communication')
-    .action(clusterCreate)
+    .action(async (registryUrl: string, etcdIps: string[], options: ClusterCreateOptions) => {
+        await clusterCreate(registryUrl, etcdIps, options).catch(exit)
+    })
 
 program.command('*').action(help)
 
