@@ -8,6 +8,22 @@ function random_str {
 }
 
 
+@test "Write configuration file" {
+    local testfile=/tmp/machine.json
+    local contents='{"test": "config write"}'
+
+    run writeConfigurationFile $(dirname ${testfile}) $(basename ${testfile}) "${contents}"
+    run test -f ${testfile}
+
+    run cat ${testfile}
+    [ "$status" -eq 0 ]
+    [ "$output" = "${contents}" ]
+
+    run rm ${testfile}
+    [ "$status" -eq 0 ]
+}
+
+
 @test "Extract sye-environment.tar.gz" {
     local CONFDIR=/tmp/$(random_str)
     local FILE=${BATS_TEST_DIRNAME}/sye-environment.tar.gz

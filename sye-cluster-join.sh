@@ -45,9 +45,19 @@ function extractConfigurationFile() {
     mkdir -p ${CONFDIR}/instance-data
     chmod 600 ${CONFDIR}
     tar -xzf ${FILE} -C ${CONFDIR} -o
-    cat << EOF > ${CONFDIR}/machine.json
+
+    local contents
+    read -r -d '' contents << EOF
 {"location":"${LOCATION}","machineName":"${MACHINE_NAME}"}
 EOF
+    writeConfigurationFile ${CONFDIR} machine.json "${contents}"
+}
+
+function writeConfigurationFile() {
+    local confdir=$1
+    local name=$2
+    local content=$3
+    echo ${content} > ${confdir}/${name}
 }
 
 function imageReleaseRevision() {
