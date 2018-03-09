@@ -42,6 +42,10 @@ function validateMachineTags() {
 }
 
 function extractConfigurationFile() {
+    if [[ ! -r ${FILE} ]]; then
+        echo "Configuration file ${FILE} missing, exiting"
+        exit 1
+    fi
     mkdir -p ${CONFDIR}/instance-data
     chmod 600 ${CONFDIR}
     tar -xzf ${FILE} -C ${CONFDIR} -o

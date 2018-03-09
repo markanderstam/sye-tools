@@ -9,11 +9,11 @@ function random_str {
 
 
 @test "Write configuration file" {
-    local testfile=/tmp/machine.json
+    local testfile=${BATS_TMPDIR}/machine.json
     local contents='{"test": "config write"}'
 
     run writeConfigurationFile $(dirname ${testfile}) $(basename ${testfile}) "${contents}"
-    run test -f ${testfile}
+    [[ -f ${testfile} ]]
 
     run cat ${testfile}
     [ "$status" -eq 0 ]
@@ -24,9 +24,20 @@ function random_str {
 }
 
 
-@test "Extract sye-environment.tar.gz" {
-    local CONFDIR=/tmp/$(random_str)
-    local FILE=${BATS_TEST_DIRNAME}/sye-environment.tar.gz
+@test "Write configuration file with non-existent path" {
+    local filepath=${BATS_TMPDIR}/$(random_str)
+
+    [[ ! -d ${filepath} ]]
+
+    run writeConfigurationFile ${filepath} machine.json ""
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"No such file or directory" ]]
+}
+
+
+@test "Extract configuration files" {
+    local CONFDIR=${BATS_TMPDIR}/$(random_str)
+    local FILE=${BATS_TEST_DIRNAME}/test-config.tar.gz
 
     run extractConfigurationFile
     [ "$status" -eq 0 ]
@@ -38,4 +49,17 @@ function random_str {
     [[ -f "${CONFDIR}/global.json" ]]
 
     rm -rf ${CONFDIR}
+}
+
+
+@test "Extract configuration files from missing archive" {
+    local CONFDIR=${BATS_TMPDIR}/$(random_str)
+    local FILE=${BATS_TEST_DIRNAME}/missing.tar.gz
+
+    [[ ! -f ${FILE} ]]
+
+    run extractConfigurationFile
+    [ "$status" -eq 1 ]
+    [ "$output" = "Configuration file ${FILE} missing, exiting" ]
+    [[ ! -d ${CONFDIR} ]]
 }
