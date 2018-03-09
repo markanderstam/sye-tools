@@ -1,6 +1,7 @@
-node_modules
-build/
-bin/
-sye-environment.tar.gz
 .idea/
+bin/
+build/
+node_modules
 npm-debug.log
+sye-environment.tar.gz
+!test/test-config.tar.gz
