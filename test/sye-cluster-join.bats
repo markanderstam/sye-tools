@@ -16,6 +16,68 @@ function item_in_array {
 }
 
 
+@test "_setGlobalVariablesDefaults Set global variables defaults should set expected variables" {
+    local failures=0
+    local defaulted_globals=(
+        "CONFDIR=/etc/sye"
+        "FILE=./sye-environment.tar.gz"
+        "MANAGEMENT_PORT=81"
+        "MANAGEMENT_TLS_PORT=4433"
+        "MACHINE_NAME=$(hostname --fqdn)"
+        "LOCATION=Unknown"
+        "MACHINE_REGION=default"
+        "MACHINE_TAGS="
+        "PUBLIC_INTERFACES="
+    )
+
+    _setGlobalVariablesDefaults
+
+    local var_default var default
+    for var_default in ${defaulted_globals[@]}; do
+        var=${var_default/=*/}
+        default=${var_default/*=/}
+        if [ "${!var}" != "${default}" ]; then
+            failures+=1
+            echo "Expected ${var} to be '${default}', set to '${!var}'"
+        fi
+    done
+
+    [ "${failures}" -eq 0 ]
+}
+
+
+@test "_setGlobalVariablesFromArgs Set global variables from args should validate that values are set" {
+    local value_parameters=(
+        "-f" "--file"
+        "-mcv" "--mc-version"
+        "-mp" "--management-port"
+        "-mtp" "--management-tls-port"
+        "-mn" "--machine-name"
+        "-l" "--location"
+        "-mz" "--machine-zone"
+        "-mt" "--machine-tags"
+        "--public-ipv4"
+    )
+    for parameter in ${value_parameters[@]}; do
+        run _setGlobalVariablesFromArgs ${parameter} ""
+        [ "$status" -eq 1 ]
+        run _setGlobalVariablesFromArgs ${parameter} "dummy"
+        [ "$status" -eq 0 ]
+    done
+
+    local set_parameters=(
+        "--single"
+        "--management"
+    )
+    local parameter=
+    for parameter in ${set_parameters[@]}; do
+        run _setGlobalVariablesFromArgs ${parameter} ""
+        echo "$status ${output}"
+        [ "$status" -eq 0 ]
+    done
+}
+
+
 @test "buildMachineJsonConfig Build machine.json with location, machineName" {
     local location="location"
     local machine_name="name"
@@ -82,69 +144,21 @@ function item_in_array {
 }
 
 
-@test "setGlobalVariablesFromArgs Set global variables from args should validate that values are set" {
-    local value_parameters=(
-        "-f" "--file"
-        "-mcv" "--mc-version"
-        "-mp" "--management-port"
-        "-mtp" "--management-tls-port"
-        "-mn" "--machine-name"
-        "-l" "--location"
-        "-mz" "--machine-zone"
-        "-mt" "--machine-tags"
-        "--public-ipv4"
-    )
-    for parameter in ${value_parameters[@]}; do
-        run setGlobalVariablesFromArgs ${parameter} ""
-        [ "$status" -eq 1 ]
-        run setGlobalVariablesFromArgs ${parameter} "dummy"
-        [ "$status" -eq 0 ]
+@test "registryPrefixFromUrl Should strip protocol from registry URL" {
+    local REGISTRY_URL=
+    local protocols=("http" "https")
+    local uris=("my.registry.url" "registry.url:5000" "docker.io/test")
+
+    for protocol in ${protocols[@]}; do
+        for uri in ${uris[@]}; do
+            REGISTRY_URL="${protocol}://${uri}"
+            run registryPrefixFromUrl
+
+            [ "$status" -eq 0 ]
+            echo "output: ${output}"
+            [ "$output" = "${uri}" ]
+        done
     done
-
-    local set_parameters=(
-        "--single"
-        "--management"
-    )
-    local parameter=
-    for parameter in ${set_parameters[@]}; do
-        run setGlobalVariablesFromArgs ${parameter} ""
-        echo "$status ${output}"
-        [ "$status" -eq 0 ]
-    done
-}
-
-
-@test "setGlobalVariablesDefaults Set global variables defaults should set expected variables" {
-    local failures=0
-    local defaulted_globals=(
-        "CONFDIR"
-        "FILE"
-        "MANAGEMENT_PORT"
-        "MANAGEMENT_TLS_PORT"
-        "MACHINE_NAME"
-        "LOCATION"
-        "MACHINE_REGION"
-        "MACHINE_TAGS"
-        "PUBLIC_INTERFACES"
-    )
-    # Make sure we do not already have globals set.
-    local var=
-    for var in ${defaulted_globals[@]}; do
-        unset ${var}
-    done
-
-    run setGlobalVariablesDefaults
-
-    local vars=$(compgen -v)
-    for var in ${defaulted_globals[@]}; do
-        run item_in_array ${var} ${vars[@]}
-        if [ "$status" -eq 1 ]; then
-            failures+=1
-            echo "${var} did not get set"
-        fi
-    done
-
-    [ "${failures}" -eq 0 ]
 }
 
 
