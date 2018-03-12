@@ -2,11 +2,25 @@
 
 set -o errexit -o pipefail
 
+declare CONFDIR=
+declare FILE=
+declare LOCATION=
+declare MACHINE_NAME=
+declare MACHINE_REGION=
+declare MACHINE_TAGS=
+declare MACHINE_VERSION=
+declare MACHINE_ZONE=
+declare MANAGEMENT=
+declare MANAGEMENT_PORT=
+declare MANAGEMENT_TLS_PORT=
+declare PUBLIC_INTERFACES=
+declare SINGLE=
+
 function _main {
     _setGlobalVariablesDefaults
     _setGlobalVariablesFromArgs $@
 
-    validateMachineTags $MACHINE_TAGS
+    validateMachineTags ${MACHINE_TAGS}
 
     if [[ ${SINGLE} && ${MANAGEMENT} ]]; then
         echo "Cannot be both single-server and management at the same time. Single-server includes management. Exiting."
@@ -18,21 +32,28 @@ function _main {
         buildMachineJsonConfig ${LOCATION} ${MACHINE_NAME} "$(getPublicIpv4Interfaces ${PUBLIC_INTERFACES})" \
     )
 
-    RELEASE_VERSION=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
-    REGISTRY_URL=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
-    REGISTRY_USERNAME=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
-    REGISTRY_PASSWORD=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    local releaseVersion=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    local registryUrl=$( sed -n 's/.*"registryUrl": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    local registryUser=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
+    local registryPassword=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
-    dockerRegistryLogin
+    dockerRegistryLogin ${registryUrl} ${registryUser} ${registryPassword}
 
     mkdir -p /sharedData/timeshift
     chown -R sye:sye /sharedData
 
-    RUNNING_CONTAINER=$(docker ps --quiet --filter "name=machine-controller-")
-    if [[ ${RUNNING_CONTAINER} ]]; then
-        echo "Machine controller already running as ${RUNNING_CONTAINER}"
+    local runningContainer=$(docker ps --quiet --filter "name=machine-controller-")
+    if [[ ${runningContainer} ]]; then
+        echo "Machine controller already running as ${runningContainer}"
     else
         echo "Starting machine-controller"
+        local imageTag=${MACHINE_VERSION:-$(imageReleaseRevision \
+            ${REGISTRY_URL} \
+            ${registryUser} \
+            ${REGISTRY_PASSWORD} \
+            "machine-controller"\
+            ${RELEASE_VERSION} \
+        )}
         docker run -d \
             -e "SINGLE_SERVER_IF=${SINGLE}" \
             -e "BOOTSTRAP_IF=${MANAGEMENT}" \
@@ -56,7 +77,7 @@ function _main {
             --memory 256M \
             --restart always \
             --name machine-controller-1 \
-            $(registryPrefixFromUrl ${REGISTRY_URL})/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+            $(registryPrefixFromUrl ${registryUrl})/machine-controller:${imageTag}
     fi
 }
 
@@ -174,7 +195,7 @@ EOF
 function buildMachineJsonConfig() {
     local location=$1
     local machineName=$2
-    local publicInterfaces=("${3}")
+    local publicInterfaces=(${3})
 
     local elements=()
     while read line; do
@@ -187,7 +208,7 @@ EOF
     if [ ${#publicInterfaces[@]} -ne 0 ]; then
         local interfaces=()
         local i=
-        for interface in ${publicInterfaces[@]}; do
+        for interface in "${publicInterfaces[@]}"; do
             interfaces+=("\"${interface%%=*}\":{\"publicIpv4\":\"${interface#*=}\"}")
         done
         if [ ${#interfaces[@]} -ne 0 ]; then
@@ -211,25 +232,33 @@ function dockerRegistryApiUrlFromUrl() {
 }
 
 function dockerRegistryLogin() {
-    if [[ ${REGISTRY_URL} =~ (.*)docker\.io(.*) ]]; then
+    local registryUrl=$1
+    local registryUser=$2
+    local registryPass=$3
+
+    if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         echo 'Log in to Docker Cloud registry'
-        docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD}
-    elif [[ ${REGISTRY_URL} =~ (.*)amazonaws(.*) ]]; then
+        docker login -u ${registryUser} -p ${registryPass}
+    elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         echo 'Log in to Amazon ECR container registry'
         command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
-        if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
-            export AWS_ACCESS_KEY_ID=${REGISTRY_USERNAME}
-            export AWS_SECRET_ACCESS_KEY=${REGISTRY_PASSWORD}
+
+        local awsRegion=$(echo ${registryUrl} | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
+        local awsEnvVars="AWS_DEFAULT_REGION=${awsRegion}"
+        if [[ ${registryUser} && ${registryPass} ]]; then
+            awsEnvVars+=" AWS_ACCESS_KEY_ID=${registryUser}"
+            awsEnvVars+=" AWS_SECRET_ACCESS_KEY=${registryPass}"
         fi
-        export AWS_DEFAULT_REGION=$(echo $REGISTRY_URL | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
-        output=$(aws ecr get-login --no-include-email)
-        REGISTRY_USERNAME=$(echo $output | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
-        REGISTRY_PASSWORD=$(echo $output | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
-        docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD} ${REGISTRY_URL}
+
+        local response=$(${awsEnvVars} aws ecr get-login --no-include-email)
+        docker login \
+            -u $(echo ${response} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/') \
+            -p $(echo ${response} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/') \
+            ${registryUrl}
     else
         echo 'Log in to private container registry'
-        if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
-            docker login -u ${REGISTRY_USERNAME} -p ${REGISTRY_PASSWORD} ${REGISTRY_URL}
+        if [[ ${registryUser} && ${registryPass} ]]; then
+            docker login -u ${registryUser} -p ${registryPass} ${registryUrl}
         fi
     fi
 }
@@ -253,26 +282,31 @@ function getPublicIpv4Interfaces() {
 }
 
 function getTokenFromDockerHub() {
-    local repo=${REGISTRY_URL##*/}/release
-    curl -s -u ${REGISTRY_USERNAME}:${REGISTRY_PASSWORD} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/'
+    local repo=${1##*/}/release
+    curl -s -u ${2}:${3} "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull" | sed -e 's/^.*"token":"\([^"]*\)".*$/\1/'
 }
 
 function imageReleaseRevision() {
-    local image=$1
-    local url
+    local registryUrl=$1
+    local registryUser=$2
+    local registryPass=$3
+    local image=$4
+    local releaseVersion=$5
 
-    if [[ ${REGISTRY_URL} =~ (.*)docker\.io(.*) ]]; then
+    local url
+    if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         # For Docker Cloud
-        url=$(dockerRegistryApiUrlFromUrl $(echo ${REGISTRY_URL} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${RELEASE_VERSION}
-        curl -s -H "Accept: application/json" -H "Authorization: Bearer $(getTokenFromDockerHub)" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
-    elif [[ ${REGISTRY_URL} =~ (.*)amazonaws(.*) ]]; then
-        url=$(dockerRegistryApiUrlFromUrl ${REGISTRY_URL})/release/manifests/${RELEASE_VERSION}
-        curl -k -u ${REGISTRY_USERNAME}:${REGISTRY_PASSWORD} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+        url=$(dockerRegistryApiUrlFromUrl $(echo ${registryUrl} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${releaseVersion}
+        local githubToken=$(getTokenFromDockerHub ${registryUrl} ${registryUser} ${registryPass})
+        curl -s -H "Accept: application/json" -H "Authorization: Bearer ${githubToken}" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+    elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
+        url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${releaseVersion}
+        curl -k -u ${registryUser}:${registryPass} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
     else
         # For internal Docker registry
-        url=$(dockerRegistryApiUrlFromUrl ${REGISTRY_URL})/release/manifests/${RELEASE_VERSION}
-        if [[ ${REGISTRY_USERNAME} && ${REGISTRY_PASSWORD} ]]; then
-            curl -s -k -u ${REGISTRY_USERNAME}:${REGISTRY_PASSWORD} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+        url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${releaseVersion}
+        if [[ ${registryUser} && ${registryPass} ]]; then
+            curl -s -k -u ${registryUser}:${registryPass} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
         else
             curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
         fi
