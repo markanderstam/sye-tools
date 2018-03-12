@@ -263,7 +263,7 @@ function main {
         exit 1
     fi
 
-    extractConfigurationFile
+    extractConfigurationFile ${FILE} ${CONFDIR}
     writeConfigurationFile ${CONFDIR} machine.json $( \
         buildMachineJsonConfig ${LOCATION} ${MACHINE_NAME} "$(getPublicIpv4Interfaces ${PUBLIC_INTERFACES})" \
     )
