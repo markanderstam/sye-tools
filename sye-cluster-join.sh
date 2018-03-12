@@ -56,7 +56,7 @@ function _main {
             --memory 256M \
             --restart always \
             --name machine-controller-1 \
-            $(registryPrefixFromUrl)/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
+            $(registryPrefixFromUrl ${REGISTRY_URL})/machine-controller:${MACHINE_VERSION:-$(imageReleaseRevision "machine-controller")}
     fi
 }
 
@@ -286,7 +286,7 @@ function join_elements {
 }
 
 function registryPrefixFromUrl() {
-    echo ${REGISTRY_URL} | sed -e 's/^http:\/\///g' -e 's/^https:\/\///g'
+    echo ${1} | sed -e 's/^http:\/\///g' -e 's/^https:\/\///g'
 }
 
 function validateFlag() {
