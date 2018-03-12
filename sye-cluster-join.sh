@@ -48,11 +48,11 @@ function _main {
     else
         echo "Starting machine-controller"
         local imageTag=${MACHINE_VERSION:-$(imageReleaseRevision \
-            ${REGISTRY_URL} \
+            ${registryUrl} \
             ${registryUser} \
-            ${REGISTRY_PASSWORD} \
+            ${registryPassword} \
             "machine-controller"\
-            ${RELEASE_VERSION} \
+            ${releaseVersion} \
         )}
         docker run -d \
             -e "SINGLE_SERVER_IF=${SINGLE}" \
@@ -338,10 +338,10 @@ function validateMachineTags() {
 }
 
 function writeConfigurationFile() {
-    local confdir=$1
+    local confDir=$1
     local name=$2
     local content=$3
-    echo ${content} > ${confdir}/${name}
+    echo ${content} > ${confDir}/${name}
 }
 
 if [[ ${FUNCNAME[0]} == "main" ]]; then
