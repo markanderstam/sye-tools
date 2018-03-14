@@ -344,6 +344,6 @@ function writeConfigurationFile() {
     echo ${content} > ${confDir}/${name}
 }
 
-if [[ ${FUNCNAME[0]} == "main" ]]; then
+if [ "$0" == "$BASH_SOURCE" ]; then
     _main $@
 fi
