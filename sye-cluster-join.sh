@@ -212,11 +212,11 @@ EOF
             interfaces+=("\"${interface%%=*}\":{\"publicIpv4\":\"${interface#*=}\"}")
         done
         if [ ${#interfaces[@]} -ne 0 ]; then
-            elements+=("\"interfaces\":{$(join_elements "," "${interfaces[@]}")}")
+            elements+=("\"interfaces\":{$(joinElements "," "${interfaces[@]}")}")
         fi
     fi
 
-    echo "{$(join_elements "," "${elements[@]}")}"
+    echo "{$(joinElements "," "${elements[@]}")}"
 }
 
 function dockerRegistryApiUrlFromUrl() {
@@ -313,7 +313,7 @@ function imageReleaseRevision() {
     fi
 }
 
-function join_elements {
+function joinElements {
     local IFS="$1";
     shift;
     echo "$*";

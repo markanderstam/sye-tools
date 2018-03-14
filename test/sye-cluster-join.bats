@@ -144,6 +144,35 @@ function item_in_array {
 }
 
 
+@test "joinElements Join array items with different delimiter" {
+    local delimiter=
+    for delimiter in "," "-" " " "'" "å"; do
+        run joinElements "${delimiter}" "this" "is" "a" "test"
+        [ "$status" -eq 0 ]
+        [ "$output" = "this${delimiter}is${delimiter}a${delimiter}test" ]
+    done
+}
+
+
+@test "joinElements Join array items containing spaces and delimiters" {
+    run joinElements "," "space should" "not" "affect"
+    [ "$status" -eq 0 ]
+    [ "$output" = "space should,not,affect" ]
+
+    run joinElements "," "delimiter,should be" "allowed"
+    [ "$status" -eq 0 ]
+    [ "$output" = "delimiter,should be,allowed" ]
+
+    run joinElements "," ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "" ]
+
+    run joinElements "," "" ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "," ]
+}
+
+
 @test "registryPrefixFromUrl Should strip protocol from registry URL" {
     local protocols=("http" "https")
     local uris=("my.registry.url" "registry.url:5000" "docker.io/test")
