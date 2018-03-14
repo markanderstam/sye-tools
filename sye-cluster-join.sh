@@ -271,7 +271,7 @@ function extractConfigurationFile() {
         exit 1
     fi
     mkdir -p ${confDir}/instance-data
-    chmod 0600 ${confDir}
+    chmod 0700 ${confDir}
     tar -xzf ${file} -C ${confDir} -o
 }
 

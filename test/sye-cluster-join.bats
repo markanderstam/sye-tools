@@ -104,7 +104,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
     [[ -d "${conf_dir}/instance-data" ]]
     [[ -d "${conf_dir}/keys" ]]
-    [ $(stat -c %a ${conf_dir}) -eq 600 ]
+    [ $(stat -c %a ${conf_dir}) -eq 0700 ]
     [[ -f "${conf_dir}/global.json" ]]
 
     rm -rf ${conf_dir}
