@@ -145,14 +145,12 @@ function item_in_array {
 
 
 @test "registryPrefixFromUrl Should strip protocol from registry URL" {
-    local REGISTRY_URL=
     local protocols=("http" "https")
     local uris=("my.registry.url" "registry.url:5000" "docker.io/test")
 
     for protocol in ${protocols[@]}; do
         for uri in ${uris[@]}; do
-            REGISTRY_URL="${protocol}://${uri}"
-            run registryPrefixFromUrl
+            run registryPrefixFromUrl "${protocol}://${uri}"
 
             [ "$status" -eq 0 ]
             echo "output: ${output}"
