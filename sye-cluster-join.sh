@@ -251,8 +251,8 @@ function dockerRegistryLogin() {
         fi
 
         local response=$( \
-            eval "declare -x $(echo "${awsEnvVars[@]}")" \
-            && aws ecr get-login --no-include-email\
+            for envVar in "${awsEnvVars[@]}"; do eval "declare -x \"$(echo ${envVar})\"" ; done \
+            && aws ecr get-login --no-include-email \
         )
 
         docker login \

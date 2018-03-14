@@ -261,7 +261,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
 
 @test "dockerRegistryLogin should login to docker.io if url matches" {
-    stub docker "${_DOCKER_ARGS} : true "
+    stub docker "login -u username -p password : true "
 
     run dockerRegistryLogin "docker.io" "username" "password"
 
@@ -269,6 +269,14 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     [ "$output" = "Log in to Docker Cloud registry" ]
 
     unstub docker
+}
+
+
+@test "dockerRegistryLogin should exit if aws-cli missing" {
+    run dockerRegistryLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
+
+    [ "$status" -eq 1 ]
+    [[ "${output}" =~ "Please install awscli. Aborting." ]]
 }
 
 
@@ -286,5 +294,17 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     [ "$output" = "Log in to Amazon ECR container registry" ]
 
     unstub aws
+    unstub docker
+}
+
+
+@test "dockerRegistryLogin should login to to private registry" {
+    stub docker "login -u username -p password : true https://localhost:5000"
+
+    run dockerRegistryLogin "https://localhost:5000" "username" "password"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "Log in to private container registry" ]
+
     unstub docker
 }
