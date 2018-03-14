@@ -238,7 +238,7 @@ function dockerRegistryLogin() {
 
     if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         echo 'Log in to Docker Cloud registry'
-        docker login -u ${registryUser} -p ${registryPass}
+        registryUrl=
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         echo 'Log in to Amazon ECR container registry'
         command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
@@ -255,15 +255,14 @@ function dockerRegistryLogin() {
             && aws ecr get-login --no-include-email \
         )
 
-        docker login \
-            -u $(echo ${response} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/') \
-            -p $(echo ${response} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/') \
-            ${registryUrl}
+        registryUser=$(echo ${response} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
+        registryPass=$(echo ${response} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
     else
         echo 'Log in to private container registry'
-        if [[ ${registryUser} && ${registryPass} ]]; then
-            docker login -u ${registryUser} -p ${registryPass} ${registryUrl}
-        fi
+    fi
+
+    if [[ ${registryUser} && ${registryPass} ]]; then
+        docker login -u ${registryUser} -p ${registryPass} ${registryUrl}
     fi
 }
 
