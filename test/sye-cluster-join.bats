@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 
 load helpers/test_helper
+load helpers/mocks/stub
 
 source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
@@ -256,4 +257,34 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     run writeConfigurationFile ${filepath} machine.json ""
     [ "$status" -eq 1 ]
     [[ "$output" == *"No such file or directory" ]]
+}
+
+
+@test "dockerRegistryLogin should login to docker.io if url matches" {
+    stub docker "${_DOCKER_ARGS} : true "
+
+    run dockerRegistryLogin "docker.io" "username" "password"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "Log in to Docker Cloud registry" ]
+
+    unstub docker
+}
+
+
+@test "dockerRegistryLogin should login to ECR if url matches" {
+    local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
+    local ecr_user="AWS"
+    local ecr_pass=$(random_str)
+
+    stub aws "ecr get-login --no-include-email : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+    stub docker "login -u ${ecr_user} -p ${ecr_pass} ${ecr_url} : true"
+
+    run dockerRegistryLogin "${ecr_url}" "aws key id" "aws secret key"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "Log in to Amazon ECR container registry" ]
+
+    unstub aws
+    unstub docker
 }
