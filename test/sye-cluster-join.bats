@@ -152,9 +152,43 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 @test "getPublicIpv4Interfaces Get list of public ipv4 interfaces from string" {
     run getPublicIpv4Interfaces "eth0=1.2.3.4,br0=5.4.3.2"
 
-    echo "${status} ${output}"
     [ "$status" -eq 0 ]
     [ "$output" = "eth0=1.2.3.4 br0=5.4.3.2" ]
+}
+
+
+@test "imageReleaseRevision should call curl with correct args" {
+    local service="influxdb"
+    local service_version="r28.6"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    unset getTokenFromDockerHub
+    stub getTokenFromDockerHub ": echo 'token'"
+
+    stub curl \
+        "${curl_args_1} : echo '${release_manifest}'" \
+        "${curl_args_2} : echo '${release_manifest}'" \
+        "${curl_args_3} : echo '${release_manifest}'" \
+        "${curl_args_4} : echo '${release_manifest}'"
+
+    curl_args_1=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
+    run imageReleaseRevision "https://docker.io/netidev" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    curl_args_2=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
+    run imageReleaseRevision "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "user" "pass" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    curl_args_3=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    curl_args_4=("-s" "-u" "user:pass" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "username" "password" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    unstub getTokenFromDockerHub
+    unstub curl
 }
 
 
@@ -221,7 +255,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
     stub curl ": echo '${release_manifest}'"
 
-    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "user" "passwd" "${service}" "r29.1"
+    run imageReleaseRevision "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "user" "passwd" "${service}" "r29.1"
     [ "$status" -eq 0 ]
     [ "$output" = "${service_version}" ]
 
@@ -356,7 +390,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
 
 @test "dockerRegistryLogin should login to docker.io if url matches" {
-    stub docker "login -u username -p password : true "
+    stub docker "login -u username --password-stdin : true "
 
     run dockerRegistryLogin "docker.io" "username" "password"
 
@@ -374,7 +408,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
     unset getEcrLogin
     stub getEcrLogin ": echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
-    stub docker "login -u ${ecr_user} -p ${ecr_pass} ${ecr_url} : true"
+    stub docker "login -u ${ecr_user} --password-stdin ${ecr_url} : true"
 
     run dockerRegistryLogin "${ecr_url}" "aws key id" "aws secret key"
 
@@ -387,12 +421,22 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
 
 @test "dockerRegistryLogin should login to to private registry" {
-    stub docker "login -u username -p password : true https://localhost:5000"
+    stub docker "login -u username --password-stdin : true https://localhost:5000"
 
     run dockerRegistryLogin "https://localhost:5000" "username" "password"
 
     [ "$status" -eq 0 ]
     [ "$output" = "Log in to private container registry" ]
+
+    unstub docker
+}
+
+
+@test "dockerRegistryLogin should not login if password or username not set" {
+    stub docker
+
+    run dockerRegistryLogin "https://localhost:5000"
+    [ "$status" -eq 0 ]
 
     unstub docker
 }

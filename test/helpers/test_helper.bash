@@ -19,7 +19,7 @@ function get_service_docker_manifest {
     local service=$1
     local service_version=$2
     local position=$3
-    local labels=("${service}=${service_version}")
+    local labels=("systems.neti.servicerevision.${service}=${service_version}")
 
     local dummy_label="systems.neti.servicerevision.dummyservice=r00.1"
     if [ "${position}" != "first" ]; then

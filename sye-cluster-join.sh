@@ -253,7 +253,7 @@ function dockerRegistryLogin() {
     fi
 
     if [[ ${registryUser} && ${registryPass} ]]; then
-        docker login -u ${registryUser} -p ${registryPass} ${registryUrl}
+        echo "${registryPass}" | docker login -u ${registryUser} --password-stdin ${registryUrl}
     fi
 }
 
