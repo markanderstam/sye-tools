@@ -158,6 +158,77 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 }
 
 
+@test "imageReleaseRevision should get latest tag from docker hub" {
+    local service="influxdb"
+    local service_version="r28.6"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    unset getTokenFromDockerHub
+    stub getTokenFromDockerHub ": echo 'docker-hub-token'"
+    stub curl ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "https://docker.io/netidev" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    unstub getTokenFromDockerHub
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should get latest tag from local registry" {
+    local repository_url="https://dockerregistry.neti.systems:5000/ott"
+    local service="ad-playlist-router"
+    local service_version="r24.8"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    stub curl \
+        ": echo '${release_manifest}'" \
+        ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "${repository_url}" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    run imageReleaseRevision "${repository_url}" "user" "passwd" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should fail to get tag for last service in manifest label list" {
+    local service="ad-playlist-router"
+    local service_version="r24.8"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}" "last")"
+
+    stub curl ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" != "${service_version}" ]
+    [ "$output" = "${service_version}\\" ]
+
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should get latest tag from ECR" {
+    local service="ad-playlist-router"
+    local service_version="r24.8"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    stub curl ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "user" "passwd" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    unstub curl
+}
+
+
 @test "joinElements Join array items with different delimiter" {
     local delimiter=
     for delimiter in "," "-" " " "'" "å"; do

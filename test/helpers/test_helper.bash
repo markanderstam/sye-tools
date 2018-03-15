@@ -13,3 +13,21 @@ function item_in_array {
   for e; do [[ "$e" == "$match" ]] && return 0; done
   return 1
 }
+
+
+function get_service_docker_manifest {
+    local service=$1
+    local service_version=$2
+    local position=$3
+    local labels=("${service}=${service_version}")
+
+    local dummy_label="systems.neti.servicerevision.dummyservice=r00.1"
+    if [ "${position}" != "first" ]; then
+        labels=("${dummy_label}" "${labels[@]}")
+    fi
+    if [ "${position}" != "last" ]; then
+        labels+=("${dummy_label}")
+    fi
+    echo '{"history": [{"v1Compatibility": "{\"container_config\":{\"Cmd\":[\"/bin/sh -c #(nop)  LABEL '"${labels[@]}"'\"]}}"}]}'
+
+}
