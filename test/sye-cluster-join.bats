@@ -125,6 +125,30 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 }
 
 
+@test "getEcrLogin should exit if aws-cli missing" {
+    run getEcrLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "key id" "secret key"
+
+    [ "$status" -eq 1 ]
+    [[ "${output}" =~ "Please install awscli. Aborting." ]]
+}
+
+
+@test "getEcrLogin should login to ECR" {
+    local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
+    local ecr_user="AWS"
+    local ecr_pass=$(random_str)
+
+    stub aws "ecr get-login --no-include-email : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+
+    run getEcrLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "key id" "secret key"
+    echo "${output}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "docker login -u ${ecr_user} -p ${ecr_pass}" ]
+
+    unstub aws
+}
+
+
 @test "getPublicIpv4Interfaces Get list of public ipv4 interfaces from string" {
     run getPublicIpv4Interfaces "eth0=1.2.3.4,br0=5.4.3.2"
 
@@ -272,20 +296,13 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 }
 
 
-@test "dockerRegistryLogin should exit if aws-cli missing" {
-    run dockerRegistryLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
-
-    [ "$status" -eq 1 ]
-    [[ "${output}" =~ "Please install awscli. Aborting." ]]
-}
-
-
 @test "dockerRegistryLogin should login to ECR if url matches" {
     local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
     local ecr_user="AWS"
     local ecr_pass=$(random_str)
 
-    stub aws "ecr get-login --no-include-email : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+    unset getEcrLogin
+    stub getEcrLogin ": echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
     stub docker "login -u ${ecr_user} -p ${ecr_pass} ${ecr_url} : true"
 
     run dockerRegistryLogin "${ecr_url}" "aws key id" "aws secret key"
@@ -293,7 +310,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     [ "$status" -eq 0 ]
     [ "$output" = "Log in to Amazon ECR container registry" ]
 
-    unstub aws
+    unstub getEcrLogin
     unstub docker
 }
 
