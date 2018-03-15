@@ -307,24 +307,26 @@ function imageReleaseRevision() {
     local image=$4
     local releaseVersion=$5
 
-    local url
+    local url=
+    local manifest=
     if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         # For Docker Cloud
         url=$(dockerRegistryApiUrlFromUrl $(echo ${registryUrl} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${releaseVersion}
         local githubToken=$(getTokenFromDockerHub ${registryUrl} ${registryUser} ${registryPass})
-        curl -s -H "Accept: application/json" -H "Authorization: Bearer ${githubToken}" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+        manifest=$(curl -s -H "Accept: application/json" -H "Authorization: Bearer ${githubToken}" ${url})
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${releaseVersion}
-        curl -k -u ${registryUser}:${registryPass} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+        manifest=$(curl -k -u ${registryUser}:${registryPass} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url})
     else
         # For internal Docker registry
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${releaseVersion}
         if [[ ${registryUser} && ${registryPass} ]]; then
-            curl -s -k -u ${registryUser}:${registryPass} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+            manifest=$(curl -s -k -u ${registryUser}:${registryPass} ${url})
         else
-            curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+            manifest=$(curl -s ${url})
         fi
     fi
+    echo "${manifest}" | grep -o "${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
 }
 
 function joinElements {
