@@ -23,17 +23,21 @@ program
     .option('-l, --local-registry', 'Use a local Docker registry')
     .option(
         '-r, --registry-url <url>',
-        'Use a specific external Docker registry url. Default to https://docker.io/netisye'
+        'Use a specific external Docker registry url. Defaults to https://docker.io/netisye'
     )
     .option('--release <release>', 'Use a specific release')
-    .option('-p, --management-port <port>', 'Start playout-management listening on a port', '81')
-    .option('-t, --management-tls-port <port>', 'Start playout-management listening on a TLS port', '4433')
+    .option('--internal-ipv6', 'Use IPv6 for internal communication')
+    .option('--internal-ipv4-nat', 'Use IPv4 with NAT support for internal communication')
+    .option('-p, --management-port <port>', 'Start playout-management listening on this port', '81')
+    .option('-t, --management-tls-port <port>', 'Start playout-management listening on this TLS port', '4433')
     .description('Install a single-server setup on this machine')
-    .action(singleServer)
+    .action(async (networkInterface: string, options: any) => {
+        await singleServer(networkInterface, options)
+    })
 
 program.parse(process.argv)
 
-async function singleServer(networkInterface, options) {
+async function singleServer(networkInterface: string, options: any) {
     if (options.localRegistry && options.registryUrl) {
         exit('Unable to use both local and external registry')
     }
@@ -41,19 +45,19 @@ async function singleServer(networkInterface, options) {
     verifyRoot('single-server')
     configSystemForLogService()
 
-    let ip
+    let managementIp: string
     try {
-        ip = os.networkInterfaces()[networkInterface].filter((v) => v.family === 'IPv4')[0].address
-    } catch (e) {}
+        managementIp = os.networkInterfaces()[networkInterface].find((v) => v.family === 'IPv4').address
+    } catch (_) {}
 
-    if (!ip) {
+    if (!managementIp) {
         exit('Failed to find ip address of interface ' + networkInterface)
     }
 
     consoleLog('\n> sye cluster-leave')
     execSync(resolve(__dirname, '..', './sye-cluster-leave.sh'))
 
-    let registryUrl = 'https://docker.io/netisye'
+    let registryUrl = options.registryUrl || 'https://docker.io/netisye'
     if (options.localRegistry) {
         registryUrl = 'http://127.0.0.1:5000/ott'
         consoleLog('\n> sye registry-remove')
@@ -64,14 +68,21 @@ async function singleServer(networkInterface, options) {
 
         consoleLog(`\n> sye registry-add-release http://127.0.0.1:5000/ott`)
         await registryAddImages('http://127.0.0.1:5000/ott', { file: './images.tar' })
-    } else if (options.registryUrl) {
-        registryUrl = options.registryUrl
     }
 
+    const etcdIp = options.internalIpv6 ? '::1' : '127.0.0.1'
+
     consoleLog(
-        `\n> sye cluster-create ${registryUrl} 127.0.0.1 ${options.release ? '--release ' + options.release : ''}`
+        `\n> sye cluster-create ${registryUrl} ${etcdIp} ${
+            options.release ? '--release ' + options.release : ''
+        } ${(options.internalIpv6 && '--internal-ipv6') || (options.internalIpv4Nat && '--internal-ipv4-nat') || ''}`
     )
-    await clusterCreate(registryUrl, ['127.0.0.1'], { output: './' + syeEnvironmentFile, release: options.release })
+    await clusterCreate(registryUrl, [etcdIp], {
+        output: './' + syeEnvironmentFile,
+        release: options.release,
+        internalIpv6: options.internalIpv6,
+        internalIpv4Nat: options.internalIpv4Nat,
+    })
 
     consoleLog('\n> sye cluster-join')
     execSync(
@@ -86,7 +97,7 @@ async function singleServer(networkInterface, options) {
 
     execSync(`rm ${syeEnvironmentFile}`)
 
-    consoleLog('System is starting. Will be available on http://' + ip + ':81')
+    consoleLog(`System is starting. Will be available on http://${managementIp}:${options.managementPort}`)
 }
 
 function verifyRoot(command) {
