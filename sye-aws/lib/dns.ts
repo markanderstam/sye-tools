@@ -5,14 +5,14 @@ import * as dbg from 'debug'
 const debug = dbg('dns')
 
 export function createDnsRecord(name: string, ip: string, ttl = 300, wait = false): Promise<void> {
-    return changeEtcdDnsRecord(name, ip, ttl, wait, 'CREATE')
+    return changeDnsRecord(name, ip, ttl, wait, 'CREATE')
 }
 
 export function deleteDnsRecord(name: string, ip: string, ttl = 300, wait = false): Promise<void> {
-    return changeEtcdDnsRecord(name, ip, ttl, wait, 'DELETE')
+    return changeDnsRecord(name, ip, ttl, wait, 'DELETE')
 }
 
-async function changeEtcdDnsRecord(
+async function changeDnsRecord(
     name: string,
     ip: string,
     ttl: number,

@@ -7,6 +7,7 @@ import { machineAdd, machineDelete, machineRedeploy, ensureMachineSecurityRules 
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog, exit } from '../lib/common'
 import { getProfileName } from '../sye-azure/lib/common'
+import { createDnsRecord, deleteDnsRecord } from '../sye-azure/lib/dns'
 
 program.description('Manage sye-clusters on Azure')
 
@@ -32,13 +33,19 @@ program
     .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Azure')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
-    .option('--subscription [name or id]', 'The Azure subscription')
-    .action(async (clusterId: string, syeEnvironment: string, authorizedKeys: string, options: any) => {
-        consoleLog(`Creating cluster ${clusterId}`)
-        const subscription = options.subscription || process.env.AZURE_SUBSCRIPTION_ID
-        const profile = getProfileName(options)
-        await createCluster(profile, clusterId, syeEnvironment, authorizedKeys, subscription).catch(exit)
-    })
+    .option('--subscription [name or id]', 'The Azure subscription', process.env.AZURE_SUBSCRIPTION_ID)
+    .action(
+        async (
+            clusterId: string,
+            syeEnvironment: string,
+            authorizedKeys: string,
+            options: { subscription?: string; profile?: string }
+        ) => {
+            consoleLog(`Creating cluster ${clusterId}`)
+            const profile = getProfileName(options)
+            await createCluster(profile, clusterId, syeEnvironment, authorizedKeys, options.subscription).catch(exit)
+        }
+    )
 
 program
     .command('cluster-delete <clusterId>')
@@ -157,6 +164,31 @@ program
         consoleLog(`Ensuring security rules for cluster ${clusterId}`)
         const profile = getProfileName(options)
         await ensureMachineSecurityRules(profile, clusterId).catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('dns-record-create <name> <ip>')
+    .description('Create a DNS record for an IPv4 or IPv6 address')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .option('--subscription [name or id]', 'The Azure subscription', process.env.AZURE_SUBSCRIPTION_ID)
+    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', (n) => parseInt(n), 300)
+    .action(async (name: string, ip: string, options: { subscription?: string; profile?: string; ttl?: number }) => {
+        consoleLog(`Creating DNS record ${name} for ip ${ip}`)
+        const profile = getProfileName(options)
+        await createDnsRecord(profile, name, ip, options.subscription, options.ttl).catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('dns-record-delete <name> <ip>')
+    .description('Delete a DNS record')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .option('--subscription [name or id]', 'The Azure subscription', process.env.AZURE_SUBSCRIPTION_ID)
+    .action(async (name: string, ip: string, options: { subscription?: string; profile?: string }) => {
+        consoleLog(`Deleting DNS record ${name} for ip ${ip}`)
+        const profile = getProfileName(options)
+        await deleteDnsRecord(profile, name, ip, options.subscription).catch(exit)
         consoleLog('Done')
     })
 
