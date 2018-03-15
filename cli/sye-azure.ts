@@ -122,22 +122,25 @@ program
     .command('machine-delete <cluster-id> <machine-name>')
     .description('Delete a machine from the cluster')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .option(
+        '--skip-security-rules',
+        'Skip setting security rules. Useful when deleting multiple machines at the same time. You should then run the ensure-security-rules command afterwards.'
+    )
     .action(async (clusterId: string, name: string, options: any) => {
         consoleLog(`Deleting machine ${name} for cluster ${clusterId}`)
         const profile = getProfileName(options)
-        await machineDelete(profile, clusterId, name).catch(exit)
+        await machineDelete(profile, clusterId, name, options.skipSecurityRules).catch(exit)
         consoleLog('Done')
     })
 
 program
-    .command('machine-redeploy <cluster-id> <region> <instance-name|instance-id>')
+    .command('machine-redeploy <cluster-id> <machine-name>')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
-    .action(async (clusterId: string, region: string, name: string, options: any) => {
-        exit('Not implemented')
-        consoleLog(`Redeploying machine ${name} in region ${region} for cluster ${clusterId}`)
+    .action(async (clusterId: string, name: string, options: any) => {
+        consoleLog(`Redeploying machine ${name} for cluster ${clusterId}`)
         const profile = getProfileName(options)
-        await machineRedeploy(profile, clusterId, region, name).catch(exit)
+        await machineRedeploy(profile, clusterId, name).catch(exit)
         consoleLog('Done')
     })
 

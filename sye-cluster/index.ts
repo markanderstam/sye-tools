@@ -6,9 +6,17 @@ import * as net from 'net'
 import { registryRequiresCredentials, setRegistryCredentials, getRegistryAddr } from '../sye-registry'
 import { consoleLog, exit, execSync } from '../lib/common'
 
-export async function clusterCreate(registryUrl, etcdIps, options) {
-    let registryUsername
-    let registryPassword
+export interface ClusterCreateOptions {
+    output: string
+    release?: string
+    check?: boolean
+    internalIpv6?: boolean
+    internalIpv4Nat?: boolean
+}
+
+export async function clusterCreate(registryUrl: string, etcdIps: string[], options: ClusterCreateOptions) {
+    let registryUsername: string
+    let registryPassword: string
     let registryAddr = getRegistryAddr(registryUrl)
     if (registryRequiresCredentials(registryAddr)) {
         ;[registryUsername, registryPassword] = await setRegistryCredentials(registryAddr)
@@ -164,7 +172,7 @@ function releaseVersionFromRegistry(registryUrl, registryUsername, registryPassw
         : undefined
 }
 
-function createConfigurationFile(content, output) {
+function createConfigurationFile(content, output: string) {
     // Reset temporary credentials if registry is ECR and no access id and secret are provided as credentials
     if (
         content.registryUrl.includes('amazonaws.com') &&

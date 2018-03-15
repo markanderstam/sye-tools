@@ -20,16 +20,16 @@ function _main {
     _setGlobalVariablesDefaults
     _setGlobalVariablesFromArgs $@
 
-    validateMachineTags ${MACHINE_TAGS}
+    validateMachineTags "${MACHINE_TAGS}"
 
     if [[ ${SINGLE} && ${MANAGEMENT} ]]; then
         echo "Cannot be both single-server and management at the same time. Single-server includes management. Exiting."
         exit 1
     fi
 
-    extractConfigurationFile ${FILE} ${CONFDIR}
-    writeConfigurationFile ${CONFDIR} machine.json $( \
-        buildMachineJsonConfig ${LOCATION} ${MACHINE_NAME} "$(getPublicIpv4Interfaces ${PUBLIC_INTERFACES})" \
+    extractConfigurationFile "${FILE}" "${CONFDIR}"
+    writeConfigurationFile "${CONFDIR}" "machine.json" $( \
+        buildMachineJsonConfig "${LOCATION}" "${MACHINE_NAME}" "$(getPublicIpv4Interfaces ${PUBLIC_INTERFACES})" \
     )
 
     local releaseVersion=$( sed -n 's/.*"release": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
@@ -37,7 +37,7 @@ function _main {
     local registryUser=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
     local registryPassword=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
-    dockerRegistryLogin ${registryUrl} ${registryUser} ${registryPassword}
+    dockerRegistryLogin "${registryUrl}" "${registryUser}" "${registryPassword}"
 
     mkdir -p /sharedData/timeshift
     chown -R sye:sye /sharedData
@@ -48,11 +48,11 @@ function _main {
     else
         echo "Starting machine-controller"
         local imageTag=${MACHINE_VERSION:-$(imageReleaseRevision \
-            ${registryUrl} \
-            ${registryUser} \
-            ${registryPassword} \
-            "machine-controller"\
-            ${releaseVersion} \
+            "${registryUrl}" \
+            "${registryUser}" \
+            "${registryPassword}" \
+            "machine-controller" \
+            "${releaseVersion}" \
         )}
         docker run -d \
             -e "SINGLE_SERVER_IF=${SINGLE}" \
