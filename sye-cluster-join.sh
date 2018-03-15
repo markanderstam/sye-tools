@@ -231,6 +231,27 @@ function dockerRegistryApiUrlFromUrl() {
     fi
 }
 
+function getEcrLogin() {
+    local ecrUrl=$1
+    local awsAccessKeyId=$2
+    local awsSecretAccessKey=$3
+
+    command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
+
+    local awsRegion=$(echo ${ecrUrl} | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
+    local awsEnvVars=("AWS_DEFAULT_REGION=${awsRegion}")
+    if [[ ${awsAccessKeyId} && ${awsSecretAccessKey} ]]; then
+        awsEnvVars+=("AWS_ACCESS_KEY_ID=${awsAccessKeyId}")
+        awsEnvVars+=("AWS_SECRET_ACCESS_KEY=${awsSecretAccessKey}")
+    fi
+
+    echo $( \
+        for envVar in "${awsEnvVars[@]}"; do eval "declare -x \"$(echo ${envVar})\"" ; done \
+        && aws ecr get-login --no-include-email \
+    )
+}
+
+
 function dockerRegistryLogin() {
     local registryUrl=$1
     local registryUser=$2
@@ -241,22 +262,13 @@ function dockerRegistryLogin() {
         registryUrl=
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         echo 'Log in to Amazon ECR container registry'
-        command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
 
-        local awsRegion=$(echo ${registryUrl} | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
-        local awsEnvVars=("AWS_DEFAULT_REGION=${awsRegion}")
-        if [[ ${registryUser} && ${registryPass} ]]; then
-            awsEnvVars+=("AWS_ACCESS_KEY_ID=${registryUser}")
-            awsEnvVars+=("AWS_SECRET_ACCESS_KEY=${registryPass}")
-        fi
+        local ecr_login=
+        ecr_login=$(getEcrLogin ${registryUrl} ${registryUser} ${registryPass})
+        if [ "$?" -ne 0 ]; then echo "${ecr_login}"; exit 1; fi
 
-        local response=$( \
-            for envVar in "${awsEnvVars[@]}"; do eval "declare -x \"$(echo ${envVar})\"" ; done \
-            && aws ecr get-login --no-include-email \
-        )
-
-        registryUser=$(echo ${response} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
-        registryPass=$(echo ${response} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
+        registryUser=$(echo ${ecr_login} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
+        registryPass=$(echo ${ecr_login} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
     else
         echo 'Log in to private container registry'
     fi
