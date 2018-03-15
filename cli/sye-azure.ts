@@ -95,7 +95,12 @@ program
         (role, roles) => roles.push(role) && roles,
         []
     )
-    .option('--storage [size]', 'Setup a separate data disk for storing container data. Size in GiB', parseInt, 0)
+    .option(
+        '--storage [size]',
+        'Setup a separate data disk for storing container data. Size in GiB',
+        (n) => parseInt(n),
+        0
+    )
     .option(
         '--skip-security-rules',
         'Skip setting security rules. Useful when adding multiple machines at the same time. You should then run the ensure-security-rules command afterwards.'

@@ -14,7 +14,7 @@ program.description('Manage sye-clusters on Amazon')
 program
     .command('dns-record-create <name> <ip>')
     .description('Create a DNS record for an IPv4 or IPv6 address')
-    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', parseInt, 300)
+    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', (n) => parseInt(n), 300)
     .option('--wait', 'Wait for the DNS record change to be INSYNC')
     .action(async (name: string, ip: string, options: { ttl: number; wait: boolean }) => {
         consoleLog(`Creating DNS record ${name} for ip ${ip}`)
@@ -25,7 +25,7 @@ program
 program
     .command('dns-record-delete <name> <ip>')
     .description('Delete a DNS record')
-    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', parseInt, 300)
+    .option('--ttl [ttl]', 'The resource record cache time to live in seconds', (n) => parseInt(n), 300)
     .option('--wait', 'Wait for the DNS record change to be INSYNC')
     .action(async (name: string, ip: string, options: { ttl: number; wait: boolean }) => {
         consoleLog(`Deleting DNS record ${name} for ip ${ip}`)
@@ -125,7 +125,12 @@ program
         (role, roles) => roles.push(role) && roles,
         []
     )
-    .option('--storage [size]', 'Setup a separate EBS volume for storing container data. Size in GiB', parseInt, 0)
+    .option(
+        '--storage [size]',
+        'Setup a separate EBS volume for storing container data. Size in GiB',
+        (n) => parseInt(n),
+        0
+    )
     .action(async (clusterId: string, region: string, options: any) => {
         consoleLog(`Adding instance ${options.machineName} in region ${region} for cluster ${clusterId}`)
         await machineAdd(
