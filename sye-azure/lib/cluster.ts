@@ -100,6 +100,17 @@ export async function createCluster(
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
 }
 
+export async function uploadConfig(profile: string, clusterId: string, syeEnvironment: string): Promise<void> {
+    validateClusterId(clusterId)
+    const credentials = await getCredentials(profile)
+    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
+    const storageAcctname = storageAccountName(subscriptionId, clusterId)
+    let storageClient = new StorageManagementClient(credentials, subscriptionId)
+    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
+    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
+    await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
+}
+
 export async function deleteCluster(clusterId: string, profile?: string) {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)

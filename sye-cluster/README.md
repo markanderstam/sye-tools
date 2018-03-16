@@ -75,11 +75,11 @@ then `stage-2` and last `stage-3`):
 Updating the cluster needs to be done using one of the command specific
 for the environment at hand. For AWS it would be:
 
-    sye aws upload-config ./sye-environment-stage-<N>.tar.gz
+    sye aws upload-config myClusterId ./sye-environment-stage-<N>.tar.gz
 
 and for Azure:    
 
-    sye azure upload-config ./sye-environment-stage-<N>.tar.gz
+    sye azure upload-config myClusterId ./sye-environment-stage-<N>.tar.gz
 
 This is to ensure that all newly created machines (by either the scaling
 or the `sye * machine-add` command) get the proper certs.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { clusterCreate, ClusterCreateOptions } from '../sye-cluster/index'
+import { clusterCreate, ClusterCreateOptions, createCerts, CreateCertsOptions } from '../sye-cluster/index'
 import { syeEnvironmentFile, exit } from '../lib/common'
 import * as program from 'commander'
 
@@ -20,6 +20,14 @@ program
     .option('--internal-ipv4-nat', 'Use IPv4 with NAT support for internal communication')
     .action(async (registryUrl: string, etcdIps: string[], options: ClusterCreateOptions) => {
         await clusterCreate(registryUrl, etcdIps, options).catch(exit)
+    })
+
+program
+    .command('create-certs <config-file>')
+    .description('Creates new TLS certs for certificate rotation')
+    .option('-d, --output-dir <directory>', 'directory where to emit the files (default: cwd)', '.')
+    .action(async (configFile: string, options: CreateCertsOptions) => {
+        await createCerts(configFile, options)
     })
 
 program.command('*').action(help)

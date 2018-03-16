@@ -95,6 +95,18 @@ export async function showResources(clusterId: string, output = true, raw = fals
     return machines
 }
 
+export async function uploadConfig(clusterId: string, configFile: string): Promise<void> {
+    const s3 = new aws.S3({ region: 'us-east-1' })
+    await s3
+        .upload({
+            Bucket: clusterId,
+            Key: 'private/' + syeEnvironmentFile,
+            Body: fs.readFileSync(configFile),
+            ContentType: 'application/x-gzip',
+        })
+        .promise()
+}
+
 export async function getMachines(clusterId: string): Promise<ClusterMachine[]> {
     return showResources(clusterId, false)
 }

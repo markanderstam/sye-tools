@@ -3,8 +3,10 @@ import * as fs from 'fs'
 import * as url from 'url'
 import * as semver from 'semver'
 import * as net from 'net'
+import { resolve } from 'path'
 import { registryRequiresCredentials, setRegistryCredentials, getRegistryAddr } from '../sye-registry'
 import { consoleLog, exit, execSync } from '../lib/common'
+import { mkdirSync } from 'fs'
 
 export interface ClusterCreateOptions {
     output: string
@@ -53,6 +55,15 @@ export async function clusterCreate(registryUrl: string, etcdIps: string[], opti
         },
         options.output
     )
+}
+
+export interface CreateCertsOptions {
+    outputDir: string
+}
+
+export async function createCerts(configFile: string, options: CreateCertsOptions): Promise<void> {
+    // Read the old configuration file
+    createConfigurationFileForCertRotation(configFile, options.outputDir)
 }
 
 function getTokenFromDockerHub(username, password, repo, permissions) {
@@ -172,6 +183,21 @@ function releaseVersionFromRegistry(registryUrl, registryUsername, registryPassw
         : undefined
 }
 
+function createCertificates(destDir: string): void {
+    execSync(
+        `bash -c "openssl req -new -x509 -nodes -days 9999 -config <(cat) -keyout ${destDir}/ca.key -out ${destDir}/ca.pem 2>/dev/null"`,
+        { input: opensslConf() }
+    )
+}
+
+function createTarGzFile(baseDir: string, tarFile: string): void {
+    const tmpfile = baseDir + 'sye-environment.tar'
+    execSync(`chmod -R go-rwx '${baseDir}/keys'`)
+    execSync(`tar -C '${baseDir}' -cf '${tmpfile}' global.json`)
+    execSync(`tar -C '${baseDir}' -rf '${tmpfile}' keys`)
+    execSync(`cat '${tmpfile}' | gzip > '${tarFile}'`)
+}
+
 function createConfigurationFile(content, output: string) {
     // Reset temporary credentials if registry is ECR and no access id and secret are provided as credentials
     if (
@@ -182,23 +208,53 @@ function createConfigurationFile(content, output: string) {
         content.registryPassword = ''
     }
     let dir = os.platform() === 'darwin' ? fs.mkdtempSync('/private/tmp/') : fs.mkdtempSync('/tmp/')
-    let tmpfile = dir + 'sye-environment.tar'
     fs.writeFileSync(dir + '/global.json', JSON.stringify(content, undefined, 4))
     fs.mkdirSync(dir + '/keys')
-    execSync(
-        `bash -c "openssl req -new -x509 -nodes -days 9999 -config <(cat) -keyout ${dir}/keys/ca.key -out ${dir}/keys/ca.pem 2>/dev/null"`,
-        { input: opensslConf() }
-    )
+    createCertificates(dir + '/keys')
     execSync(`cp ${dir}/keys/ca.pem ${dir}/keys/root_ca.pem`)
-    execSync(`chmod -R go-rwx ${dir}/keys`)
-    execSync(`tar -C ${dir} -cf ${tmpfile} global.json`)
-    execSync(`tar -C ${dir} -rf ${tmpfile} keys`)
-    execSync(`cat ${tmpfile} | gzip > ${output}`)
+    createTarGzFile(dir, output)
     execSync(`rm -rf ${dir}`)
     consoleLog('Cluster configuration written to ' + output)
 }
 
-function opensslConf() {
+function createConfigurationFileForCertRotation(configFile: string, outputDir: string): void {
+    const tempDir = os.platform() === 'darwin' ? fs.mkdtempSync('/private/tmp/') : fs.mkdtempSync('/tmp/')
+
+    const oldDir = resolve(tempDir, 'old')
+    mkdirSync(oldDir)
+    const certDir = resolve(tempDir, 'certs')
+    mkdirSync(certDir)
+    const stage1Dir = resolve(tempDir, 'stage-1')
+    const stage2Dir = resolve(tempDir, 'stage-2')
+    const stage3Dir = resolve(tempDir, 'stage-3')
+
+    // Unpack the current configuration tar file into oldDir
+    execSync(`tar -C '${oldDir}' -zxf '${configFile}'`)
+
+    // Create the new certificate
+    createCertificates(certDir)
+
+    // Construct the stage 1 files
+    execSync(`cp -r '${oldDir}' '${stage1Dir}'`)
+    execSync(`cat '${oldDir}/keys/root_ca.pem' '${certDir}/ca.pem' > '${stage1Dir}'/keys/root_ca.pem`)
+    createTarGzFile(stage1Dir, resolve(outputDir, 'sye-environment-stage-1.tar.gz'))
+
+    // Construct the stage 2 files
+    execSync(`cp -r '${stage1Dir}' '${stage2Dir}'`)
+    execSync(`cp '${certDir}/ca.pem' '${stage2Dir}'/keys/ca.pem`)
+    execSync(`cp '${certDir}/ca.key' '${stage2Dir}'/keys/ca.key`)
+    createTarGzFile(stage2Dir, resolve(outputDir, 'sye-environment-stage-2.tar.gz'))
+
+    // Construct the stage 3 files
+    execSync(`cp -r '${stage2Dir}' '${stage3Dir}'`)
+    execSync(`cp '${certDir}/ca.pem' '${stage2Dir}'/keys/root_ca.pem`)
+    createTarGzFile(stage3Dir, resolve(outputDir, 'sye-environment-stage-3.tar.gz'))
+
+    execSync(`rm -rf ${tempDir}`)
+    consoleLog('Cluster configuration written to ' + outputDir)
+}
+
+function opensslConf(): string {
     return `
 [ ca ]
 default_ca      = CA_default
