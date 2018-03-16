@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 * Remove obsolete `cluster-create` command. Use `cluster create` instead.
 * Azure: Added support for setting security groups. See [sye-azure/README.md](sye-azure/README.md) for details.
 * Azure: Support for multiple profiles (`--profile`).
+* Fix naming of remote image on `registry add-images/add-release` in the non-ECR case.
 
 ## [1.0.0] - 2018-02-23
 

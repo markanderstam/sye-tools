@@ -137,11 +137,7 @@ export function getRegistryAddr(registryUrl: string) {
 
 function getImageRemoteName(localName: string, registryUrl: string) {
     let u = url.parse(registryUrl)
-    if (u.host.includes('amazonaws.com')) {
-        return localName.replace(/^ott/, `${u.host}${u.path}`)
-    } else {
-        return localName.replace(/^ott/, u.host)
-    }
+    return localName.replace(/^ott/, `${u.host}${u.path}`)
 }
 
 async function authorizeFromECR(registryAddr: string) {
