@@ -9,13 +9,13 @@ then
     exit 1
 fi
 
-rm -rf node_modules
 git clean -fdx
 npm install
-npm run prepare
 npm run lint
 npm run test
 
+# List files that will be included by running npm pack
+# and then listing all files that it includes in the tar.
 npm pack
 tar tvzf netinsight-sye-tools*
 rm netinsight-sye-tools*
