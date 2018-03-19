@@ -212,11 +212,11 @@ EOF
             interfaces+=("\"${interface%%=*}\":{\"publicIpv4\":\"${interface#*=}\"}")
         done
         if [ ${#interfaces[@]} -ne 0 ]; then
-            elements+=("\"interfaces\":{$(join_elements "," "${interfaces[@]}")}")
+            elements+=("\"interfaces\":{$(joinElements "," "${interfaces[@]}")}")
         fi
     fi
 
-    echo "{$(join_elements "," "${elements[@]}")}"
+    echo "{$(joinElements "," "${elements[@]}")}"
 }
 
 function dockerRegistryApiUrlFromUrl() {
@@ -238,28 +238,22 @@ function dockerRegistryLogin() {
 
     if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         echo 'Log in to Docker Cloud registry'
-        docker login -u ${registryUser} -p ${registryPass}
+        registryUrl=
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         echo 'Log in to Amazon ECR container registry'
-        command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
 
-        local awsRegion=$(echo ${registryUrl} | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
-        local awsEnvVars="AWS_DEFAULT_REGION=${awsRegion}"
-        if [[ ${registryUser} && ${registryPass} ]]; then
-            awsEnvVars+=" AWS_ACCESS_KEY_ID=${registryUser}"
-            awsEnvVars+=" AWS_SECRET_ACCESS_KEY=${registryPass}"
-        fi
+        local ecr_login=
+        ecr_login=$(getEcrLogin ${registryUrl} ${registryUser} ${registryPass})
+        if [ "$?" -ne 0 ]; then echo "${ecr_login}"; exit 1; fi
 
-        local response=$(${awsEnvVars} aws ecr get-login --no-include-email)
-        docker login \
-            -u $(echo ${response} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/') \
-            -p $(echo ${response} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/') \
-            ${registryUrl}
+        registryUser=$(echo ${ecr_login} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
+        registryPass=$(echo ${ecr_login} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
     else
         echo 'Log in to private container registry'
-        if [[ ${registryUser} && ${registryPass} ]]; then
-            docker login -u ${registryUser} -p ${registryPass} ${registryUrl}
-        fi
+    fi
+
+    if [[ ${registryUser} && ${registryPass} ]]; then
+        echo "${registryPass}" | docker login -u ${registryUser} --password-stdin ${registryUrl}
     fi
 }
 
@@ -271,8 +265,28 @@ function extractConfigurationFile() {
         exit 1
     fi
     mkdir -p ${confDir}/instance-data
-    chmod 0600 ${confDir}
+    chmod 0700 ${confDir}
     tar -xzf ${file} -C ${confDir} -o
+}
+
+function getEcrLogin() {
+    local ecrUrl=$1
+    local awsAccessKeyId=$2
+    local awsSecretAccessKey=$3
+
+    command -v aws >/dev/null 2>&1 || { echo "Please install awscli. Aborting." >&2; exit 1; }
+
+    local awsRegion=$(echo ${ecrUrl} | sed 's/.*ecr.\([a-zA-Z0-9-]*\).amazonaws.com.*/\1/')
+    local awsEnvVars=("AWS_DEFAULT_REGION=${awsRegion}")
+    if [[ ${awsAccessKeyId} && ${awsSecretAccessKey} ]]; then
+        awsEnvVars+=("AWS_ACCESS_KEY_ID=${awsAccessKeyId}")
+        awsEnvVars+=("AWS_SECRET_ACCESS_KEY=${awsSecretAccessKey}")
+    fi
+
+    echo $( \
+        for envVar in "${awsEnvVars[@]}"; do eval "declare -x \"$(echo ${envVar})\"" ; done \
+        && aws ecr get-login --no-include-email \
+    )
 }
 
 function getPublicIpv4Interfaces() {
@@ -293,27 +307,33 @@ function imageReleaseRevision() {
     local image=$4
     local releaseVersion=$5
 
-    local url
+    local url=
+    local curl_opts=()
     if [[ ${registryUrl} =~ (.*)docker\.io(.*) ]]; then
         # For Docker Cloud
         url=$(dockerRegistryApiUrlFromUrl $(echo ${registryUrl} | sed 's/docker.io/registry.hub.docker.com/g'))/release/manifests/${releaseVersion}
-        local githubToken=$(getTokenFromDockerHub ${registryUrl} ${registryUser} ${registryPass})
-        curl -s -H "Accept: application/json" -H "Authorization: Bearer ${githubToken}" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+        curl_opts+=("-s" \
+            "-H" "Accept: application/json" \
+            "-H" "Authorization: Bearer $(getTokenFromDockerHub ${registryUrl} ${registryUser} ${registryPass})" \
+        )
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${releaseVersion}
-        curl -k -u ${registryUser}:${registryPass} -H "Accept: application/vnd.docker.distribution.manifest.v1+json" ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+        curl_opts+=("-k" \
+            "-u" "${registryUser}:${registryPass}" \
+            "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" \
+        )
     else
         # For internal Docker registry
         url=$(dockerRegistryApiUrlFromUrl ${registryUrl})/release/manifests/${releaseVersion}
+        curl_opts+=("-s")
         if [[ ${registryUser} && ${registryPass} ]]; then
-            curl -s -k -u ${registryUser}:${registryPass} ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
-        else
-            curl -s ${url} | grep -o ''"${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+            curl_opts+=("-k" "-u" "${registryUser}:${registryPass}")
         fi
     fi
+    curl "${curl_opts[@]}" | grep -o "${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
 }
 
-function join_elements {
+function joinElements {
     local IFS="$1";
     shift;
     echo "$*";

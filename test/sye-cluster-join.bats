@@ -1,19 +1,9 @@
 #!/usr/bin/env bats
 
+load helpers/test_helper
+load helpers/mocks/stub
+
 source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
-
-function random_str {
-    local length=${1:-16}
-    cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${length} | head -n 1
-}
-
-
-function item_in_array {
-  local e match="$1"
-  shift
-  for e; do [[ "$e" == "$match" ]] && return 0; done
-  return 1
-}
 
 
 @test "_setGlobalVariablesDefaults Set global variables defaults should set expected variables" {
@@ -115,7 +105,7 @@ function item_in_array {
 
     [[ -d "${conf_dir}/instance-data" ]]
     [[ -d "${conf_dir}/keys" ]]
-    [ $(stat -c %a ${conf_dir}) -eq 600 ]
+    [ $(stat -c %a ${conf_dir}) -eq 0700 ]
     [[ -f "${conf_dir}/global.json" ]]
 
     rm -rf ${conf_dir}
@@ -135,12 +125,170 @@ function item_in_array {
 }
 
 
+@test "getEcrLogin should exit if aws-cli missing" {
+    run getEcrLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "key id" "secret key"
+
+    [ "$status" -eq 1 ]
+    [[ "${output}" =~ "Please install awscli. Aborting." ]]
+}
+
+
+@test "getEcrLogin should login to ECR" {
+    local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
+    local ecr_user="AWS"
+    local ecr_pass=$(random_str)
+
+    stub aws "ecr get-login --no-include-email : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+
+    run getEcrLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "key id" "secret key"
+    echo "${output}"
+    [ "$status" -eq 0 ]
+    [ "$output" = "docker login -u ${ecr_user} -p ${ecr_pass}" ]
+
+    unstub aws
+}
+
+
 @test "getPublicIpv4Interfaces Get list of public ipv4 interfaces from string" {
     run getPublicIpv4Interfaces "eth0=1.2.3.4,br0=5.4.3.2"
 
-    echo "${status} ${output}"
     [ "$status" -eq 0 ]
     [ "$output" = "eth0=1.2.3.4 br0=5.4.3.2" ]
+}
+
+
+@test "imageReleaseRevision should call curl with correct args" {
+    local service="influxdb"
+    local service_version="r28.6"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    unset getTokenFromDockerHub
+    stub getTokenFromDockerHub ": echo 'token'"
+
+    stub curl \
+        "${curl_args_1} : echo '${release_manifest}'" \
+        "${curl_args_2} : echo '${release_manifest}'" \
+        "${curl_args_3} : echo '${release_manifest}'" \
+        "${curl_args_4} : echo '${release_manifest}'"
+
+    curl_args_1=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
+    run imageReleaseRevision "https://docker.io/netidev" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    curl_args_2=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
+    run imageReleaseRevision "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "user" "pass" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    curl_args_3=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    curl_args_4=("-s" "-u" "user:pass" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "username" "password" "${service}" "r29.1"
+    [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
+
+    unstub getTokenFromDockerHub
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should get latest tag from docker hub" {
+    local service="influxdb"
+    local service_version="r28.6"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    unset getTokenFromDockerHub
+    stub getTokenFromDockerHub ": echo 'docker-hub-token'"
+    stub curl ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "https://docker.io/netidev" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    unstub getTokenFromDockerHub
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should get latest tag from local registry" {
+    local repository_url="https://dockerregistry.neti.systems:5000/ott"
+    local service="ad-playlist-router"
+    local service_version="r24.8"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    stub curl \
+        ": echo '${release_manifest}'" \
+        ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "${repository_url}" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    run imageReleaseRevision "${repository_url}" "user" "passwd" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should fail to get tag for last service in manifest label list" {
+    local service="ad-playlist-router"
+    local service_version="r24.8"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}" "last")"
+
+    stub curl ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" != "${service_version}" ]
+    [ "$output" = "${service_version}\\" ]
+
+    unstub curl
+}
+
+
+@test "imageReleaseRevision should get latest tag from ECR" {
+    local service="ad-playlist-router"
+    local service_version="r24.8"
+    local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
+
+    stub curl ": echo '${release_manifest}'"
+
+    run imageReleaseRevision "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "user" "passwd" "${service}" "r29.1"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${service_version}" ]
+
+    unstub curl
+}
+
+
+@test "joinElements Join array items with different delimiter" {
+    local delimiter=
+    for delimiter in "," "-" " " "'" "å"; do
+        run joinElements "${delimiter}" "this" "is" "a" "test"
+        [ "$status" -eq 0 ]
+        [ "$output" = "this${delimiter}is${delimiter}a${delimiter}test" ]
+    done
+}
+
+
+@test "joinElements Join array items containing spaces and delimiters" {
+    run joinElements "," "space should" "not" "affect"
+    [ "$status" -eq 0 ]
+    [ "$output" = "space should,not,affect" ]
+
+    run joinElements "," "delimiter,should be" "allowed"
+    [ "$status" -eq 0 ]
+    [ "$output" = "delimiter,should be,allowed" ]
+
+    run joinElements "," ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "" ]
+
+    run joinElements "," "" ""
+    [ "$status" -eq 0 ]
+    [ "$output" = "," ]
 }
 
 
@@ -238,4 +386,57 @@ function item_in_array {
     run writeConfigurationFile ${filepath} machine.json ""
     [ "$status" -eq 1 ]
     [[ "$output" == *"No such file or directory" ]]
+}
+
+
+@test "dockerRegistryLogin should login to docker.io if url matches" {
+    stub docker "login -u username --password-stdin : true "
+
+    run dockerRegistryLogin "docker.io" "username" "password"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "Log in to Docker Cloud registry" ]
+
+    unstub docker
+}
+
+
+@test "dockerRegistryLogin should login to ECR if url matches" {
+    local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
+    local ecr_user="AWS"
+    local ecr_pass=$(random_str)
+
+    unset getEcrLogin
+    stub getEcrLogin ": echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+    stub docker "login -u ${ecr_user} --password-stdin ${ecr_url} : true"
+
+    run dockerRegistryLogin "${ecr_url}" "aws key id" "aws secret key"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "Log in to Amazon ECR container registry" ]
+
+    unstub getEcrLogin
+    unstub docker
+}
+
+
+@test "dockerRegistryLogin should login to to private registry" {
+    stub docker "login -u username --password-stdin : true https://localhost:5000"
+
+    run dockerRegistryLogin "https://localhost:5000" "username" "password"
+
+    [ "$status" -eq 0 ]
+    [ "$output" = "Log in to private container registry" ]
+
+    unstub docker
+}
+
+
+@test "dockerRegistryLogin should not login if password or username not set" {
+    stub docker
+
+    run dockerRegistryLogin "https://localhost:5000"
+    [ "$status" -eq 0 ]
+
+    unstub docker
 }
