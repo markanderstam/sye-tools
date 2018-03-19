@@ -115,10 +115,26 @@ export async function showResources(
     raw = false,
     profile?: string
 ): Promise<ClusterMachine[]> {
+    const tableData = new Array<ClusterMachine>()
+
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
-
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId }).catch((e: Error) => {
+        if (e.message === 'Could not find any matching subscription') {
+            return null
+        }
+        throw e
+    })
+    if (subscription === null) {
+        if (output) {
+            if (raw) {
+                consoleLog(JSON.stringify(tableData, null, 2))
+            } else {
+                consoleLog('')
+            }
+        }
+        return tableData
+    }
 
     const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
 
@@ -138,7 +154,6 @@ export async function showResources(
     }
 
     // Show all the VMs in the resource group
-    const tableData = new Array<ClusterMachine>()
     const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
     for (const vm of await computeClient.virtualMachines.list(clusterId)) {
         if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
