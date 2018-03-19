@@ -257,7 +257,7 @@ export async function machineDelete(
     const promises = new Array<Promise<any>>()
     // Delete nics and public IP addresses
     if (vmInfo.networkProfile && vmInfo.networkProfile.networkInterfaces) {
-        vmInfo.networkProfile.networkInterfaces.forEach(async (i) => {
+        for (const i of vmInfo.networkProfile.networkInterfaces) {
             const nicName = i.id.substr(i.id.lastIndexOf('/') + 1)
             const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName)
             await networkClient.networkInterfaces.deleteMethod(clusterId, nicName)
@@ -267,7 +267,7 @@ export async function machineDelete(
                     promises.push(networkClient.publicIPAddresses.deleteMethod(clusterId, ipName))
                 })
             }
-        })
+        }
     }
     // Delete OS disk and data disk
     if (vmInfo.storageProfile) {
@@ -275,7 +275,7 @@ export async function machineDelete(
             promises.push(computeClient.disks.deleteMethod(clusterId, vmInfo.storageProfile.osDisk.name))
         }
         if (vmInfo.storageProfile.dataDisks)
-            vmInfo.storageProfile.dataDisks.forEach(async (d) => {
+            vmInfo.storageProfile.dataDisks.forEach((d) => {
                 promises.push(computeClient.disks.deleteMethod(clusterId, d.name))
             })
     }

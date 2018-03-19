@@ -13,11 +13,9 @@ import { machineDelete } from './machine'
 
 export async function regionAdd(clusterId: string, region: string, profile?: string): Promise<void> {
     validateClusterId(clusterId)
-    // Create Resource Group
     let credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
-    // Create VNet
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
 
     var vnetParameters = {
@@ -53,6 +51,7 @@ export async function regionDelete(clusterId: string, region: string, profile?: 
     )
 
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    await networkClient.virtualNetworks.deleteMethod(clusterId, vnetName(region))
     await Promise.all(
         SG_TYPES.map((type) =>
             networkClient.networkSecurityGroups.deleteMethod(clusterId, securityGroupName(clusterId, region, type))
