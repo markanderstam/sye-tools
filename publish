@@ -23,7 +23,7 @@ rm netinsight-sye-tools*
 echo "Do you want to publish this version?"
 select yn in "Yes" "No"; do
     case $yn in
-        Yes ) echo "Publishing"; break;;
+        Yes ) npm publish; break;;
         No ) exit;;
     esac
 done
