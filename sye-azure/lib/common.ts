@@ -113,8 +113,12 @@ export function validateClusterId(clusterId: string) {
 }
 
 function matchSubscription(nameOrId: string, subscription: Subscription): boolean {
-    if (subscription.displayName === nameOrId) return true
-    if (subscription.subscriptionId === nameOrId) return true
+    if (subscription.displayName === nameOrId) {
+        return true
+    }
+    if (subscription.subscriptionId === nameOrId) {
+        return true
+    }
     return false
 }
 

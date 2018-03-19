@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
 * Azure: Added support for setting security groups. See [sye-azure/README.md](sye-azure/README.md) for details.
 * Azure: Support for multiple profiles (`--profile`).
 * Fix naming of remote image on `registry add-images/add-release` in the non-ECR case.
+* Azure: Command for redeploying machines
+* Azure: Command for creating and deleting DNS records
 
 ## [1.0.0] - 2018-02-23
 

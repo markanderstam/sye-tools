@@ -33,7 +33,7 @@ export async function createCluster(
     clusterId: string,
     syeEnvironment: string,
     authorizedKeys: string,
-    subscription: string | null
+    subscription?: string
 ) {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
