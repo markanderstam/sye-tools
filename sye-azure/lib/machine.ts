@@ -117,12 +117,9 @@ export async function machineAdd(
         consoleLog(`WARN: ${machineName} role combination not supported. Using Network Security Group type SINGLE`)
     }
 
-    const networkSecurityGroup = await networkClient.networkSecurityGroups.createOrUpdate(
+    const networkSecurityGroup = await networkClient.networkSecurityGroups.get(
         clusterId,
-        securityGroupName(clusterId, region, nsgType),
-        {
-            location: region,
-        }
+        securityGroupName(clusterId, region, nsgType)
     )
 
     // Need to configure SR-IOV here!
