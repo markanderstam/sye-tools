@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -e
+
+if [ -n "$(git status --porcelain)" ];
+then
+    git status
+    echo "Uncommitted changes. Exiting."
+    exit 1
+fi
+
+git clean -fdx
+npm install
+npm run lint
+npm run test
+
+# List files that will be included by running npm pack
+# and then listing all files that it includes in the tar.
+npm pack
+tar tvzf netinsight-sye-tools*
+rm netinsight-sye-tools*
+
+echo "Do you want to publish this version?"
+select yn in "Yes" "No"; do
+    case $yn in
+        Yes ) npm publish; break;;
+        No ) exit;;
+    esac
+done
