@@ -6,24 +6,24 @@ import { getCredentials, getSubscription } from './common'
 const debug = dbg('dns')
 
 export function createDnsRecord(
-    profile: string,
     name: string,
     ip: string,
-    subscription?: string,
-    ttl = 300
+    ttl = 300,
+    profile?: string,
+    subscription?: string
 ): Promise<void> {
-    return changeDnsRecord(profile, name, ip, 'CREATE', subscription, ttl)
+    return changeDnsRecord(name, ip, 'CREATE', profile, subscription, ttl)
 }
 
-export function deleteDnsRecord(profile: string, name: string, ip: string, subscription?: string): Promise<void> {
-    return changeDnsRecord(profile, name, ip, 'DELETE', subscription)
+export function deleteDnsRecord(name: string, ip: string, profile?: string, subscription?: string): Promise<void> {
+    return changeDnsRecord(name, ip, 'DELETE', profile, subscription)
 }
 
 async function changeDnsRecord(
-    profile: string,
     name: string,
     ip: string,
     change: 'CREATE' | 'DELETE',
+    profile?: string,
     subscription?: string,
     ttl?: number
 ): Promise<void> {

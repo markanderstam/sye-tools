@@ -11,7 +11,7 @@ import {
 } from './common'
 import { machineDelete } from './machine'
 
-export async function regionAdd(profile: string, clusterId: string, region: string): Promise<void> {
+export async function regionAdd(clusterId: string, region: string, profile?: string): Promise<void> {
     validateClusterId(clusterId)
     // Create Resource Group
     let credentials = await getCredentials(profile)
@@ -40,7 +40,7 @@ export async function regionAdd(profile: string, clusterId: string, region: stri
     )
 }
 
-export async function regionDelete(profile: string, clusterId: string, region: string): Promise<void> {
+export async function regionDelete(clusterId: string, region: string, profile?: string): Promise<void> {
     validateClusterId(clusterId)
     let credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
@@ -49,7 +49,7 @@ export async function regionDelete(profile: string, clusterId: string, region: s
     await Promise.all(
         (await computeClient.virtualMachines.list(clusterId))
             .filter((vm) => vm.location === region)
-            .map((vm) => machineDelete(profile, clusterId, vm.name))
+            .map((vm) => machineDelete(clusterId, vm.name, true, profile))
     )
 
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)

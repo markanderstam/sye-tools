@@ -20,24 +20,33 @@ import { NetworkInterface, PublicIPAddress } from 'azure-arm-network/lib/models'
 
 const ROOT_LOCATION = 'westus'
 
-export async function login(profile: string): Promise<void> {
+export interface ClusterMachine {
+    Region: string
+    Name: string
+    Roles: string
+    PrivateIpAddress: string
+    PublicIpAddress: string
+    DataDiskName?: string
+}
+
+export async function login(profile?: string): Promise<void> {
     await getCredentials(profile)
 }
 
-export async function logout(profile: string): Promise<void> {
+export async function logout(profile?: string): Promise<void> {
     deleteCredentials(profile)
 }
 
 export async function createCluster(
-    profile: string,
     clusterId: string,
     syeEnvironment: string,
     authorizedKeys: string,
+    profile?: string,
     subscription?: string
 ) {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { subscription: subscription })).subscriptionId
+    const subscriptionId = (await getSubscription(credentials, { subscription })).subscriptionId
 
     debug('Creating SYE cluster in Azure subscription', subscriptionId)
     let resourceClient = new ResourceManagementClient(credentials, subscriptionId)
@@ -91,7 +100,7 @@ export async function createCluster(
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
 }
 
-export async function deleteCluster(profile: string, clusterId: string) {
+export async function deleteCluster(clusterId: string, profile?: string) {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
     const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
@@ -100,23 +109,20 @@ export async function deleteCluster(profile: string, clusterId: string) {
     await resourceClient.resourceGroups.deleteMethod(clusterId)
 }
 
-export async function showResources(profile: string, clusterId: string, _b: boolean, _rw: boolean): Promise<void> {
+export async function showResources(
+    clusterId: string,
+    output = true,
+    raw = false,
+    profile?: string
+): Promise<ClusterMachine[]> {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
-
-    //const subscriptionClient = await subscriptionManagement.createSubscriptionClient(credentials)
 
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
 
     const resourceGroup = await resourceClient.resourceGroups.get(clusterId)
-    consoleLog('')
-    consoleLog(`Cluster '${clusterId}'`)
-    consoleLog(`  Subscription: '${subscription.displayName}' (${subscription.subscriptionId})`)
-    consoleLog(`  Resource group: '${resourceGroup.name}'`)
-    consoleLog(`  Location: '${resourceGroup.location}'`)
-    consoleLog('')
 
     // Find all the NICs in the resource group
     const networkClient = new NetworkClient(credentials, subscription.subscriptionId)
@@ -132,12 +138,7 @@ export async function showResources(profile: string, clusterId: string, _b: bool
     }
 
     // Show all the VMs in the resource group
-    const tableData: {
-        Region: string
-        Name: string
-        PrivateIpAddress: string
-        PublicIpAddress: string
-    }[] = []
+    const tableData = new Array<ClusterMachine>()
     const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
     for (const vm of await computeClient.virtualMachines.list(clusterId)) {
         if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
@@ -147,13 +148,34 @@ export async function showResources(profile: string, clusterId: string, _b: bool
                 tableData.push({
                     Region: vm.location,
                     Name: vm.name,
+                    Roles: Object.keys(vm.tags).join(','),
                     PrivateIpAddress: enrichedNic.ipConfigurations[0].privateIPAddress,
                     PublicIpAddress: publicIp.ipAddress,
+                    DataDiskName: (vm.storageProfile.dataDisks[0] || { name: undefined }).name,
                 })
             }
         }
     }
-    consoleLog(EasyTable.print(tableData))
+
+    if (output) {
+        if (raw) {
+            consoleLog(JSON.stringify(tableData, null, 2))
+        } else {
+            consoleLog('')
+            consoleLog(`Cluster '${clusterId}'`)
+            consoleLog(`  Subscription: '${subscription.displayName}' (${subscription.subscriptionId})`)
+            consoleLog(`  Resource group: '${resourceGroup.name}'`)
+            consoleLog(`  Location: '${resourceGroup.location}'`)
+            consoleLog('')
+            consoleLog(EasyTable.print(tableData))
+        }
+    }
+
+    return tableData
+}
+
+export async function getMachines(clusterId: string): Promise<ClusterMachine[]> {
+    return showResources(clusterId, false)
 }
 
 function createBlockBlobFromTextPromise(

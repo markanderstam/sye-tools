@@ -31,9 +31,9 @@ import {
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine, DataDisk } from 'azure-arm-compute/lib/models'
 import { exit, syeEnvironmentFile, consoleLog } from '../../lib/common'
+import { SecurityRule } from 'azure-arm-network/lib/models'
 
 export async function machineAdd(
-    profile: string,
     clusterId: string,
     region: string,
     availabilityZone: string,
@@ -42,7 +42,8 @@ export async function machineAdd(
     roles: string[],
     management: boolean,
     storage: number | DataDisk[],
-    skipSecurityRules = false
+    skipSecurityRules = false,
+    profile?: string
 ) {
     let args = ''
     if (management) {
@@ -232,15 +233,15 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
     let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
     debug('vmInfo', vmInfo)
     if (!skipSecurityRules) {
-        await ensureMachineSecurityRules(profile, clusterId)
+        await ensureMachineSecurityRules(clusterId, profile)
     }
 }
 
 export async function machineDelete(
-    profile: string,
     clusterId: string,
     machineName: string,
-    skipSecurityRules = false
+    skipSecurityRules = false,
+    profile?: string
 ) {
     validateClusterId(clusterId)
 
@@ -284,11 +285,11 @@ export async function machineDelete(
         securityGroupName(clusterId, vmInfo.location, vmInfo.name)
     )
     if (!skipSecurityRules) {
-        await ensureMachineSecurityRules(profile, clusterId)
+        await ensureMachineSecurityRules(clusterId, profile)
     }
 }
 
-export async function machineRedeploy(profile: string, clusterId: string, machineName: string) {
+export async function machineRedeploy(clusterId: string, machineName: string, profile?: string) {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
@@ -310,11 +311,10 @@ export async function machineRedeploy(profile: string, clusterId: string, machin
     }
 
     debug('Delete machine')
-    await machineDelete(profile, clusterId, machineName, true)
+    await machineDelete(clusterId, machineName, true, profile)
 
     debug('Add machine')
     await machineAdd(
-        profile,
         clusterId,
         vmInfo.location,
         'N/A',
@@ -322,13 +322,15 @@ export async function machineRedeploy(profile: string, clusterId: string, machin
         vmInfo.hardwareProfile.vmSize,
         Object.keys(vmInfo.tags),
         !!vmInfo.tags.management,
-        dataDisks
+        dataDisks,
+        false,
+        profile
     )
 }
 
-export async function ensureMachineSecurityRules(profile: string, clusterId: string) {
+export async function ensureMachineSecurityRules(clusterId: string, profile?: string) {
     validateClusterId(clusterId)
-    let credentials = await getCredentials(profile)
+    const credentials = await getCredentials(profile)
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
@@ -337,16 +339,13 @@ export async function ensureMachineSecurityRules(profile: string, clusterId: str
     const vms = await computeClient.virtualMachines.list(clusterId)
     const ips = new Array<string>()
 
-    for (let i = 0; i < vms.length; i++) {
-        const vm = vms[i]
+    for (const vm of vms) {
         if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
-            for (let j = 0; j < vm.networkProfile.networkInterfaces.length; j++) {
-                const nic = vm.networkProfile.networkInterfaces[j]
+            for (const nic of vm.networkProfile.networkInterfaces) {
                 const nicName = nic.id.substr(nic.id.lastIndexOf('/') + 1)
                 const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName)
                 if (nicInfo.ipConfigurations) {
-                    for (let k = 0; k < nicInfo.ipConfigurations.length; k++) {
-                        const ip = nicInfo.ipConfigurations[k]
+                    for (const ip of nicInfo.ipConfigurations) {
                         const ipName = ip.publicIPAddress.id.substr(ip.publicIPAddress.id.lastIndexOf('/') + 1)
                         const ipInfo = await networkClient.publicIPAddresses.get(clusterId, ipName)
                         ips.push(ipInfo.ipAddress)
@@ -438,7 +437,7 @@ export async function ensureMachineSecurityRules(profile: string, clusterId: str
     await Promise.all(
         networkSecurityGroups.map((group) => {
             const type = getSecurityGroupType(group.name)
-            const rules = []
+            const rules = new Array<{ type: string; rule: SecurityRule }>()
             rules.push(...defaultSecurityRuleDefs)
             switch (type) {
                 case SG_TYPE_FRONTEND_BALANCER:
@@ -460,25 +459,19 @@ export async function ensureMachineSecurityRules(profile: string, clusterId: str
                     rules.push(...pitcherSecurityRuleDefs)
                     break
             }
-            return setSecurityRules(profile, clusterId, group.location, type, rules)
+            return setSecurityRules(networkClient, clusterId, group.location, type, rules)
         })
     )
 }
 
-export async function setSecurityRules(
-    profile: string,
+async function setSecurityRules(
+    networkClient: NetworkManagementClient,
     clusterId: string,
     location: string,
     type: string,
-    rules: any[]
+    rules: { type: string; rule: SecurityRule }[]
 ) {
-    validateClusterId(clusterId)
-    let credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
-
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
-    for (let j = 0; j < rules.length; j++) {
-        const def = rules[j]
+    for (const def of rules) {
         await networkClient.securityRules.createOrUpdate(
             clusterId,
             securityGroupName(clusterId, location, type),
