@@ -165,25 +165,25 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     unset getTokenFromDockerHub
     stub getTokenFromDockerHub ": echo 'token'"
 
+    curl_args_1=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
+    curl_args_2=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
+    curl_args_3=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    curl_args_4=("-s" "-k" "-u" "username:password" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
     stub curl \
         "${curl_args_1} : echo '${release_manifest}'" \
         "${curl_args_2} : echo '${release_manifest}'" \
         "${curl_args_3} : echo '${release_manifest}'" \
         "${curl_args_4} : echo '${release_manifest}'"
 
-    curl_args_1=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
     run imageReleaseRevision "https://docker.io/netidev" "" "" "${service}" "r29.1"
     [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
 
-    curl_args_2=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
     run imageReleaseRevision "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "user" "pass" "${service}" "r29.1"
     [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
 
-    curl_args_3=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
     run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
     [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
 
-    curl_args_4=("-s" "-u" "user:pass" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
     run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "username" "password" "${service}" "r29.1"
     [ "$status" -eq 0 ] && [ "$output" = "${service_version}" ]
 
