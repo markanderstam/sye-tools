@@ -163,12 +163,12 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
 
     unset getTokenFromDockerHub
-    stub getTokenFromDockerHub ": echo 'token'"
+    stub getTokenFromDockerHub "https://docker.io/netidev : echo 'token'"
 
-    curl_args_1=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
-    curl_args_2=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
-    curl_args_3=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
-    curl_args_4=("-s" "-k" "-u" "username:password" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    local curl_args_1=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
+    local curl_args_2=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
+    local curl_args_3=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    local curl_args_4=("-s" "-k" "-u" "username:password" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
     stub curl \
         "${curl_args_1} : echo '${release_manifest}'" \
         "${curl_args_2} : echo '${release_manifest}'" \
@@ -198,8 +198,9 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
 
     unset getTokenFromDockerHub
-    stub getTokenFromDockerHub ": echo 'docker-hub-token'"
-    stub curl ": echo '${release_manifest}'"
+    stub getTokenFromDockerHub "https://docker.io/netidev : echo 'docker-hub-token'"
+    local curl_args=("-s" "-H" "Accept: application/json" "-H" "Authorization: Bearer docker-hub-token" "https://registry.hub.docker.com/v2/netidev/release/manifests/r29.1")
+    stub curl "${curl_args} : echo '${release_manifest}'"
 
     run imageReleaseRevision "https://docker.io/netidev" "" "" "${service}" "r29.1"
     [ "$status" -eq 0 ]
@@ -216,9 +217,11 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     local service_version="r24.8"
     local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
 
+    local curl_args_1=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    local curl_args_2=("-s" "-k" "-u" "username:password" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
     stub curl \
-        ": echo '${release_manifest}'" \
-        ": echo '${release_manifest}'"
+        "${curl_args_1} : echo '${release_manifest}'" \
+        "${curl_args_2} : echo '${release_manifest}'"
 
     run imageReleaseRevision "${repository_url}" "" "" "${service}" "r29.1"
     [ "$status" -eq 0 ]
@@ -237,7 +240,8 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     local service_version="r24.8"
     local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}" "last")"
 
-    stub curl ": echo '${release_manifest}'"
+    local curl_args=("-s" "https://dockerregistry.neti.systems:5000/v2/ott/release/manifests/r29.1")
+    stub curl "${curl_args} : echo '${release_manifest}'"
 
     run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
     [ "$status" -eq 0 ]
@@ -253,7 +257,8 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     local service_version="r24.8"
     local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}")"
 
-    stub curl ": echo '${release_manifest}'"
+    local curl_args=("-k" "-u" "user:pass" "-H" "Accept: application/vnd.docker.distribution.manifest.v1+json" "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com/v2/release/manifests/r29.1")
+    stub curl "${curl_args} : echo '${release_manifest}'"
 
     run imageReleaseRevision "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "user" "passwd" "${service}" "r29.1"
     [ "$status" -eq 0 ]
@@ -406,8 +411,9 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     local ecr_user="AWS"
     local ecr_pass=$(random_str)
 
+    local ecr_login_args=("${ecr_url}" "${ecr_user}" "${ecr_pass}")
     unset getEcrLogin
-    stub getEcrLogin ": echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+    stub getEcrLogin "${ecr_login_args} : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
     stub docker "login -u ${ecr_user} --password-stdin ${ecr_url} : true"
 
     run dockerRegistryLogin "${ecr_url}" "aws key id" "aws secret key"
