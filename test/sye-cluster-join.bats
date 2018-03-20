@@ -235,7 +235,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 }
 
 
-@test "imageReleaseRevision should fail to get tag for last service in manifest label list" {
+@test "imageReleaseRevision should get tag for last service in manifest label list" {
     local service="ad-playlist-router"
     local service_version="r24.8"
     local release_manifest="$(get_service_docker_manifest "${service}" "${service_version}" "last")"
@@ -244,9 +244,9 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     stub curl "${curl_args} : echo '${release_manifest}'"
 
     run imageReleaseRevision "https://dockerregistry.neti.systems:5000/ott" "" "" "${service}" "r29.1"
+    echo "${status} ${output}"
     [ "$status" -eq 0 ]
-    [ "$output" != "${service_version}" ]
-    [ "$output" = "${service_version}\\" ]
+    [ "$output" = "${service_version}" ]
 
     unstub curl
 }

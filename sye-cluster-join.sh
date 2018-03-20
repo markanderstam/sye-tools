@@ -330,7 +330,7 @@ function imageReleaseRevision() {
             curl_opts+=("-k" "-u" "${registryUser}:${registryPass}")
         fi
     fi
-    curl "${curl_opts[@]}" "${url}" | grep -o "${image}"'=[a-zA-Z0-9\._-]*' | cut -d '=' -f2
+    curl "${curl_opts[@]}" "${url}" | grep -o "${image}=[a-zA-Z0-9._-]*" | cut -d '=' -f2
 }
 
 function joinElements {
