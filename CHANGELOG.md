@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
-## [1.1.0] - 2018-02-23
+## [1.1.1] - 2018-03-20
+
+* Fix issue downloading release metadata in sye-cluster-join.sh
+
+## [1.1.0] - 2018-03-19
 
 * AWS: Create and delete DNS records
 * Azure: Create and delete DNS records
