@@ -1,3 +1,0 @@
-[submodule "test/helpers/mocks"]
-	path = test/helpers/mocks
-	url = git@github.com:lox/bats-mock.git
