@@ -243,7 +243,7 @@ function dockerRegistryLogin() {
         echo 'Log in to Amazon ECR container registry'
 
         local ecr_login=
-        ecr_login=$(getEcrLogin ${registryUrl} ${registryUser} ${registryPass})
+        ecr_login=$(getEcrLogin "${registryUrl}" "${registryUser}" "${registryPass}")
         if [ "$?" -ne 0 ]; then echo "${ecr_login}"; exit 1; fi
 
         registryUser=$(echo ${ecr_login} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
