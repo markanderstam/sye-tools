@@ -314,7 +314,7 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
     await machineAdd(
         clusterId,
         vmInfo.location,
-        'N/A',
+        'None',
         machineName,
         vmInfo.hardwareProfile.vmSize,
         Object.keys(vmInfo.tags),

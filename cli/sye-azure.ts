@@ -124,7 +124,7 @@ program
             await machineAdd(
                 clusterId,
                 region,
-                'N/A',
+                'None',
                 options.machineName,
                 options.instanceType,
                 options.role,
