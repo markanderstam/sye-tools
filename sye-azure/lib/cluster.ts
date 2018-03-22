@@ -100,7 +100,7 @@ export async function createCluster(
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
 }
 
-export async function uploadConfig(profile: string, clusterId: string, syeEnvironment: string): Promise<void> {
+export async function uploadConfig(clusterId: string, syeEnvironment: string, profile: string): Promise<void> {
     validateClusterId(clusterId)
     const credentials = await getCredentials(profile)
     const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId

@@ -93,8 +93,7 @@ program
     .description('Updates the cluster configuration file in Blob')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .action(async (clusterId: string, configFile: string, options: any) => {
-        const profile = getProfileName(options)
-        await uploadConfig(profile, clusterId, configFile).catch(exit)
+        await uploadConfig(clusterId, configFile, options.profile).catch(exit)
     })
 
 program
