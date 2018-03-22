@@ -40,7 +40,7 @@ export async function showResources(clusterId: string, output = true, raw = fals
     let logOutput = ''
     const log = (msg: string) => (logOutput += msg + '\n')
 
-    const machines = []
+    const machines = new Array<ClusterMachine>()
 
     for (let region of regions) {
         log('')

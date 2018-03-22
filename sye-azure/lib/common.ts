@@ -126,6 +126,7 @@ export async function getSubscription(
     credentials: MsRest.DeviceTokenCredentials,
     filter: { subscription?: string; resourceGroup?: string } = {}
 ): Promise<Subscription> {
+    filter.subscription = filter.subscription || process.env.AZURE_SUBSCRIPTION_ID
     const subscriptionClient = new SubscriptionClient(credentials)
     const subscriptionsFound: Subscription[] = []
     for (const subscription of await subscriptionClient.subscriptions.list()) {
@@ -151,7 +152,7 @@ export async function getSubscription(
     }
 }
 
-export async function getCredentials(profile: string): Promise<MsRest.DeviceTokenCredentials> {
+export async function getCredentials(profile = getProfileName()): Promise<MsRest.DeviceTokenCredentials> {
     if (!tokenCache) {
         tokenCache = new MyTokenCache(profile)
     }
@@ -176,7 +177,7 @@ export async function getCredentials(profile: string): Promise<MsRest.DeviceToke
     }
 }
 
-export function deleteCredentials(profile: string): void {
+export function deleteCredentials(profile = getProfileName()): void {
     if (!tokenCache) {
         tokenCache = new MyTokenCache(profile)
     }
@@ -188,8 +189,8 @@ export function getPrincipal(profile: string): { appId: string; tenant: string; 
     return principal
 }
 
-export function getProfileName(options: any): string {
-    return options.profile || process.env.AZURE_PROFILE || 'default'
+export function getProfileName(): string {
+    return process.env.AZURE_PROFILE || 'default'
 }
 
 // https://docs.microsoft.com/en-us/azure/architecture/best-practices/naming-conventions
