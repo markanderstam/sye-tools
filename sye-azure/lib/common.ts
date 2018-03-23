@@ -38,9 +38,7 @@ class MyTokenCache {
     }
 
     remove(entries: any, cb: any) {
-        this.tokens = this.tokens.filter((e) => {
-            return !Object.keys(entries[0]).every((key) => e[key] === entries[0][key])
-        })
+        this.tokens = this.tokens.filter((e) => !Object.keys(entries[0]).every((key) => e[key] === entries[0][key]))
         cb()
     }
 
@@ -50,9 +48,7 @@ class MyTokenCache {
     }
 
     find(query, cb) {
-        let result = this.tokens.filter((e) => {
-            return Object.keys(query).every((key) => e[key] === query[key])
-        })
+        let result = this.tokens.filter((e) => Object.keys(query).every((key) => e[key] === query[key]))
         cb(null, result)
     }
 
@@ -79,7 +75,7 @@ class MyTokenCache {
     private load() {
         try {
             this.tokens = JSON.parse(fs.readFileSync(this.filename()).toString())
-            this.tokens.map((t) => (t.expiresOn = new Date(t.expiresOn)))
+            this.tokens.forEach((t) => (t.expiresOn = new Date(t.expiresOn)))
         } catch (e) {}
     }
 
@@ -123,7 +119,7 @@ function matchSubscription(nameOrId: string, subscription: Subscription): boolea
 }
 
 export async function getSubscription(
-    credentials: MsRest.DeviceTokenCredentials,
+    credentials: MsRest.DeviceTokenCredentials | MsRest.ApplicationTokenCredentials,
     filter: { subscription?: string; resourceGroup?: string } = {}
 ): Promise<Subscription> {
     filter.subscription = filter.subscription || process.env.AZURE_SUBSCRIPTION_ID
@@ -152,7 +148,9 @@ export async function getSubscription(
     }
 }
 
-export async function getCredentials(profile = getProfileName()): Promise<MsRest.DeviceTokenCredentials> {
+export async function getCredentials(
+    profile = getProfileName()
+): Promise<MsRest.DeviceTokenCredentials | MsRest.ApplicationTokenCredentials> {
     if (!tokenCache) {
         tokenCache = new MyTokenCache(profile)
     }
@@ -161,20 +159,38 @@ export async function getCredentials(profile = getProfileName()): Promise<MsRest
         throw `profile mismatch: ${profile} !== ${tokenCache.profile}`
     }
 
-    if (tokenCache.empty()) {
-        let credentials = await MsRest.interactiveLogin({ tokenCache })
-        consoleLog('Login successful')
-        tokenCache.save()
-        return credentials
-    } else {
-        let options: MsRest.DeviceTokenCredentialsOptions = {}
-        let token = tokenCache.first()
-        options.tokenCache = tokenCache
-        options.username = token.userId
+    let credentials: MsRest.DeviceTokenCredentials | MsRest.ApplicationTokenCredentials
 
-        let credentials = new MsRest.DeviceTokenCredentials(options)
-        return credentials
+    if (process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET && process.env.AZURE_TENANT_ID) {
+        if (tokenCache.empty()) {
+            credentials = await MsRest.loginWithServicePrincipalSecret(
+                process.env.AZURE_CLIENT_ID,
+                process.env.AZURE_CLIENT_SECRET,
+                process.env.AZURE_TENANT_ID,
+                { tokenCache }
+            )
+            tokenCache.save()
+            consoleLog('Login as application successful')
+        } else {
+            credentials = new MsRest.ApplicationTokenCredentials(
+                process.env.AZURE_CLIENT_ID,
+                process.env.AZURE_TENANT_ID,
+                process.env.AZURE_CLIENT_SECRET,
+                { tokenCache }
+            )
+        }
+    } else {
+        if (tokenCache.empty()) {
+            credentials = await MsRest.interactiveLogin({ tokenCache })
+            tokenCache.save()
+            consoleLog('Login successful')
+        } else {
+            const token = tokenCache.first()
+            credentials = new MsRest.DeviceTokenCredentials({ tokenCache, username: token.userId })
+        }
     }
+
+    return credentials
 }
 
 export function deleteCredentials(profile = getProfileName()): void {
