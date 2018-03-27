@@ -53,6 +53,13 @@ EOF
     exit 0
 }
 
+function validateFlag() {
+    if [ -z $2 ]; then
+        echo 'No value provided for '$1
+        exit 1
+    fi
+}
+
 function extractConfigurationFile() {
     local file=$1
     local confDir=$2

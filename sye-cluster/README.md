@@ -36,7 +36,7 @@ For more parameters, run
 
     sye cluster create --help
 
-### Command `sye cluster rotate-certs`
+### Command `sye cluster create-certs`
 
 Performs TLS certificate rotation tasks.
  
