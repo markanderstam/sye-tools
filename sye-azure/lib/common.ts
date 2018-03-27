@@ -151,35 +151,22 @@ export async function getSubscription(
 export async function getCredentials(
     profile = getProfileName()
 ): Promise<MsRest.DeviceTokenCredentials | MsRest.ApplicationTokenCredentials> {
-    if (!tokenCache) {
-        tokenCache = new MyTokenCache(profile)
-    }
-
-    if (profile !== tokenCache.profile) {
-        throw `profile mismatch: ${profile} !== ${tokenCache.profile}`
-    }
-
     let credentials: MsRest.DeviceTokenCredentials | MsRest.ApplicationTokenCredentials
 
     if (process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET && process.env.AZURE_TENANT_ID) {
-        if (tokenCache.empty()) {
-            credentials = await MsRest.loginWithServicePrincipalSecret(
-                process.env.AZURE_CLIENT_ID,
-                process.env.AZURE_CLIENT_SECRET,
-                process.env.AZURE_TENANT_ID,
-                { tokenCache }
-            )
-            tokenCache.save()
-            consoleLog('Login as application successful')
-        } else {
-            credentials = new MsRest.ApplicationTokenCredentials(
-                process.env.AZURE_CLIENT_ID,
-                process.env.AZURE_TENANT_ID,
-                process.env.AZURE_CLIENT_SECRET,
-                { tokenCache }
-            )
-        }
+        credentials = await MsRest.loginWithServicePrincipalSecret(
+            process.env.AZURE_CLIENT_ID,
+            process.env.AZURE_CLIENT_SECRET,
+            process.env.AZURE_TENANT_ID
+        )
+        debug('Login as application successful')
     } else {
+        if (!tokenCache) {
+            tokenCache = new MyTokenCache(profile)
+        }
+        if (profile !== tokenCache.profile) {
+            throw `profile mismatch: ${profile} !== ${tokenCache.profile}`
+        }
         if (tokenCache.empty()) {
             credentials = await MsRest.interactiveLogin({ tokenCache })
             tokenCache.save()
