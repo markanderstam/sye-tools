@@ -37,6 +37,13 @@ function _main {
     local registryUser=$( sed -n 's/.*"registryUsername": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
     local registryPassword=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
+    if [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
+        local ecr_login=$(getEcrLogin "${registryUrl}" "${registryUser}" "${registryPassword}")
+        if [ "$?" -ne 0 ]; then echo "${ecr_login}"; exit 1; fi
+        registryUser=$(echo ${ecr_login} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
+        registryPassword=$(echo ${ecr_login} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
+    fi
+
     dockerRegistryLogin "${registryUrl}" "${registryUser}" "${registryPassword}"
 
     mkdir -p /sharedData/timeshift
@@ -241,13 +248,6 @@ function dockerRegistryLogin() {
         registryUrl=
     elif [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
         echo 'Log in to Amazon ECR container registry'
-
-        local ecr_login=
-        ecr_login=$(getEcrLogin "${registryUrl}" "${registryUser}" "${registryPass}")
-        if [ "$?" -ne 0 ]; then echo "${ecr_login}"; exit 1; fi
-
-        registryUser=$(echo ${ecr_login} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
-        registryPass=$(echo ${ecr_login} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
     else
         echo 'Log in to private container registry'
     fi
