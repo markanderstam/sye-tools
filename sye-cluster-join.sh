@@ -38,10 +38,7 @@ function _main {
     local registryPassword=$( sed -n 's/.*"registryPassword": "\(.*\)".*/\1/p' ${CONFDIR}/global.json )
 
     if [[ ${registryUrl} =~ (.*)amazonaws(.*) ]]; then
-        local ecr_login=$(getEcrLogin "${registryUrl}" "${registryUser}" "${registryPassword}")
-        if [ "$?" -ne 0 ]; then echo "${ecr_login}"; exit 1; fi
-        registryUser=$(echo ${ecr_login} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')
-        registryPassword=$(echo ${ecr_login} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')
+        read -r registryUser registryPassword <<<$(getEcrLogin "${registryUrl}" "${registryUser}" "${registryPassword}")
     fi
 
     dockerRegistryLogin "${registryUrl}" "${registryUser}" "${registryPassword}"
@@ -283,10 +280,15 @@ function getEcrLogin() {
         awsEnvVars+=("AWS_SECRET_ACCESS_KEY=${awsSecretAccessKey}")
     fi
 
-    echo $( \
+    local ecr_login_result=$( \
         for envVar in "${awsEnvVars[@]}"; do eval "declare -x \"$(echo ${envVar})\"" ; done \
         && aws ecr get-login --no-include-email \
     )
+    if [ "$?" -ne 0 ]; then echo "${ecr_login_result}"; exit 1; fi
+
+    echo \
+        "$(echo ${ecr_login_result} | sed 's/.*-u \([a-zA-Z0-9]*\).*/\1/')" \
+        "$(echo ${ecr_login_result} | sed 's/.*-p \([a-zA-Z0-9=]*\).*/\1/')"
 }
 
 function getPublicIpv4Interfaces() {

@@ -141,9 +141,22 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
     stub aws "ecr get-login --no-include-email : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
 
     run getEcrLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "key id" "secret key"
-    echo "${output}"
     [ "$status" -eq 0 ]
-    [ "$output" = "docker login -u ${ecr_user} -p ${ecr_pass}" ]
+
+    unstub aws
+}
+
+
+@test "getEcrLogin should return username and password" {
+    local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
+    local ecr_user="AWS"
+    local ecr_pass=$(random_str)
+
+    stub aws "ecr get-login --no-include-email : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
+
+    run getEcrLogin "https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com" "key id" "secret key"
+    [ "$status" -eq 0 ]
+    [ "$output" = "${ecr_user} ${ecr_pass}" ]
 
     unstub aws
 }
@@ -408,16 +421,13 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
 
 @test "dockerRegistryLogin should login to ECR if url matches" {
     local ecr_url="https://aws_account_id.dkr.ecr.us-west-1.amazonaws.com"
-    local ecr_user="AWS"
-    local ecr_pass=$(random_str)
+    local registry_user="AWS"
 
-    local ecr_login_args="${ecr_url} 'aws key id' 'aws secret key'"
     unset getEcrLogin
-    stub getEcrLogin "${ecr_login_args} : echo 'docker login -u ${ecr_user} -p ${ecr_pass}'"
-    stub docker "login -u ${ecr_user} --password-stdin ${ecr_url} : true"
+    stub getEcrLogin
+    stub docker "login -u '${registry_user}' --password-stdin ${ecr_url} : true"
 
-    run dockerRegistryLogin "${ecr_url}" "aws key id" "aws secret key"
-
+    run dockerRegistryLogin "${ecr_url}" "${registry_user}" "aws secret key"
     [ "$status" -eq 0 ]
     [ "$output" = "Log in to Amazon ECR container registry" ]
 
