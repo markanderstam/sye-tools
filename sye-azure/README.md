@@ -12,11 +12,23 @@ The `sye azure` command is currently in beta, and we will make backwards incompa
 
 ## Authentication
 
-Authentication against Azure is performed using an interactive login. The first time you run the `sye azure` command for a cluster (or explicitly issue a `sye azure login` command), it will prompt you to open a web-browser and login. When you have logged in, the generated credentials will be stored under `~/.sye/`. The stored credentials are normally only valid for one hour and then you have to login again.
+### Interactive login
+
+By defaylt, authentication against Azure is performed using an interactive login. The first time you run the `sye azure` command for a cluster (or explicitly issue a `sye azure login` command), it will prompt you to open a web-browser and login. When you have logged in, the generated credentials will be stored under `~/.sye/`. The stored credentials are normally only valid for one hour and then you have to login again.
 
 The default file used to store the credentials is `default.tokens.json` which can be changed using the `--profile` parameter for all the `sye azure` commands. This enables the use of more than one parallel session.
 
 A session may be invalidated using the `sye azure logout` command.
+
+### Service Principal login
+
+For automated use of the `sye azure` command, it is also possible to use a Service Principal to authenticate against Azure.
+
+See [the Azure documentation](https://github.com/Azure/azure-sdk-for-node/blob/master/Documentation/Authentication.md#service-principal-authentication) for info on how to create a service principal. Then pass the following environment variables to the `sye azure` command.
+
+    AZURE_CLIENT_ID
+    AZURE_CLIENT_SECRET
+    AZURE_TENANT_ID
 
 ## Cluster resources
 
