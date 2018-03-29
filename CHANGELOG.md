@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.1.2] - 2018-03-29
+
+* AWS: Fix issue with installing from a registry on Amazon ECR.
+* Add tests for sye-cluster-join.sh
+* Azure: Delete VNET when deleting region
+* Azure: Login with a service principal
+
 ## [1.1.1] - 2018-03-20
 
 * Fix issue downloading release metadata in sye-cluster-join.sh
