@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.1.3] - 2018-03-30
+
+- Lock version of azure-arm-network to avoid https://github.com/Azure/azure-sdk-for-node/issues/2597
+
 ## [1.1.2] - 2018-03-29
 
 * AWS: Fix issue with installing from a registry on Amazon ECR.
