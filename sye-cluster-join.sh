@@ -46,6 +46,9 @@ function _main {
     mkdir -p /sharedData/timeshift
     chown -R sye:sye /sharedData
 
+    mkdir -p /run/sye
+    chown -R sye:sye /run/sye
+
     local runningContainer=$(docker ps --quiet --filter "name=machine-controller-")
     if [[ ${runningContainer} ]]; then
         echo "Machine controller already running as ${runningContainer}"
@@ -69,6 +72,7 @@ function _main {
             -e "MANAGEMENT_PORT=${MANAGEMENT_PORT}" \
             -e "MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT}" \
             -v /etc/sye:/etc/sye:rw \
+            -v /run/sye:/run/sye:rw \
             -v /var/lib/docker/volumes:/var/lib/docker/volumes:rw \
             -v /tmp/cores:/tmp/cores:rw \
             -v /var/run/docker.sock:/var/run/docker.sock \
