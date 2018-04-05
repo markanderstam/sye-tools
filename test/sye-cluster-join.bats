@@ -13,7 +13,7 @@ source "${BATS_TEST_DIRNAME}/../sye-cluster-join.sh" >/dev/null 2>/dev/null
         "FILE=./sye-environment.tar.gz"
         "MANAGEMENT_PORT=81"
         "MANAGEMENT_TLS_PORT=4433"
-        "MACHINE_NAME=$(hostname --fqdn)"
+        "MACHINE_NAME=$(hostname -f)"
         "LOCATION=Unknown"
         "MACHINE_REGION=default"
         "MACHINE_TAGS="

@@ -164,7 +164,7 @@ function _setGlobalVariablesDefaults() {
     FILE=${FILE:-"./sye-environment.tar.gz"}
     MANAGEMENT_PORT=${MANAGEMENT_PORT:-"81"}
     MANAGEMENT_TLS_PORT=${MANAGEMENT_TLS_PORT:-"4433"}
-    MACHINE_NAME=${MACHINE_NAME:-$(hostname --fqdn)}
+    MACHINE_NAME=${MACHINE_NAME:-$(hostname -f)}
     LOCATION=${LOCATION:-"Unknown"}
     MACHINE_REGION=${MACHINE_REGION:-"default"}
     MACHINE_ZONE=${MACHINE_ZONE:-"default"}
@@ -175,7 +175,7 @@ function _setGlobalVariablesDefaults() {
 function _usage() {
     cat << EOF
 description: Add this machine to a cluster
-usage: sudo ./cluster-join.sh [options][--single <interface-name>|--management <interface-name>][--help]
+usage: sudo ./sye-cluster-join.sh [options][--single <interface-name>|--management <interface-name>][--help]
 
 options:
 -f, --file <filename>                          configuration filename, default ./sye-environment.tar.gz

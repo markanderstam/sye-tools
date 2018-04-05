@@ -5,7 +5,7 @@ set -e
 function usage() {
     cat << EOF
 description: Remove machine-controller and all service containers from this machine
-usage: sudo ./cluster-leave.sh
+usage: sudo ./sye-cluster-leave.sh
 
 options:
 -h, --help                                     show brief help
