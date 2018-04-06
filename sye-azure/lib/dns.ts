@@ -1,5 +1,5 @@
 import { isIPv6 } from 'net'
-import DNSManagementClient = require('azure-arm-dns')
+import DNSManagementClient from 'azure-arm-dns'
 import * as dbg from 'debug'
 import { getCredentials, getSubscription } from './common'
 
