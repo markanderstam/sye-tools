@@ -1,6 +1,6 @@
 import * as dbg from 'debug'
 const debug = dbg('azure/machine')
-import NetworkManagementClient = require('azure-arm-network')
+import { NetworkManagementClient } from 'azure-arm-network'
 import StorageManagementClient = require('azure-arm-storage')
 import { createBlobService, BlobUtilities } from 'azure-storage'
 

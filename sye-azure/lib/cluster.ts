@@ -2,7 +2,7 @@ import { readPackageFile, syeEnvironmentFile, consoleLog } from '../../lib/commo
 import { ResourceManagementClient } from 'azure-arm-resource'
 import StorageManagementClient = require('azure-arm-storage')
 import ComputeClient = require('azure-arm-compute')
-import NetworkClient = require('azure-arm-network')
+import { NetworkManagementClient } from 'azure-arm-network'
 import * as EasyTable from 'easy-table'
 const debug = require('debug')('azure/cluster')
 
@@ -152,7 +152,7 @@ export async function showResources(
     const resourceGroup = await resourceClient.resourceGroups.get(clusterId)
 
     // Find all the NICs in the resource group
-    const networkClient = new NetworkClient(credentials, subscription.subscriptionId)
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
     const nicMap: { [id: string]: NetworkInterface } = {}
     for (const nic of await networkClient.networkInterfaces.list(clusterId)) {
         nicMap[nic.id] = nic
