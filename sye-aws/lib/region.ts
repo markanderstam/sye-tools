@@ -49,6 +49,8 @@ async function createVPC(ec2: aws.EC2, clusterId: string, cidrBlock: string) {
         vpc = result2.Vpcs[0]
     }
 
+    await ec2.waitFor('vpcAvailable', { VpcIds: [vpc.VpcId] }).promise()
+
     await tagResource(ec2, vpc.VpcId, clusterId, clusterId)
 
     return vpc
@@ -70,32 +72,33 @@ async function createSubnet(
     routeTableId: string
 ): Promise<Subnet> {
     debug('createSubnet', name, ipv4CidrBlock, ipv6CidrBlock)
-    let result = await ec2
+    let subnet = (await ec2
         .createSubnet({
             VpcId: vpcid,
             CidrBlock: ipv4CidrBlock,
             Ipv6CidrBlock: ipv6CidrBlock,
             AvailabilityZone: availabilityZone,
         })
-        .promise()
+        .promise()).Subnet
+
+    await ec2.waitFor('subnetAvailable', { SubnetIds: [subnet.SubnetId] }).promise()
 
     await ec2
         .modifySubnetAttribute({
-            SubnetId: result.Subnet.SubnetId,
+            SubnetId: subnet.SubnetId,
             MapPublicIpOnLaunch: { Value: true },
         })
         .promise()
-
     await ec2
         .associateRouteTable({
-            SubnetId: result.Subnet.SubnetId,
+            SubnetId: subnet.SubnetId,
             RouteTableId: routeTableId,
         })
         .promise()
 
-    await tagResource(ec2, result.Subnet.SubnetId, clusterId, name)
+    await tagResource(ec2, subnet.SubnetId, clusterId, name)
 
-    return { id: result.Subnet.SubnetId, name, ipv6CidrBlock }
+    return { id: subnet.SubnetId, name, ipv6CidrBlock }
 }
 
 async function createInternetGateway(ec2: aws.EC2, clusterId: string, name: string, vpcid: string) {
