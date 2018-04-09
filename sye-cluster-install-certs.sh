@@ -14,6 +14,7 @@ function _main {
     _setGlobalVariablesFromArgs $@
 
     extractConfigurationFile "${FILE}" "${CONFDIR}"
+    waitForCertsReloaded
 }
 
 function _setGlobalVariablesDefaults() {

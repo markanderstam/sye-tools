@@ -239,15 +239,19 @@ function createConfigurationFileForCertRotation(configFile: string, outputDir: s
     execSync(`cat '${oldDir}/keys/root_ca.pem' '${certDir}/ca.pem' > '${stage1Dir}'/keys/root_ca.pem`)
     createTarGzFile(stage1Dir, resolve(outputDir, 'sye-environment-stage-1.tar.gz'))
 
+    execSync('sleep 2') // Make sure the files get different time stamps
+
     // Construct the stage 2 files
     execSync(`cp -r '${stage1Dir}' '${stage2Dir}'`)
-    execSync(`cp '${certDir}/ca.pem' '${stage2Dir}'/keys/ca.pem`)
-    execSync(`cp '${certDir}/ca.key' '${stage2Dir}'/keys/ca.key`)
+    execSync(`cat '${certDir}/ca.pem' > '${stage2Dir}/keys/ca.pem'`)
+    execSync(`cat '${certDir}/ca.key' > '${stage2Dir}/keys/ca.key'`)
     createTarGzFile(stage2Dir, resolve(outputDir, 'sye-environment-stage-2.tar.gz'))
+
+    execSync('sleep 2') // Make sure the files get different time stamps
 
     // Construct the stage 3 files
     execSync(`cp -r '${stage2Dir}' '${stage3Dir}'`)
-    execSync(`cp '${certDir}/ca.pem' '${stage2Dir}'/keys/root_ca.pem`)
+    execSync(`cat '${certDir}/ca.pem' > '${stage3Dir}/keys/root_ca.pem'`)
     createTarGzFile(stage3Dir, resolve(outputDir, 'sye-environment-stage-3.tar.gz'))
 
     execSync(`rm -rf ${tempDir}`)
