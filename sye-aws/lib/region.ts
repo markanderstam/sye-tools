@@ -229,7 +229,9 @@ async function getCoreRegion(clusterId: string): Promise<CoreRegion | undefined>
     let vpcId: string
     let location: string
     let subnets = await Promise.all<Subnet>(
-        resources.filter((r) => r.Tags.some((tag) => tag.Key === `SyeCore_${clusterId}`)).map(async (r) => {
+        resources.filter((r) => r.Tags.some((tag) => tag.Key === `SyeCore_${clusterId}`)).map(async (r): Promise<
+            Subnet
+        > => {
             location = r.ResourceARN.split(':')[3]
             ec2 = new aws.EC2({ region: location })
             let id = r.ResourceARN.split('/')[1]
@@ -237,8 +239,8 @@ async function getCoreRegion(clusterId: string): Promise<CoreRegion | undefined>
             let availabilityZone = name.split('-').pop()
             let subnet = await getSubnet(ec2, clusterId, availabilityZone)
             vpcId = subnet.VpcId
-            let ipv6block = subnet.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
-            return { id, name, ipv6block }
+            let ipv6CidrBlock = subnet.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
+            return { id, name, ipv6CidrBlock }
         })
     )
     if (subnets.length > 0) {
