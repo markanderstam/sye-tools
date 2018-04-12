@@ -3,12 +3,10 @@
 set -e
 
 # usage: bootstrap.sh [<cluster-join parameters>...]
-# Run once when the instance is started fresh from an AMI
 echo PUBLIC_STORAGE_URL $PUBLIC_STORAGE_URL
 echo ROLES $ROLES
 echo URL $SYE_ENV_URL
-echo ATTACHED_STORAGE $ATTACHED_STORAGE
-echo ELASTIC_FILE_SYSTEM_DNS $ELASTIC_FILE_SYSTEM_DNS
+echo STORAGE_DEVICE_NAME $STORAGE_DEVICE_NAME
 
 echo Arguments "${@:1}"
 
@@ -18,23 +16,23 @@ curl -o /home/netinsight/.ssh/authorized_keys $PUBLIC_STORAGE_URL/authorized_key
 chown netinsight:netinsight /home/netinsight/.ssh/authorized_keys
 chmod go-rwx /home/netinsight/.ssh/authorized_keys
 
-if [ "$ATTACHED_STORAGE" == "true" ]
+if [[ $STORAGE_DEVICE_NAME ]]
 then
-    while file -L -s /dev/sdc | grep -l '/dev/sdc: cannot open' > /dev/null
+    while file -L -s $STORAGE_DEVICE_NAME | grep -l "$STORAGE_DEVICE_NAME: cannot open" > /dev/null
     do
         echo Waiting for data volume to be attached
         sleep 5
     done
-    if file -L -s /dev/sdc | grep -l '/dev/sdc: data' > /dev/null
+    if file -L -s $STORAGE_DEVICE_NAME | grep -l "$STORAGE_DEVICE_NAME: data" > /dev/null
     then
         echo Formatting data volume
-        mkfs -t ext4 /dev/sdc
+        mkfs -t ext4 $STORAGE_DEVICE_NAME
     fi
     echo Mounting data volume
     mkdir -p /var/lib/docker/volumes
-    UUID=`file -L -s /dev/sdc | sed 's/.*UUID=\([0-9a-f-]*\) .*/\1/'`
+    UUID=`file -L -s $STORAGE_DEVICE_NAME | sed 's/.*UUID=\([0-9a-f-]*\) .*/\1/'`
     echo "UUID=$UUID /var/lib/docker/volumes ext4 defaults,barrier=0 0 2" >> /etc/fstab
-    mount -a
+    mount -a -v
 fi
 
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
@@ -45,7 +43,6 @@ add-apt-repository \
 apt-get update
 apt-get install -y docker-ce
 usermod -aG docker netinsight
-
 useradd -M sye
 
 if [[ $ROLES =~ (^|,)log($|,) ]]
@@ -68,10 +65,6 @@ then
 fi
 
 mkdir /sharedData
-# if [[ $ELASTIC_FILE_SYSTEM_DNS ]]
-# then
-#     mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $ELASTIC_FILE_SYSTEM_DNS:/  /sharedData
-# fi
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"
 curl -O $PUBLIC_STORAGE_URL/sye-cluster-join.sh

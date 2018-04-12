@@ -3,12 +3,11 @@
 set -e
 
 # usage: bootstrap.sh [<cluster-join parameters>...]
-# Run once when the instance is started fresh from an AMI
 echo BUCKET $BUCKET
 echo ROLES $ROLES
 echo URL $SYE_ENV_URL
-echo ATTACHED_STORAGE $ATTACHED_STORAGE
-echo ELASTIC_FILE_SYSTEM_DNS $ELASTIC_FILE_SYSTEM_DNS
+echo EBS_DEVICE_NAME $EBS_DEVICE_NAME
+echo EFS_DNS $EFS_DNS
 
 echo Arguments "${@:1}"
 
@@ -16,27 +15,29 @@ aws s3 cp s3://$BUCKET/public/authorized_keys /home/ec2-user/.ssh/authorized_key
 chown ec2-user:ec2-user /home/ec2-user/.ssh/authorized_keys
 chmod go-rwx /home/ec2-user/.ssh/authorized_keys
 
-if [ "$ATTACHED_STORAGE" == "true" ]
+if [[ $EBS_DEVICE_NAME ]]
 then
-    while file -L -s /dev/sdb | grep -l '/dev/sdb: cannot open' > /dev/null
+    while file -L -s $EBS_DEVICE_NAME | grep -l "$EBS_DEVICE_NAME: cannot open" > /dev/null
     do
         echo Waiting for data volume to be attached
         sleep 5
     done
-    if file -L -s /dev/sdb | grep -l '/dev/sdb: data' > /dev/null
+    if file -L -s $EBS_DEVICE_NAME | grep -l "$EBS_DEVICE_NAME: data" > /dev/null
     then
         echo Formatting data volume
-        mkfs -t ext4 /dev/sdb
+        mkfs -t ext4 $EBS_DEVICE_NAME
     fi
     echo Mounting data volume
     mkdir -p /var/lib/docker/volumes
-    UUID=`file -L -s /dev/sdb | sed 's/.*UUID=\([0-9a-f-]*\) .*/\1/'`
+    UUID=`file -L -s $EBS_DEVICE_NAME | sed 's/.*UUID=\([0-9a-f-]*\) .*/\1/'`
     echo "UUID=$UUID /var/lib/docker/volumes ext4 defaults 0 2" >> /etc/fstab
-    mount -a
+    mount -a -v
 fi
 
 yum -y update
-yum -y install docker
+# NOTE: skipping version 17.12.1ce with recursive unmount of root.
+# Fixed in version 18.03.0-ce: https://github.com/moby/moby/pull/36237.
+yum -y install docker-17.12.0ce
 usermod -aG docker ec2-user
 service docker restart
 useradd -M sye
@@ -61,9 +62,9 @@ then
 fi
 
 mkdir /sharedData
-if [[ $ELASTIC_FILE_SYSTEM_DNS ]]
+if [[ $EFS_DNS ]]
 then
-    mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $ELASTIC_FILE_SYSTEM_DNS:/  /sharedData
+    mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $EFS_DNS:/  /sharedData
 fi
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"
