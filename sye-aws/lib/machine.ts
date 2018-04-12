@@ -50,7 +50,7 @@ async function buildUserData(
     region: string,
     zone: string,
     name: string,
-    hasStorage: boolean,
+    ebsDeviceName: string,
     fileSystemId: string,
     args = ''
 ) {
@@ -77,12 +77,13 @@ async function buildUserData(
     debug('envUrl', envUrl)
     const efsDns = fileSystemId ? `${fileSystemId}.efs.${region}.amazonaws.com` : ''
     debug('efsDns', efsDns)
+    debug('ebsDeviceName', ebsDeviceName)
     return Buffer.from(
         `#!/bin/sh
 cd /tmp
 aws s3 cp s3://${clusterId}/public/bootstrap.sh bootstrap.sh
 chmod +x bootstrap.sh
-ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ELASTIC_FILE_SYSTEM_DNS="${efsDns}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
+ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" EBS_DEVICE_NAME="${ebsDeviceName}" EFS_DNS="${efsDns}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
 `
     ).toString('base64')
 }
@@ -126,6 +127,8 @@ async function createInstance(
         consoleLog(`EFS not available in region ${region}. /sharedData will not be available.`, true)
     }
 
+    const ebsDeviceName = '/dev/sdf'
+
     let ec2Req: AWS.EC2.RunInstancesRequest = {
         ImageId: amiId,
         InstanceType: instanceType,
@@ -149,7 +152,7 @@ async function createInstance(
             region,
             availabilityZone,
             name,
-            !!storage,
+            storage > 0 ? ebsDeviceName : '',
             fileSystemId,
             args
         ),
@@ -158,10 +161,10 @@ async function createInstance(
     if (storage > 0) {
         ec2Req.BlockDeviceMappings = [
             {
-                DeviceName: '/dev/sdb',
+                DeviceName: ebsDeviceName,
                 Ebs: {
                     VolumeSize: storage,
-                    VolumeType: 'gp2', // TODO: Make configurable?
+                    VolumeType: 'gp2',
                 },
             },
         ]
@@ -298,7 +301,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
                 region,
                 getTag(instance.Tags, 'AvailabilityZone'),
                 name,
-                dataVolumeId !== undefined,
+                dataVolumeId !== undefined ? dataVolume.DeviceName : '',
                 fileSystemId
             ),
             TagSpecifications: [
@@ -342,7 +345,7 @@ async function redeployInstance(clusterId: string, region: string, name: string)
             .modifyInstanceAttribute({
                 BlockDeviceMappings: [
                     {
-                        DeviceName: '/dev/sdb',
+                        DeviceName: dataVolume.DeviceName,
                         Ebs: {
                             DeleteOnTermination: true,
                         },

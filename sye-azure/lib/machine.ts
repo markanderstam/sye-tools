@@ -172,6 +172,8 @@ export async function machineAdd(
     let envUrl = blobService.getUrl(privateContainerName(), syeEnvironmentFile, sasToken, true)
     let publicStorageUrl = blobService.getUrl(publicContainerName())
 
+    const storageDeviceName = hasStorage ? '/dev/sdc' : ''
+
     const vmParameters: VirtualMachine = {
         location: region,
         tags: tags,
@@ -184,7 +186,7 @@ export async function machineAdd(
 cd /tmp
 curl -O ${publicStorageUrl}/bootstrap.sh
 chmod +x bootstrap.sh
-ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}" ATTACHED_STORAGE="${hasStorage}" ./bootstrap.sh --machine-name ${machineName} --machine-region ${region} --machine-zone ${availabilityZone} ${args}
+ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}" STORAGE_DEVICE_NAME="${storageDeviceName}" ./bootstrap.sh --machine-name ${machineName} --machine-region ${region} --machine-zone ${availabilityZone} ${args}
             `
             ).toString('base64'),
         },
