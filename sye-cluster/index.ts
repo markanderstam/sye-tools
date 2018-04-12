@@ -284,7 +284,7 @@ C                      = SE
 ST                     = Stockholm
 L                      = Stockholm
 O                      = Net Insight
-OU                     = ott
+OU                     = ott_${Date.now()}
 CN                     = ca
 emailAddress           = ca@neti.systems
 
