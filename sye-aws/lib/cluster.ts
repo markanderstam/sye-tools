@@ -99,6 +99,30 @@ export async function getMachines(clusterId: string): Promise<ClusterMachine[]> 
     return showResources(clusterId, false)
 }
 
+export async function uploadBootstrap(bucketName: string): Promise<void> {
+    const s3 = new aws.S3({ region: 'us-east-1' })
+    await s3
+        .upload({
+            Bucket: bucketName,
+            Key: 'public/bootstrap.sh',
+            Body: readPackageFile('sye-aws/bootstrap.sh'),
+            ContentType: 'application/x-sh',
+        })
+        .promise()
+}
+
+export async function uploadClusterJoin(bucketName: string): Promise<void> {
+    const s3 = new aws.S3({ region: 'us-east-1' })
+    await s3
+        .upload({
+            Bucket: bucketName,
+            Key: 'public/sye-cluster-join.sh',
+            Body: readPackageFile('sye-cluster-join.sh'),
+            ContentType: 'application/x-sh',
+        })
+        .promise()
+}
+
 export async function getResources(
     clusterId: string,
     resourceTypeFilters: string[]

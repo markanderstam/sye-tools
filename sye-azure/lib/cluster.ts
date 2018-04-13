@@ -193,6 +193,38 @@ export async function getMachines(clusterId: string): Promise<ClusterMachine[]> 
     return showResources(clusterId, false)
 }
 
+export async function uploadBootstrap(clusterId: string, profile: string): Promise<void> {
+    validateClusterId(clusterId)
+    const credentials = await getCredentials(profile)
+    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
+    const storageAcctname = storageAccountName(subscriptionId, clusterId)
+    let storageClient = new StorageManagementClient(credentials, subscriptionId)
+    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
+    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
+    await createBlockBlobFromTextPromise(
+        blobService,
+        publicContainerName(),
+        'bootstrap.sh',
+        readPackageFile('sye-azure/bootstrap.sh').toString()
+    )
+}
+
+export async function uploadClusterJoin(clusterId: string, profile: string): Promise<void> {
+    validateClusterId(clusterId)
+    const credentials = await getCredentials(profile)
+    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
+    const storageAcctname = storageAccountName(subscriptionId, clusterId)
+    let storageClient = new StorageManagementClient(credentials, subscriptionId)
+    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
+    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
+    await createBlockBlobFromTextPromise(
+        blobService,
+        publicContainerName(),
+        'sye-cluster-join.sh',
+        readPackageFile('sye-cluster-join.sh').toString()
+    )
+}
+
 function createBlockBlobFromTextPromise(
     blobService: BlobService,
     container: string,
