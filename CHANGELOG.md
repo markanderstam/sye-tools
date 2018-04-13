@@ -4,9 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+* Add commands for uploading/updating bootstrap.sh and sye-cluster-join.sh in S3/Blob
+* Pin docker to 17.12.0ce to avoid problem where docker unmounts the data volume
+* Use proper device name for data volume. Note: You must run sye aws/azure upload-bootstrap after upgrading to this release of sye-tools
+
 ## [1.1.3] - 2018-03-30
 
-- Lock version of azure-arm-network to avoid https://github.com/Azure/azure-sdk-for-node/issues/2597
+* Lock version of azure-arm-network to avoid https://github.com/Azure/azure-sdk-for-node/issues/2597
 
 ## [1.1.2] - 2018-03-29
 

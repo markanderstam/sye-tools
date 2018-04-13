@@ -2,7 +2,7 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import { createCluster, deleteCluster, showResources } from '../sye-aws/lib/cluster'
+import { createCluster, deleteCluster, showResources, uploadBootstrap, uploadClusterJoin } from '../sye-aws/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy } from '../sye-aws/lib/machine'
 import { regionAdd, regionDelete } from '../sye-aws/lib/region'
 import { createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry } from '../sye-aws/lib/registry'
@@ -71,7 +71,7 @@ program
     })
 
 program
-    .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
+    .command('cluster-create <cluster-id> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Amazon')
     .action(async (clusterId, syeEnvironment, authorizedKeys) => {
         consoleLog(`Creating cluster ${clusterId}`)
@@ -79,7 +79,7 @@ program
     })
 
 program
-    .command('cluster-delete <clusterId>')
+    .command('cluster-delete <cluster-id>')
     .description('Delete a sye cluster on Amazon')
     .action(async (clusterId) => {
         consoleLog(`Deleting cluster ${clusterId}`)
@@ -87,11 +87,25 @@ program
     })
 
 program
-    .command('cluster-show <clusterId>')
+    .command('cluster-show <cluster-id>')
     .description('Show all resources used by a cluster')
     .option('--raw', 'Show raw JSON format')
     .action(async (clusterId, options) => {
         await showResources(clusterId, true, options.raw).catch(exit)
+    })
+
+program
+    .command('upload-bootstrap <cluster-id>')
+    .description('Updates the bootstrap.sh file in S3')
+    .action(async (clusterId: string) => {
+        await uploadBootstrap(clusterId).catch(exit)
+    })
+
+program
+    .command('upload-cluster-join <cluster-id>')
+    .description('Updates the sye-cluster-join.sh file in S3')
+    .action(async (clusterId: string) => {
+        await uploadClusterJoin(clusterId).catch(exit)
     })
 
 program

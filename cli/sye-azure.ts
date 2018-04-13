@@ -2,7 +2,15 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import { login, logout, createCluster, deleteCluster, showResources } from '../sye-azure/lib/cluster'
+import {
+    login,
+    logout,
+    createCluster,
+    deleteCluster,
+    showResources,
+    uploadBootstrap,
+    uploadClusterJoin,
+} from '../sye-azure/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy, ensureMachineSecurityRules } from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog, exit } from '../lib/common'
@@ -27,7 +35,7 @@ program
     })
 
 program
-    .command('cluster-create <clusterId> <sye-environment> <authorized_keys>')
+    .command('cluster-create <cluster-id> <sye-environment> <authorized_keys>')
     .description('Setup a new sye cluster on Azure')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .option('--subscription [name or id]', 'The Azure subscription')
@@ -46,7 +54,7 @@ program
     )
 
 program
-    .command('cluster-delete <clusterId>')
+    .command('cluster-delete <cluster-id>')
     .description('Delete a sye cluster on Azure')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .action(async (clusterId: string, options: { profile?: string }) => {
@@ -55,12 +63,28 @@ program
     })
 
 program
-    .command('cluster-show <clusterId>')
+    .command('cluster-show <cluster-id>')
     .description('Show all resources used by a cluster')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .option('--raw', 'Show raw JSON format')
     .action(async (clusterId: string, options: { profile?: string; raw?: boolean }) => {
         await showResources(clusterId, true, options.raw, options.profile).catch(exit)
+    })
+
+program
+    .command('upload-bootstrap <cluster-id>')
+    .description('Updates the bootstrap.sh file in Blob')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, options: { profile?: string }) => {
+        await uploadBootstrap(clusterId, options.profile).catch(exit)
+    })
+
+program
+    .command('upload-cluster-join <cluster-id>')
+    .description('Updates the sye-cluster-join.sh file in Blob')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, options: { profile?: string }) => {
+        await uploadClusterJoin(clusterId, options.profile).catch(exit)
     })
 
 program
