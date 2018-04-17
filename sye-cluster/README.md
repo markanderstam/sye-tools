@@ -91,10 +91,7 @@ as root to the machines):
 
     # Copy the sye-cluster-install-certs.sh from https://github.com/netinsight/sye-tools
     # Copy the sye-environment-stage-<N>.tar.gz to the machine
-    sudo sye-cluster-install-certs.sh sye-environment-stage-<N>.tar.gz
-
-This will update all machines so that they will now trust the new root
-certificate as well as the old one.
+    sudo sye-cluster-install-certs.sh -f sye-environment-stage-<N>.tar.gz
 
 #### 3. Save the new configuration as reference
 
