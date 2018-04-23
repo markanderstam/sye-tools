@@ -127,7 +127,7 @@ export async function getSubscription(
     const subscriptionsFound: Subscription[] = []
     for (const subscription of await subscriptionClient.subscriptions.list()) {
         const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
-        if (filter.resourceGroup && !await resourceClient.resourceGroups.checkExistence(filter.resourceGroup)) {
+        if (filter.resourceGroup && !(await resourceClient.resourceGroups.checkExistence(filter.resourceGroup))) {
             continue
         }
         if (filter.subscription && !matchSubscription(filter.subscription, subscription)) {

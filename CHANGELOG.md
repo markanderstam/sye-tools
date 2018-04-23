@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.2.0] - 2018-04-23
+
 * Add commands for uploading/updating bootstrap.sh and sye-cluster-join.sh in S3/Blob
 * Pin docker to 17.12.0ce to avoid problem where docker unmounts the data volume
 * Use proper device name for data volume. Note: You must run sye aws/azure upload-bootstrap after upgrading to this release of sye-tools
