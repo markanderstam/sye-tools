@@ -2,7 +2,14 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import { createCluster, deleteCluster, showResources, uploadBootstrap, uploadClusterJoin, uploadConfig } from '../sye-aws/lib/cluster'
+import {
+    createCluster,
+    deleteCluster,
+    showResources,
+    uploadBootstrap,
+    uploadClusterJoin,
+    uploadConfig,
+} from '../sye-aws/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy } from '../sye-aws/lib/machine'
 import { regionAdd, regionDelete } from '../sye-aws/lib/region'
 import { createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry } from '../sye-aws/lib/registry'
@@ -106,6 +113,7 @@ program
     .description('Updates the sye-cluster-join.sh file in S3')
     .action(async (clusterId: string) => {
         await uploadClusterJoin(clusterId).catch(exit)
+    })
 
 program
     .command('upload-config <clusterId> <configFile>')

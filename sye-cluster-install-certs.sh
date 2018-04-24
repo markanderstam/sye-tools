@@ -73,14 +73,16 @@ function extractConfigurationFile() {
 
 function waitForCertsReloaded() {
     local machineControllerName=$(docker ps --filter 'name=machine-controller-' --format '{{.Names}}')
-    if ! [[ ${machineControllerName} ]] ; then
+    if ! [[ ${machineControllerName} ]]; then
         errcho "Cannot find the machine controller container"
         exit 1
     fi
     echo "*** --------------------------------------------- ***"
     echo "*** Waiting for certificate rotation to complete: ***"
     echo "*** --------------------------------------------- ***"
-    docker logs -f ${machineControllerName} --since 5s | sed '/CA Certificate Update Complete/ q'
+    until ! (docker logs -f ${machineControllerName} --since 5s | sed '/CA Certificate Update Complete/ q0'); do
+        sleep 1
+    done
 }
 
 if [ "$0" == "$BASH_SOURCE" ]; then
