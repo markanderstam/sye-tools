@@ -14,7 +14,14 @@ function _main {
     _setGlobalVariablesFromArgs $@
 
     extractConfigurationFile "${FILE}" "${CONFDIR}"
-    waitForCertsReloaded
+
+    echo "*** --------------------------------------------- ***"
+    echo "*** Waiting for certificate rotation to complete: ***"
+    echo "*** --------------------------------------------- ***"
+    until [ -n "$ROTATED" ]; do
+        waitForCertsReloaded
+        sleep 1
+    done
 }
 
 function _setGlobalVariablesDefaults() {
@@ -72,7 +79,7 @@ function extractConfigurationFile() {
     tar -xzf ${file} -C /tmp -o keys
     if diff -r /tmp/keys ${confDir}/keys > /dev/null; then
         rm -r /tmp/keys
-        errcho "The certificates are identical to those already installed"
+        errcho "The certificates are identical to those already installed, exiting"
         exit 1
     fi
     rm -r /tmp/keys
@@ -83,14 +90,15 @@ function waitForCertsReloaded() {
     local machineControllerName=$(docker ps --filter 'name=machine-controller-' --format '{{.Names}}')
     if ! [[ ${machineControllerName} ]]; then
         errcho "Cannot find the machine controller container"
-        exit 1
+        return
     fi
-    echo "*** --------------------------------------------- ***"
-    echo "*** Waiting for certificate rotation to complete: ***"
-    echo "*** --------------------------------------------- ***"
-    until ! (docker logs -f ${machineControllerName} --since 5s | sed '/CA Certificate Update Complete/ q0'); do
-        sleep 1
-    done
+    while read logLine; do
+        echo $logLine
+        if [[ $logLine == *"CA Certificate Update Complete"* ]]; then
+            ROTATED=true
+            break
+        fi
+    done < <(docker logs ${machineControllerName} -f --since 5s)
 }
 
 if [ "$0" == "$BASH_SOURCE" ]; then
