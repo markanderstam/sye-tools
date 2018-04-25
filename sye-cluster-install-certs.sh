@@ -71,18 +71,20 @@ function validateFlag() {
 function extractConfigurationFile() {
     local file=$1
     local confDir=$2
+    local tempDir=/tmp/cert-rotation-$$
     if [[ ! -r ${file} ]]; then
         errcho "Configuration file ${file} missing, exiting"
         exit 1
     fi
-    rm -rf /tmp/keys
-    tar -xzf ${file} -C /tmp -o keys
-    if diff -r /tmp/keys ${confDir}/keys > /dev/null; then
-        rm -r /tmp/keys
+    rm -rf ${tempDir}
+    mkdir ${tempDir}
+    tar -xzf ${file} -C ${tempDir} -o keys
+    if diff -r ${tempDir}/keys ${confDir}/keys > /dev/null; then
+        rm -r ${tempDir}
         errcho "The certificates are identical to those already installed, exiting"
         exit 1
     fi
-    rm -r /tmp/keys
+    rm -r ${tempDir}
     tar -xzf ${file} -C ${confDir} -o keys
 }
 
