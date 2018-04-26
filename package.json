@@ -17,6 +17,7 @@
     "url": "https://github.com/netinsight/sye-tools/issues"
   },
   "scripts": {
+    "tag-version:latest": "npm dist-tag add $npm_package_name@$npm_package_version",
     "prepare": "npm run tsc",
     "test": "npm run tsc && multi-tape build/sye-aws/test/test-*.js",
     "lint": "prettier --list-different \"{,**/**}*.ts\" && tslint -t stylish -p tsconfig.json",
