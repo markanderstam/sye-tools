@@ -99,6 +99,18 @@ export async function getMachines(clusterId: string): Promise<ClusterMachine[]> 
     return showResources(clusterId, false)
 }
 
+export async function uploadConfig(bucketName: string, configFile: string): Promise<void> {
+    const s3 = new aws.S3({ region: 'us-east-1' })
+    await s3
+        .upload({
+            Bucket: bucketName,
+            Key: 'private/' + syeEnvironmentFile,
+            Body: fs.readFileSync(configFile),
+            ContentType: 'application/x-gzip',
+        })
+        .promise()
+}
+
 export async function uploadBootstrap(bucketName: string): Promise<void> {
     const s3 = new aws.S3({ region: 'us-east-1' })
     await s3
@@ -196,32 +208,11 @@ async function createBucket(bucketName: string, syeEnvironment: string, authoriz
         })
         .promise()
 
-    await s3
-        .upload({
-            Bucket: bucketName,
-            Key: 'public/bootstrap.sh',
-            Body: readPackageFile('sye-aws/bootstrap.sh'),
-            ContentType: 'application/x-sh',
-        })
-        .promise()
+    await uploadBootstrap(bucketName)
 
-    await s3
-        .upload({
-            Bucket: bucketName,
-            Key: 'public/sye-cluster-join.sh',
-            Body: readPackageFile('sye-cluster-join.sh'),
-            ContentType: 'application/x-sh',
-        })
-        .promise()
+    await uploadClusterJoin(bucketName)
 
-    await s3
-        .upload({
-            Bucket: bucketName,
-            Key: 'private/' + syeEnvironmentFile,
-            Body: fs.readFileSync(syeEnvironment),
-            ContentType: 'application/x-gzip',
-        })
-        .promise()
+    await uploadConfig(bucketName, syeEnvironment)
 
     await s3
         .upload({

@@ -43,3 +43,4 @@ then
 fi
 
 rm -rf /etc/sye
+rm -rf /run/sye

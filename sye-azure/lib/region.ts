@@ -1,4 +1,4 @@
-import NetworkManagementClient = require('azure-arm-network')
+import { NetworkManagementClient } from 'azure-arm-network'
 import ComputeClient = require('azure-arm-compute')
 import {
     validateClusterId,

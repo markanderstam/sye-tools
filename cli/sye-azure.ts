@@ -10,6 +10,7 @@ import {
     showResources,
     uploadBootstrap,
     uploadClusterJoin,
+    uploadConfig,
 } from '../sye-azure/lib/cluster'
 import { machineAdd, machineDelete, machineRedeploy, ensureMachineSecurityRules } from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
@@ -85,6 +86,14 @@ program
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .action(async (clusterId: string, options: { profile?: string }) => {
         await uploadClusterJoin(clusterId, options.profile).catch(exit)
+    })
+
+program
+    .command('upload-config <cluster-id> <config-file>')
+    .description('Updates the cluster configuration file in Blob')
+    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
+    .action(async (clusterId: string, configFile: string, options: any) => {
+        await uploadConfig(clusterId, configFile, options.profile).catch(exit)
     })
 
 program

@@ -1,5 +1,5 @@
 import { isIPv6 } from 'net'
-import DNSManagementClient from 'azure-arm-dns'
+import DnsManagementClient from 'azure-arm-dns'
 import * as dbg from 'debug'
 import { getCredentials, getSubscription } from './common'
 
@@ -32,7 +32,7 @@ async function changeDnsRecord(
 
     const credentials = await getCredentials(profile)
     const subscriptionId = (await getSubscription(credentials, { subscription })).subscriptionId
-    const dnsClient = new DNSManagementClient(credentials, subscriptionId)
+    const dnsClient = new DnsManagementClient(credentials, subscriptionId)
 
     const resource = (await dnsClient.zones.list()).find((z) => z.name === zone)
     if (!resource) {
