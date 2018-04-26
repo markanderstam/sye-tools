@@ -89,7 +89,7 @@ program
     })
 
 program
-    .command('upload-config <clusterId> <configFile>')
+    .command('upload-config <cluster-id> <config-file>')
     .description('Updates the cluster configuration file in Blob')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .action(async (clusterId: string, configFile: string, options: any) => {

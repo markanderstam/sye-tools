@@ -116,9 +116,9 @@ program
     })
 
 program
-    .command('upload-config <clusterId> <configFile>')
+    .command('upload-config <cluster-id> <config-file>')
     .description('Updates the cluster configuration file in S3')
-    .action(async (clusterId, configFile) => {
+    .action(async (clusterId: string, configFile: string) => {
         await uploadConfig(clusterId, configFile).catch(exit)
     })
 
