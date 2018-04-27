@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.3.0] - 2018-04-27
+
+* Add support for rotating certificates
+
 ## [1.2.0] - 2018-04-23
 
 * Add commands for uploading/updating bootstrap.sh and sye-cluster-join.sh in S3/Blob
