@@ -20,10 +20,10 @@ npm pack
 tar tvzf netinsight-sye-tools*
 rm netinsight-sye-tools*
 
-echo "Do you want to publish this version?"
+echo "Do you want to publish this as the \`next\` version?"
 select yn in "Yes" "No"; do
     case $yn in
-        Yes ) npm publish; break;;
+        Yes ) npm publish --tag next; break;;
         No ) exit;;
     esac
 done
