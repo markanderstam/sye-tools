@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.3.1] - 2018-05-10
+
+* Pin docker to docker-17.09.1ce-1.111.amzn1 on Amazon since the old package that we pinned to has disappeared.
+
 ## [1.3.0] - 2018-04-27
 
 * Add support for rotating certificates
