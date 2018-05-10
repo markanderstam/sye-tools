@@ -37,7 +37,7 @@ fi
 yum -y update
 # NOTE: skipping version 17.12.1ce with recursive unmount of root.
 # Fixed in version 18.03.0-ce: https://github.com/moby/moby/pull/36237.
-yum -y install docker-17.12.0ce
+yum -y install --releasever=2017.09 docker-17.09.1ce-1.111.amzn1
 usermod -aG docker ec2-user
 service docker restart
 useradd -M sye
