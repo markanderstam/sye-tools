@@ -347,7 +347,15 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
                     for (const ip of nicInfo.ipConfigurations) {
                         const ipName = ip.publicIPAddress.id.substr(ip.publicIPAddress.id.lastIndexOf('/') + 1)
                         const ipInfo = await networkClient.publicIPAddresses.get(clusterId, ipName)
-                        ips.push(ipInfo.ipAddress)
+                        if (ipInfo && ipInfo.ipAddress) {
+                            ips.push(ipInfo.ipAddress)
+                        } else {
+                            exit(
+                                `Failed to find public ip-address of vm ${
+                                    vm.name
+                                } interface ${nicName} ip name ${ipName}: ${ipInfo}`
+                            )
+                        }
                     }
                 }
             }
