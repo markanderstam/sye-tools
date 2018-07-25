@@ -2,7 +2,7 @@ import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import { buildTags, tagResource, getTag } from './common'
 import { consoleLog, syeEnvironmentFile } from '../../lib/common'
-import { getVpc, getSubnet, getSecurityGroups, efsAvailableInRegion, getElasticFileSystem } from './region'
+import { getVpcs, getSubnet, getSecurityGroups, efsAvailableInRegion, getElasticFileSystem } from './region'
 
 const debug = dbg('machine')
 
@@ -103,7 +103,7 @@ async function createInstance(
     }
 
     let ec2 = new aws.EC2({ region })
-    let vpcid = await getVpc(ec2, clusterId).then((vpc) => vpc.VpcId)
+    let vpcid = await getVpcs(ec2, clusterId).then((vpc) => vpc[0].VpcId)
     let sg = await getSecurityGroups(ec2, clusterId, vpcid)
     let subnetId = await getSubnet(ec2, clusterId, availabilityZone).then((subnet) => subnet.SubnetId)
     let amiId = await getAmiId(ec2)
