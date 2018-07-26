@@ -8,6 +8,8 @@ import { consoleLog, readPackageFile, syeEnvironmentFile } from '../../lib/commo
 
 const debug = dbg('cluster')
 
+aws.config.update({'maxRetries': 10})
+
 export interface ClusterMachine {
     Id: string
     Region: string
