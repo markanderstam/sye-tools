@@ -15,6 +15,7 @@ const services = [
     'ad-vast-reporter',
     'ad-vast-requester',
     'cluster-monitor',
+    'data-publisher',
     'etcd',
     'frontend',
     'frontend-balancer',
