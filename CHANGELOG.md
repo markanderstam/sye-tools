@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.3.3] - 2018-08-14
+
 * Enable core dumps.
 * Improve AWS API rate limit handling.
 * Improve AWS cluster cleanup workflow.
