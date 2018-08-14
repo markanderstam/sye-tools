@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+* Enable core dumps.
+* Improve AWS API rate limit handling.
+* Improve AWS cluster cleanup workflow.
+
 ## [1.3.2] - 2018-06-29
 
 * Improve error logging when we fail to find the public ip address of a vm.

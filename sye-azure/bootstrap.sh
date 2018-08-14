@@ -64,6 +64,10 @@ then
     sysctl -p
 fi
 
+echo "Enabling core dumps to /tmp/cores"
+echo "kernel.core_pattern=/tmp/cores/core.%e.%p.%h.%t" >> /etc/sysctl.conf
+sysctl -p
+
 mkdir /sharedData
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"

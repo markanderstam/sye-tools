@@ -61,7 +61,12 @@ then
     sysctl -p
 fi
 
+echo "Enabling core dumps to /tmp/cores"
+echo "kernel.core_pattern=/tmp/cores/core.%e.%p.%h.%t" >> /etc/sysctl.conf
+sysctl -p
+
 mkdir /sharedData
+
 if [[ $EFS_DNS ]]
 then
     mount -t nfs -o nfsvers=4.1,timeo=600,retrans=2 $EFS_DNS:/  /sharedData
