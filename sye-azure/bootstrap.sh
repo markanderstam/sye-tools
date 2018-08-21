@@ -68,6 +68,12 @@ echo "Enabling core dumps to /tmp/cores"
 echo "kernel.core_pattern=/tmp/cores/core.%e.%p.%h.%t" >> /etc/sysctl.conf
 sysctl -p
 
+echo "Setting TCP keepalive configuration"
+echo "net.ipv4.tcp_keepalive_time=120" >> /etc/sysctl.conf
+echo "net.ipv4.tcp_keepalive_intvl=30" >> /etc/sysctl.conf
+echo "net.ipv4.tcp_keepalive_probes=3" >> /etc/sysctl.conf
+sysctl -p
+
 mkdir /sharedData
 
 curl -o sye-environment.tar.gz "$SYE_ENV_URL"
