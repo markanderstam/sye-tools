@@ -2,10 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.3.4] - Unreleased
+## [] - Unreleased
+
+## [1.3.4] - 2018-08-22
 
 * Save only a single core dump at a time.
-* Prevent cores from being cleaned from /tmp.
+* Prevent core dumps from being cleaned from /tmp.
+* Enable tcp keepalive to keep firewalls from timing out connections
+  between instances.
 
 ## [1.3.3] - 2018-08-14
 
