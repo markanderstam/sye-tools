@@ -2,7 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [] - Unreleased
+## [1.3.4] - Unreleased
+
+* Save only a single core dump at a time.
+* Prevent cores from being cleaned from /tmp.
 
 ## [1.3.3] - 2018-08-14
 

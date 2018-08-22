@@ -65,8 +65,15 @@ then
 fi
 
 echo "Enabling core dumps to /tmp/cores"
-echo "kernel.core_pattern=/tmp/cores/core.%e.%p.%h.%t" >> /etc/sysctl.conf
+# apport overwrites core_pattern settings so we have to remove it
+sudo apt-get purge apport
+mkdir /tmp/cores
+chmod 777 /tmp/cores
+echo "kernel.core_pattern=/tmp/cores/core" >> /etc/sysctl.d/cores.conf
+echo "kernel.core_uses_pid=0" >> /etc/sysctl.d/cores.conf
 sysctl -p
+echo "d /tmp/cores 0777 - - - -" >> /etc/tmpfiles.d/cores.conf
+echo "x /tmp/cores - - - - -" >> /etc/tmpfiles.d/cores.conf
 
 echo "Setting TCP keepalive configuration"
 echo "net.ipv4.tcp_keepalive_time=120" >> /etc/sysctl.conf
