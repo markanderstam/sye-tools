@@ -66,7 +66,7 @@ fi
 
 echo "Enabling core dumps to /tmp/cores"
 # apport overwrites core_pattern settings so we have to remove it
-sudo apt-get purge apport
+sudo apt-get purge apport -y
 mkdir /tmp/cores
 chmod 777 /tmp/cores
 echo "kernel.core_pattern=/tmp/cores/core" >> /etc/sysctl.d/cores.conf
