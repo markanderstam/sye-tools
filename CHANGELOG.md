@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+* Fixed sye-azure issue where adding a new machine to a cluster would not
+apply Sye custom settings.
+
 ## [1.3.4] - 2018-08-22
 
 * Save only a single core dump at a time.
