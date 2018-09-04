@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.3.5] - 2018-09-04
+
 * Fixed sye-azure issue where adding a new machine to a cluster would not
 apply Sye custom settings.
 
