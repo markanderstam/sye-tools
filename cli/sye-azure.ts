@@ -122,6 +122,7 @@ program
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
     .option('--machine-name [name]', 'Name of machine, defaults to azure instance id')
     .option('--instance-type [type]', 'e.g. Basic_A1, Standard_D5_v2', 'Standard_DS2_v2')
+    .option('--accelerated-networking', 'Enable accelerated networking on the machine')
     .option('--management', 'Run cluster-join with --management parameter')
     .option(
         '--role [role]',
@@ -148,6 +149,7 @@ program
                 machineName: string
                 instanceType: string
                 management: boolean
+                acceleratedNetworking: boolean
                 role: string[]
                 storage: number
                 skipSecurityRules?: boolean
@@ -162,6 +164,7 @@ program
                 options.instanceType,
                 options.role,
                 options.management,
+                options.acceleratedNetworking,
                 options.storage,
                 options.skipSecurityRules,
                 options.profile

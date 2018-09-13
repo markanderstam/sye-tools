@@ -41,6 +41,7 @@ export async function machineAdd(
     instanceType: string,
     roles: string[],
     management: boolean,
+    acceleratedNetworking: boolean,
     storage: number | DataDisk[],
     skipSecurityRules = false,
     profile?: string
@@ -135,6 +136,7 @@ export async function machineAdd(
             },
         ],
         networkSecurityGroup: networkSecurityGroup,
+        enableAcceleratedNetworking: acceleratedNetworking
     }
 
     let networkInterface = await networkClient.networkInterfaces.createOrUpdate(
@@ -294,10 +296,12 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
 
     const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
+    const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName(machineName))
 
-    debug('Power off machine', vmInfo)
+    debug('Power off machine', vmInfo, nicInfo)
     await computeClient.virtualMachines.powerOff(clusterId, vmInfo.name)
 
     const dataDisks = vmInfo.storageProfile.dataDisks
@@ -321,6 +325,7 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
         vmInfo.hardwareProfile.vmSize,
         Object.keys(vmInfo.tags),
         !!vmInfo.tags.management,
+        nicInfo.enableAcceleratedNetworking,
         dataDisks,
         false,
         profile
