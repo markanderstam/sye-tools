@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
-* Accelerated networking is enabled on instance types that support it.
+## [1.3.6] - 2018-09-14
+
+* Azure: Accelerated networking is enabled on instance types that support it.
 
 ## [1.3.5] - 2018-09-04
 
