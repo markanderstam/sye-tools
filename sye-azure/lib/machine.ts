@@ -41,7 +41,6 @@ export async function machineAdd(
     instanceType: string,
     roles: string[],
     management: boolean,
-    acceleratedNetworking: boolean,
     storage: number | DataDisk[],
     skipSecurityRules = false,
     profile?: string
@@ -124,7 +123,6 @@ export async function machineAdd(
         securityGroupName(clusterId, region, nsgType)
     )
 
-    // Need to configure SR-IOV here!
     let nicParameters = {
         location: region,
         ipConfigurations: [
@@ -136,7 +134,7 @@ export async function machineAdd(
             },
         ],
         networkSecurityGroup: networkSecurityGroup,
-        enableAcceleratedNetworking: acceleratedNetworking
+        enableAcceleratedNetworking: true
     }
 
     let networkInterface = await networkClient.networkInterfaces.createOrUpdate(
@@ -231,8 +229,26 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
         }
     }
 
-    let vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
-    debug('vmInfo', vmInfo)
+    try {
+        const vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
+        debug('vmInfo', vmInfo)
+    } catch (ex) {
+        debug(`Failed to create VM (with accelerated networking): ${ex}`, ex)
+        if (ex.code === 'VMSizeIsNotPermittedToEnableAcceleratedNetworking') {
+            consoleLog(`Instance type does not support accelerated networking - fallback to standard networking`)
+
+            nicParameters.enableAcceleratedNetworking = false
+            debug(`Update NIC ${nicName(machineName)} to be without accelerated networking`, nicParameters)
+            const networkInterface = await networkClient.networkInterfaces.createOrUpdate(
+                clusterId,
+                nicName(machineName),
+                nicParameters
+            )
+            debug('Network interface was updated', networkInterface)
+            const vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
+            debug('Virtual machine created (without accelerated networking)', vmInfo)
+        }
+    }
     if (!skipSecurityRules) {
         await ensureMachineSecurityRules(clusterId, profile)
     }
@@ -296,12 +312,10 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
     const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
 
     const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
 
     const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
-    const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName(machineName))
 
-    debug('Power off machine', vmInfo, nicInfo)
+    debug('Power off machine', vmInfo)
     await computeClient.virtualMachines.powerOff(clusterId, vmInfo.name)
 
     const dataDisks = vmInfo.storageProfile.dataDisks
@@ -325,7 +339,6 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
         vmInfo.hardwareProfile.vmSize,
         Object.keys(vmInfo.tags),
         !!vmInfo.tags.management,
-        nicInfo.enableAcceleratedNetworking,
         dataDisks,
         false,
         profile
