@@ -134,7 +134,7 @@ export async function machineAdd(
             },
         ],
         networkSecurityGroup: networkSecurityGroup,
-        enableAcceleratedNetworking: true
+        enableAcceleratedNetworking: true,
     }
 
     let networkInterface = await networkClient.networkInterfaces.createOrUpdate(
