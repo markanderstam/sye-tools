@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+* Increase net.core.rmem_max and wmem_max for pitchers.
+* Leave rmem/wmem_default values unchanged from default numbers.
+
 ## [1.3.6] - 2018-09-14
 
 * Azure: Accelerated networking is enabled on instance types that support it.
