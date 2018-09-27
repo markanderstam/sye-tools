@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.3.7] - 2018-09-27
+
 * Increase net.core.rmem_max and wmem_max for pitchers.
 * Leave rmem/wmem_default values unchanged from default numbers.
 
