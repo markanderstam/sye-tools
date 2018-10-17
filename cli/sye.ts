@@ -15,6 +15,7 @@ program
     .command('registry [subcommand]', 'operate on a docker registry')
     .command('aws [subcommand]', 'operate cluster on Amazon AWS')
     .command('azure [subcommand]', 'operate cluster on Microsoft Azure')
+    .command('aks [subcommand]', 'operate cluster on Microsoft Azure AKS')
     .command('cluster [subcommand]', 'define a sye cluster')
 
 program
