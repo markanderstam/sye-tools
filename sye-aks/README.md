@@ -45,7 +45,7 @@ The ingress maps requests to different DNS names to different parts of the Sye s
 
 Due to the fact that Accelerated Networking is required and therefore the VNET that is to be used by the AKS cluster needs to be manually created there are permissions that needs to be created. There are two choices:
 
-### Always an Owner account
+### Using an Owner account
 
 This is the easiest solution, but it is not optimal from a security standpoint. In this solution a subscription owner creates all parts of the AKS cluster.
 
@@ -55,7 +55,7 @@ This is a better approach from a security standpoint. In this scenario a subscri
 
 When using this approach the secret (password) of the SP needs to be specified both to the `sye aks prepare-region` and the `sye aks create-cluster` commands.
 
-## Usage
+## Usage Examples
 
 The below examples assumes that the default subscription is used. To specify the default subscription for the Azure CLI do:
 
