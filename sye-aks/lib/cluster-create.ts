@@ -277,7 +277,7 @@ async function waitForTillerStarted(ctx: Context) {
 async function installNginxIngress(ctx: Context) {
     consoleLog('Installing/updating NGINX Ingress:')
     await exec('helm', [
-        'install', 'stable/nginx-ingress', '--namespace', 'kube-system', '--name', 'nginx-ingress', '--set', 'replicaCount=2'], {
+        'upgrade', '--install', '--namespace', 'kube-system', '--set', 'replicaCount=2', 'nginx-ingress', 'stable/nginx-ingress'], {
         env: {
             KUBECONFIG: ctx.kubeconfig
         }
