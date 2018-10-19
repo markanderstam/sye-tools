@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+* Support for building Azure AKS clusters added
+
 ## [1.3.7] - 2018-09-27
 
 * Increase net.core.rmem_max and wmem_max for pitchers.
