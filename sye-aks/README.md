@@ -19,7 +19,6 @@ The streaming traffic from the egress pitchers is emitted directly from the work
 AKS is currently not capable of configuring this automatically, and thus `sye aks` has to handle this specifically:
 
 * The `sye aks cluster-create` command adds public IPv4 addresses to the primary IP configuration of each worker node.
-* The `sye aks cluster-scale` adds public IPv4 addresses for worker nodes thats lacks them, and cleanups old IPv4 addresses of worker nodes that are no longer present in the cluster.
 
 ### Firewall Reconfiguration
 
