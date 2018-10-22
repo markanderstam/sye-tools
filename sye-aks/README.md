@@ -34,7 +34,7 @@ AKS is currently not capable of configuring this automatically, and thus `sye ak
 
 The SSP (Sye Streaming Protocol) traffic needs to be able to flow in both direction from and to the egress pitchers (and possibly also to ingress or fan-out pitchers if external SSP sources are being used).
 
-`sye aks cluster-create` automatically opens UDP port `2123` towards all worker nodes for this purpose. This setting 
+`sye aks cluster-create` automatically opens UDP port `2123` towards all worker nodes for this purpose.
 
 ### Ingress
 
