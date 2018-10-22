@@ -4,6 +4,16 @@ The `sye aks` commands will create and manage [Azure AKS](https://docs.microsoft
 
 It should be noted that the `sye aks` command does not install Sye itself, it only creates an Kubernetes cluster suitable for running Sye on. Sye has to be installed afterwards using [Helm](https://www.helm.sh/). For instruction on how to configure and install Sye using Helm in Kubernetes, please reference the _Sye Live OTT Kubernetes Installation Guide_. 
 
+## Prerequisites
+
+The `sye aks` command requires that the Azure CLI, `kubectl` and `helm` is installed on the machine being used. For instructions reference:
+
+* [Install the Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest)
+* [Install and Set Up kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+* [Install Helm](https://docs.helm.sh/using_helm/#install-helm)
+
+The `sye aks` commands also requires that the Azure CLI has a valid session, use `az login` or one of the other options described in (Sign in with Azure CLI)[https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest].
+
 ## AKS Cluster Settings
 
 Sye has specific requirements on the AKS cluster it will run on, which are implemented by the `sye aks` command. The requirements are:

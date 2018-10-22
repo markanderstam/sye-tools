@@ -2,10 +2,6 @@
 
 import 'source-map-support/register'
 import * as program from 'commander'
-import {
-    login,
-    logout,
-} from '../sye-azure/lib/cluster'
 import { aksRegionPrepare } from '../sye-aks/lib/region-prepare'
 import { createAksCluster } from '../sye-aks/lib/cluster-create'
 import { exit } from '../lib/common'
@@ -21,22 +17,6 @@ function required(options: object, name: string, optionName: string = name): str
 }
 
 program.description('Manage Sye-clusters on Azure Kubernetes Service (AKS)')
-
-program
-    .command('login')
-    .description('Login into Azure')
-    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
-    .action(async (options: { profile?: string }) => {
-        await login(options.profile).catch(exit)
-    })
-
-program
-    .command('logout')
-    .description('Logout from Azure')
-    .option('--profile [name]', 'The profile used for credentials (defaults to default)')
-    .action(async (options: { profile?: string }) => {
-        await logout(options.profile).catch(exit)
-    })
 
 program
     .command('region-prepare')
