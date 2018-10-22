@@ -29,9 +29,6 @@ subjects:
     consoleLog(`Installing/updating Tiller service account and role binding:`)
     execSync(`kubectl --kubeconfig ${kubeconfig} apply -f -`, {
         input: rbacSpec,
-        env: {
-            KUBECONFIG: kubeconfig,
-        },
     })
     consoleLog('  Done.')
 }
@@ -39,39 +36,27 @@ subjects:
 export function installTiller(kubeconfig: string) {
     try {
         consoleLog('Installing Tiller (Helm):')
-        execSync(`kubectl --namespace kube-system get deployment.apps/tiller-deploy`, {
-            env: {
-                KUBECONFIG: kubeconfig,
-            },
-        })
+        execSync(`kubectl --kubeconfig ${kubeconfig} --namespace kube-system get deployment.apps/tiller-deploy 2>&1`)
         consoleLog('  Already installed - OK.')
     } catch (ex) {
         consoleLog('  Installing Tiller...')
-        execSync(`helm init --service-account tiller`, {
-            env: {
-                KUBECONFIG: kubeconfig,
-            },
-        })
+        execSync(`helm init --kubeconfig ${kubeconfig} --service-account tiller`)
         consoleLog('  Done.')
     }
 }
 
 export function waitForTillerStarted(kubeconfig: string) {
     consoleLog('Wait for Tiller to be ready...')
-    execSync(`kubectl --namespace kube-system wait pods --for condition=ready -l app=helm,name=tiller`, {
-        env: {
-            KUBECONFIG: kubeconfig,
-        },
-    })
+    execSync(
+        `kubectl --kubeconfig ${kubeconfig} --namespace kube-system wait pods --for condition=ready -l app=helm,name=tiller`
+    )
     consoleLog('  Tiller is ready.')
 }
 
 export function installNginxIngress(kubeconfig: string) {
     consoleLog('Installing/updating NGINX Ingress:')
-    execSync(`helm upgrade --install --namespace kube-system --set replicaCount=2 nginx-ingress stable/nginx-ingress`, {
-        env: {
-            KUBECONFIG: kubeconfig,
-        },
-    })
+    execSync(
+        `helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system --set replicaCount=2 nginx-ingress stable/nginx-ingress`
+    )
     consoleLog('  Done.')
 }

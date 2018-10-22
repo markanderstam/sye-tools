@@ -22,7 +22,7 @@
     "test": "npm run tsc && multi-tape build/sye-aws/test/test-*.js",
     "lint": "prettier --list-different \"{,**/**}*.ts\" && tslint -t stylish -p tsconfig.json",
     "prettier": "prettier --write \"{,**/**}*.ts\"",
-    "tsc": "tsc && rm -rf build/bin && mkdir build/bin && cp build/cli/sye.js build/bin/sye && cp build/cli/sye-aws.js build/bin/sye-aws && cp build/cli/sye-azure.js build/bin/sye-azure && cp build/cli/sye-aks.js build/bin/sye-aks && cp build/cli/sye-cluster.js build/bin/sye-cluster && cp build/cli/sye-registry.js build/bin/sye-registry && chmod +x build/bin/* && cp sye-azure/bootstrap.sh build/sye-azure && cp sye-aws/bootstrap.sh build/sye-aws/ && cp sye-cluster-*.sh build/"
+    "tsc": "tsc && rm -rf build/bin && mkdir build/bin && cp build/cli/sye.js build/bin/sye && cp build/cli/sye-aws.js build/bin/sye-aws && cp build/cli/sye-azure.js build/bin/sye-azure && cp build/cli/sye-aks.js build/bin/sye-aks && cp build/cli/sye-cluster.js build/bin/sye-cluster && cp build/cli/sye-eks.js build/bin/sye-eks && cp build/cli/sye-registry.js build/bin/sye-registry && chmod +x build/bin/* && cp sye-azure/bootstrap.sh build/sye-azure && cp sye-aws/bootstrap.sh build/sye-aws/ && cp sye-cluster-*.sh build && cp sye-eks/amazon-eks-nodegroup.yaml build/sye-eks"
   },
   "author": "Net Insight",
   "license": "MIT",
