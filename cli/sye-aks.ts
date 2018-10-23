@@ -122,11 +122,10 @@ program
 
 program
     .command('cluster-delete')
-    .description('Setup a new sye cluster on Azure AKS')
+    .description('Delete an existing Sye cluster on Azure AKS')
     .option('--subscription [name or id]', 'The Azure subscription')
-    .option('--resource-group <name>', 'Resource group to place the AKS cluster in', 'resourceGroup')
+    .option('--resource-group <name>', 'Resource group to place the AKS cluster in')
     .option('--name <name>', 'The name of the AKS cluster to create')
-    .option('--yes', 'Do not prompt for confirmation')
     .action(
         async (
             options: {

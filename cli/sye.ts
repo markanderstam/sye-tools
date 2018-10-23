@@ -16,6 +16,7 @@ program
     .command('aws [subcommand]', 'operate cluster on Amazon AWS')
     .command('azure [subcommand]', 'operate cluster on Microsoft Azure')
     .command('aks [subcommand]', 'operate cluster on Microsoft Azure AKS')
+    .command('eks [subcommand]', 'operate cluster on Amazon EKS')
     .command('cluster [subcommand]', 'define a sye cluster')
 
 program

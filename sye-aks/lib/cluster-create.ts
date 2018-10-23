@@ -3,6 +3,7 @@ import {exec} from './utils'
 import {ensureLoggedIn} from './utils'
 import * as util from 'util'
 import * as fs from 'fs'
+import { installTillerRbac, installTiller, waitForTillerStarted, installNginxIngress } from '../../lib/k8s'
 const debug = require('debug')('aks/cluster-create')
 
 export interface Context {
@@ -179,7 +180,7 @@ async function enableSspPort(ctx: Context) {
             '--resource-group', ctx.k8sResourceGroup,
             '--nsg-name', nsgName,
             '--name', ruleName,
-            '--description', 'Sye SSP Straffic (UDP 2123)',
+            '--description', 'Sye SSP traffic (UDP 2123)',
             '--priority', '200',
             '--protocol', 'Udp',
             '--destination-port-ranges', portNumber.toString()
@@ -201,87 +202,6 @@ async function downloadKubectlCredentials(ctx: Context) {
         '--name', ctx.clusterName,
         '--file', ctx.kubeconfig
     ])
-    consoleLog('  Done.')
-}
-
-async function installTillerRbac(ctx: Context) {
-    const rbacSpec = `---
-#
-# Service account for Helm Tiller usage
-#
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: tiller
-  namespace: kube-system
----
-#
-# Helm needs to be cluster admin in order to work
-#
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: tiller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: tiller
-    namespace: kube-system`
-    consoleLog(`Installing/updating Tiller service account and role binding:`)
-    await exec('kubectl', [
-        '--kubeconfig', ctx.kubeconfig,
-        'apply', '-f', '-'], {
-        input: rbacSpec,
-        env: {
-            KUBECONFIG: ctx.kubeconfig
-        }
-    })
-    consoleLog('  Done.')
-}
-
-async function installTiller(ctx: Context) {
-    try {
-        consoleLog('Installing Tiller (Helm):')
-        await exec('kubectl', ['--namespace', 'kube-system', 'get', 'deployment.apps/tiller-deploy'], {
-            env: {
-                KUBECONFIG: ctx.kubeconfig
-            }
-        })
-        consoleLog('  Already installed - OK.')
-    } catch (ex) {
-        consoleLog('  Installing Tiller...')
-        await exec('helm', ['init', '--service-account', 'tiller'], {
-            env: {
-                KUBECONFIG: ctx.kubeconfig
-            }
-        })
-        consoleLog('  Done.')
-    }
-}
-
-async function waitForTillerStarted(ctx: Context) {
-    consoleLog('Wait for Tiller to be ready...')
-    await exec('kubectl', [
-        '--namespace', 'kube-system',
-        'wait', 'pods', '--for', 'condition=ready', '-l', 'app=helm,name=tiller'], {
-        env: {
-            KUBECONFIG: ctx.kubeconfig
-        }
-    })
-    consoleLog('  Tiller is ready.')
-}
-
-async function installNginxIngress(ctx: Context) {
-    consoleLog('Installing/updating NGINX Ingress:')
-    await exec('helm', [
-        'upgrade', '--install', '--namespace', 'kube-system', '--set', 'replicaCount=2', 'nginx-ingress', 'stable/nginx-ingress'], {
-        env: {
-            KUBECONFIG: ctx.kubeconfig
-        }
-    })
     consoleLog('  Done.')
 }
 
@@ -316,8 +236,8 @@ export async function createAksCluster(subscription: string | undefined, options
     await addPublicIps(ctx)
     await enableSspPort(ctx)
     await downloadKubectlCredentials(ctx)
-    await installTillerRbac(ctx)
-    await installTiller(ctx)
-    await waitForTillerStarted(ctx)
-    await installNginxIngress(ctx)
+    installTillerRbac(ctx.kubeconfig)
+    installTiller(ctx.kubeconfig)
+    waitForTillerStarted(ctx.kubeconfig)
+    installNginxIngress(ctx.kubeconfig)
 }
