@@ -18,7 +18,7 @@ program.description('Manage Sye-clusters on Amazon Elastic Container Service for
 program
     .command('cluster-create')
     .description('Setup a new Sye cluster on Amazon EKS')
-    .option('--role-arn <name>', 'Amazon IAM role pre-configured with EKS permissions')
+    .option('--role-name <name>', 'Amazon IAM role pre-configured with EKS permissions')
     .option('--region <name>', 'Region to install the EKS cluster in')
     .option('--name <name>', 'The name of the EKS cluster to create')
     .option('--release <version>', 'The Kubernetes version to use')
@@ -30,7 +30,7 @@ program
     .action(async (options: object) => {
         try {
             await createEksCluster({
-                roleArn: required(options, 'role-arn', 'roleArn'),
+                clusterRole: required(options, 'role-name', 'roleName'),
                 region: required(options, 'region'),
                 clusterName: required(options, 'name'),
                 kubeconfig: required(options, 'kubeconfig'),

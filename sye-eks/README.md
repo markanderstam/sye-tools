@@ -62,7 +62,7 @@ The `sye eks` command uses `kubectl` to setup the Kubernetes cluster after being
 To create an EKS cluster named `my-cluster` in a region that has been prepared do:
 
 ```bash
-sye eks cluster-create --role-arn eksServiceRole --region us-west-2 \
+sye eks cluster-create --role-name eksServiceRole --region us-west-2 \
 	--name sye-eks --release 1.10 --instance-type m5.4xlarge \
 	--ami ami-0a54c984b9f908c81 --count 5 --kubeconfig ~/.kube/my-cluster.yaml \
 	--ssh-key my-keypair

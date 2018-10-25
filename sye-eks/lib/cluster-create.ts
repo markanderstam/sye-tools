@@ -12,7 +12,7 @@ export interface Context {
     clusterName: string
     kubernetesVersion: string
     kubeconfig: string
-    roleArn: string
+    clusterRole: string
     workersStackName: string
     workersNodeGroupName: string
     workersMinSize: number
@@ -239,12 +239,12 @@ async function getStackOutput(awsConfig: aws.Config, stackName: string, outputKe
 
 async function getRoleArn(ctx: Context): Promise<string> {
     const iam = new aws.IAM({ ...ctx.awsConfig, apiVersion: '2010-05-08' })
-    const role = (await iam.getRole({ RoleName: ctx.roleArn }).promise()).Role
+    const role = (await iam.getRole({ RoleName: ctx.clusterRole }).promise()).Role
     return role.Arn
 }
 
 export async function createEksCluster(options: {
-    roleArn: string
+    clusterRole: string
     region: string
     clusterName: string
     kubeconfig: string
@@ -260,7 +260,7 @@ export async function createEksCluster(options: {
         vpcStackName: options.clusterName,
         kubernetesVersion: options.kubernetesVersion,
         kubeconfig: options.kubeconfig,
-        roleArn: options.roleArn,
+        clusterRole: options.clusterRole,
         workersStackName: `${options.clusterName}-worker-nodes`,
         workersNodeGroupName: `${options.clusterName}-node_group`,
         workersMinSize: options.nodeCount,
