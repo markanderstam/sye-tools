@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.4.0] - 2018-10-25
+
 * Support for building Azure AKS clusters added
 * Support for building Amazon EKS clusters added
 
