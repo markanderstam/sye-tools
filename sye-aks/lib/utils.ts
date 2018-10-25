@@ -1,8 +1,12 @@
-import * as cp from "child_process"
-import {consoleLog} from '../../lib/common'
+import * as cp from 'child_process'
+import { consoleLog } from '../../lib/common'
 const debug = require('debug')('aks/utils')
 
-export function exec(cmd: string, args: string[], options: {input?: string, env?: Object, failOnStderr?: boolean} = {}): Promise<string[]> {
+export function exec(
+    cmd: string,
+    args: string[],
+    options: { input?: string; env?: Object; failOnStderr?: boolean } = {}
+): Promise<string[]> {
     return new Promise<string[]>((resolve, reject) => {
         let command = cmd
         for (const arg of args) {
@@ -11,7 +15,7 @@ export function exec(cmd: string, args: string[], options: {input?: string, env?
             command += arg
             command += "'"
         }
-        debug(`EXEC: ${command}`, {options})
+        debug(`EXEC: ${command}`, { options })
         const childProcess = cp.exec(command, options, (error, stdout, stderr) => {
             if (error) {
                 reject(error.message)
@@ -19,7 +23,7 @@ export function exec(cmd: string, args: string[], options: {input?: string, env?
                 if (stderr && options.failOnStderr) {
                     reject(stderr.toString())
                 } else {
-                    debug ('result', childProcess)
+                    debug('result', childProcess)
                     resolve(stdout.split('\n'))
                 }
             }
@@ -33,10 +37,10 @@ export function exec(cmd: string, args: string[], options: {input?: string, env?
 
 export async function ensureLoggedIn(): Promise<void> {
     try {
-        await exec('az',['account', 'show'])
+        await exec('az', ['account', 'show'])
         debug('Looks as we already have a session with Azure')
     } catch (ex) {
         consoleLog('Log in into Azure')
-        await exec('az',['login'])
+        await exec('az', ['login'])
     }
 }

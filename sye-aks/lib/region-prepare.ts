@@ -1,35 +1,37 @@
-import {consoleLog} from '../../lib/common'
-import {exec} from './utils'
-import {ensureLoggedIn} from './utils'
-import {sleep} from '../../lib/common'
+import { consoleLog } from '../../lib/common'
+import { exec } from './utils'
+import { ensureLoggedIn } from './utils'
+import { sleep } from '../../lib/common'
 const debug = require('debug')('aks/region-prepare')
 
 export interface Context {
-    subscriptionArgs: string[],
+    subscriptionArgs: string[]
     resourceGroup: string
     location: string
     servicePrincipalName: string
     servicePrincipalPassword: string
     servicePrincipalHomePage: string
-    vnetName: string,
-    vnetCidr: string,
+    vnetName: string
+    vnetCidr: string
 }
 
 async function createResourceGroup(ctx: Context) {
     try {
         consoleLog(`Resource group ${ctx.resourceGroup}:`)
-        await exec('az', ['group', 'show',
-            ...ctx.subscriptionArgs,
-            '--resource-group', ctx.resourceGroup
-        ])
+        await exec('az', ['group', 'show', ...ctx.subscriptionArgs, '--resource-group', ctx.resourceGroup])
         consoleLog('  Already exists - OK.')
     } catch (ex) {
         consoleLog('  Creating...')
-        await exec('az', ['group', 'create',
+        await exec('az', [
+            'group',
+            'create',
             ...ctx.subscriptionArgs,
-            '--resource-group', ctx.resourceGroup,
-            '--location', ctx.location,
-            '--name', ctx.resourceGroup
+            '--resource-group',
+            ctx.resourceGroup,
+            '--location',
+            ctx.location,
+            '--name',
+            ctx.resourceGroup,
         ])
         consoleLog('  Done.')
     }
@@ -38,20 +40,32 @@ async function createResourceGroup(ctx: Context) {
 async function createVnet(ctx: Context) {
     try {
         consoleLog(`Virtual network ${ctx.vnetName}:`)
-        await exec('az', ['network', 'vnet', 'show',
+        await exec('az', [
+            'network',
+            'vnet',
+            'show',
             ...ctx.subscriptionArgs,
-            '--resource-group', ctx.resourceGroup,
-            '--name', ctx.vnetName
+            '--resource-group',
+            ctx.resourceGroup,
+            '--name',
+            ctx.vnetName,
         ])
         consoleLog('  Already exists - OK.')
     } catch (ex) {
         consoleLog('  Creating...')
-        await exec('az', ['network', 'vnet', 'create',
+        await exec('az', [
+            'network',
+            'vnet',
+            'create',
             ...ctx.subscriptionArgs,
-            '--resource-group', ctx.resourceGroup,
-            '--location', ctx.location,
-            '--name', ctx.vnetName,
-            '--address-prefixes', ctx.vnetCidr
+            '--resource-group',
+            ctx.resourceGroup,
+            '--location',
+            ctx.location,
+            '--name',
+            ctx.vnetName,
+            '--address-prefixes',
+            ctx.vnetCidr,
         ])
         consoleLog('  Done.')
     }
@@ -59,10 +73,7 @@ async function createVnet(ctx: Context) {
 
 async function isServicePrincipalCreated(ctx: Context): Promise<boolean> {
     try {
-        await exec('az', ['ad', 'sp', 'show',
-            ...ctx.subscriptionArgs,
-            '--id', ctx.servicePrincipalHomePage
-        ])
+        await exec('az', ['ad', 'sp', 'show', ...ctx.subscriptionArgs, '--id', ctx.servicePrincipalHomePage])
         return true
     } catch (ex) {
         return false
@@ -75,15 +86,21 @@ async function createServicePrincipal(ctx: Context) {
         consoleLog('  Already exists - OK.')
     } else {
         consoleLog('  Creating...')
-        await exec('az', ['ad', 'sp', 'create-for-rbac',
+        await exec('az', [
+            'ad',
+            'sp',
+            'create-for-rbac',
             ...ctx.subscriptionArgs,
-            '--name', ctx.servicePrincipalName,
-            '--password', ctx.servicePrincipalPassword,
-            '--years', '10',
-            '--skip-assignment'
+            '--name',
+            ctx.servicePrincipalName,
+            '--password',
+            ctx.servicePrincipalPassword,
+            '--years',
+            '10',
+            '--skip-assignment',
         ])
         consoleLog('  Wait for it to appear...')
-        while (!await isServicePrincipalCreated(ctx)) {
+        while (!(await isServicePrincipalCreated(ctx))) {
             await sleep(2000)
         }
         consoleLog('  Done.')
@@ -93,38 +110,63 @@ async function createServicePrincipal(ctx: Context) {
 async function assignRoleToServicePrincipal(ctx: Context) {
     consoleLog('Role for service principal:')
     consoleLog('  Getting appId...')
-    const appId = (await exec('az', ['ad', 'sp', 'show',
+    const appId = (await exec('az', [
+        'ad',
+        'sp',
+        'show',
         ...ctx.subscriptionArgs,
-        '--id', ctx.servicePrincipalHomePage,
-        '--query', 'appId',
-        '--output', 'tsv'
+        '--id',
+        ctx.servicePrincipalHomePage,
+        '--query',
+        'appId',
+        '--output',
+        'tsv',
     ]))[0]
     debug('appId', appId)
     consoleLog('  Getting subscription...')
-    const subscription = (await exec('az',['account','show',
+    const subscription = (await exec('az', [
+        'account',
+        'show',
         ...ctx.subscriptionArgs,
-        '--query', 'id',
-        '--output', 'tsv'
+        '--query',
+        'id',
+        '--output',
+        'tsv',
     ]))[0]
-    const scope = `/subscriptions/${subscription}/resourceGroups/${ctx.resourceGroup}/providers/Microsoft.Network/virtualNetworks/${ctx.vnetName}`
+    const scope = `/subscriptions/${subscription}/resourceGroups/${
+        ctx.resourceGroup
+    }/providers/Microsoft.Network/virtualNetworks/${ctx.vnetName}`
     debug('scope', scope)
     consoleLog('  Getting existing roles...')
     const roles = JSON.parse(
-        (await exec('az', ['role', 'assignment', 'list',
-            '--assignee', appId,
-            '--scope', scope,
-            '--resource-group', ''
+        (await exec('az', [
+            'role',
+            'assignment',
+            'list',
+            '--assignee',
+            appId,
+            '--scope',
+            scope,
+            '--resource-group',
+            '',
         ])).join(' ')
     )
     debug('roles', roles)
     if (roles.length == 0) {
         consoleLog('  Creating role...')
-        await exec('az', ['role', 'assignment', 'create',
+        await exec('az', [
+            'role',
+            'assignment',
+            'create',
             ...ctx.subscriptionArgs,
-            '--role', 'Contributor',
-            '--assignee', appId,
-            '--scope', scope,
-            '--resource-group', ''
+            '--role',
+            'Contributor',
+            '--assignee',
+            appId,
+            '--scope',
+            scope,
+            '--resource-group',
+            '',
         ])
         consoleLog('  Done.')
     } else {
@@ -132,12 +174,15 @@ async function assignRoleToServicePrincipal(ctx: Context) {
     }
 }
 
-export async function aksRegionPrepare(subscription: string | undefined, options: {
-    resourceGroup: string,
-    location: string,
-    vnetCidr: string,
-    servicePrincipalPassword: string
-}) {
+export async function aksRegionPrepare(
+    subscription: string | undefined,
+    options: {
+        resourceGroup: string
+        location: string
+        vnetCidr: string
+        servicePrincipalPassword: string
+    }
+) {
     const subscriptionArgs = []
     if (subscription) {
         subscriptionArgs.push('--subscription')
@@ -148,7 +193,7 @@ export async function aksRegionPrepare(subscription: string | undefined, options
         subscriptionArgs,
         servicePrincipalName: `${options.resourceGroup}-sp`,
         servicePrincipalHomePage: `http://${options.resourceGroup}-sp`,
-        vnetName: options.resourceGroup
+        vnetName: options.resourceGroup,
     }
     await ensureLoggedIn()
     await createResourceGroup(ctx)

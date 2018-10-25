@@ -27,22 +27,20 @@ program
     .option('--password <string>', 'Password for the service principal')
     .option('--cidr [cidr]', 'CIDR to use for the virtual network', '10.100.0.0/16')
     .action(
-        async (
-            options: {
-                subscription?: string,
-                resourceGroup: string,
-                location: string,
-                password: string,
-                cidr: string
-            }
-        ) => {
+        async (options: {
+            subscription?: string
+            resourceGroup: string
+            location: string
+            password: string
+            cidr: string
+        }) => {
             try {
                 debug('options', options)
                 await aksRegionPrepare(options.subscription, {
                     resourceGroup: required(options, 'resource-group', 'resourceGroup'),
                     location: required(options, 'location'),
                     vnetCidr: required(options, 'cidr'),
-                    servicePrincipalPassword: required(options, 'password')
+                    servicePrincipalPassword: required(options, 'password'),
                 })
             } catch (ex) {
                 exit(ex)
@@ -55,24 +53,16 @@ program
     .description('Cleanup resource group, SP and VNET')
     .option('--subscription [name or id]', 'The Azure subscription')
     .option('--resource-group <name>', 'Resource group to place the AKS cluster in')
-    .action(
-        async (
-            options: {
-                subscription?: string,
-                resourceGroup: string
-            }
-        ) => {
-            try {
-                debug('options', options)
-                await aksRegionCleanup(options.subscription, {
-                    resourceGroup: required(options, 'resource-group', 'resourceGroup'),
-                })
-            } catch (ex) {
-                exit(ex)
-            }
+    .action(async (options: { subscription?: string; resourceGroup: string }) => {
+        try {
+            debug('options', options)
+            await aksRegionCleanup(options.subscription, {
+                resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+            })
+        } catch (ex) {
+            exit(ex)
         }
-    )
-
+    })
 
 program
     .command('cluster-create')
@@ -88,20 +78,18 @@ program
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
     .action(
-        async (
-            options: {
-                subscription?: string,
-                resourceGroup: string,
-                location: string,
-                name: string,
-                release: string,
-                size: string,
-                count: string,
-                password: string,
-                kubeconfig: string,
-                cidr: string
-            }
-        ) => {
+        async (options: {
+            subscription?: string
+            resourceGroup: string
+            location: string
+            name: string
+            release: string
+            size: string
+            count: string
+            password: string
+            kubeconfig: string
+            cidr: string
+        }) => {
             try {
                 await createAksCluster(options.subscription, {
                     resourceGroup: required(options, 'resource-group', 'resourceGroup'),
@@ -112,7 +100,7 @@ program
                     nodeCount: parseInt(required(options, 'count')),
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
-                    subnetCidr: options.cidr
+                    subnetCidr: options.cidr,
                 })
             } catch (ex) {
                 exit(ex)
@@ -126,24 +114,16 @@ program
     .option('--subscription [name or id]', 'The Azure subscription')
     .option('--resource-group <name>', 'Resource group to place the AKS cluster in')
     .option('--name <name>', 'The name of the AKS cluster to create')
-    .action(
-        async (
-            options: {
-                subscription?: string,
-                resourceGroup: string,
-                name: string,
-            }
-        ) => {
-            try {
-                await deleteAksCluster(options.subscription, {
-                    resourceGroup: required(options, 'resource-group', 'resourceGroup'),
-                    clusterName: required(options, 'name'),
-                })
-            } catch (ex) {
-                exit(ex)
-            }
+    .action(async (options: { subscription?: string; resourceGroup: string; name: string }) => {
+        try {
+            await deleteAksCluster(options.subscription, {
+                resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+                clusterName: required(options, 'name'),
+            })
+        } catch (ex) {
+            exit(ex)
         }
-    )
+    })
 
 program.command('*').action(help)
 
