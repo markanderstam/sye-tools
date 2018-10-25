@@ -98,7 +98,7 @@ To create an AKS cluster named `my-cluster` in a region that has been prepared d
 
 ```bash
 sye aks cluster-create --resource-group sye-aks --location westeurope \
-		--password fgC9BJnjk13boLLrzmuHEllCRUvlNDEwqH351EjF \
+		--password EjPZQH8FXtCThvIN0kUskAStYS0I3 \
 		--name my-cluster --release 1.11.3 \
 		--size Standard_F16 --count 5 --kubeconfig ~/.kube/my-cluster.yaml
 ```
