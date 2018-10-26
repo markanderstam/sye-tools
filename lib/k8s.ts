@@ -48,7 +48,7 @@ export function installTiller(kubeconfig: string) {
 export function waitForTillerStarted(kubeconfig: string) {
     consoleLog('Wait for Tiller to be ready...')
     execSync(
-        `kubectl --kubeconfig ${kubeconfig} --namespace kube-system wait pods --for condition=ready -l app=helm,name=tiller`
+        `kubectl --kubeconfig ${kubeconfig} --namespace kube-system wait pods --for condition=ready -l app=helm,name=tiller --timeout=300s`
     )
     consoleLog('  Tiller is ready.')
 }
