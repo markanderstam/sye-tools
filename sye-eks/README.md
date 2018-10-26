@@ -73,6 +73,9 @@ will be stored in `~/.kube/my-cluster.yaml` (this file will be overwritten if it
 
 ### Delete an EKS cluster
 
+A requirement before deleting an Amazon Eks cluster is that all active services associated with a load balancer have been manually deleted.
+Otherwise the VPC might be stuck with orphaned resources preventing the Cloudformation stack from being removed, see [Deleting a Cluster](https://docs.aws.amazon.com/eks/latest/userguide/delete-cluster.html) for more information.
+
 The following command deletes an EKS cluster that has been previously created with `sye eks cluster-create`:
 
 ```bash

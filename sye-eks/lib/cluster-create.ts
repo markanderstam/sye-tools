@@ -1,7 +1,7 @@
 import * as aws from 'aws-sdk'
 import { execSync, readPackageFile, consoleLog, awaitAsyncCondition } from '../../lib/common'
 import { installTillerRbac, installTiller, waitForTillerStarted, installNginxIngress } from '../../lib/k8s'
-import { writeFileSync } from 'fs'
+import { saveKubeconfigToFile } from './utils'
 
 const VPC_TEMPLATE_URL =
     'https://amazon-eks.s3-us-west-2.amazonaws.com/cloudformation/2018-08-30/amazon-eks-vpc-sample.yaml'
@@ -135,35 +135,8 @@ async function createWorkers(ctx: Context) {
 }
 
 async function createKubeconfig(ctx: Context) {
-    const eks = new aws.EKS({ ...ctx.awsConfig, apiVersion: '2017-11-01' })
-    const cluster = (await eks.describeCluster({ name: ctx.clusterName }).promise()).cluster
     consoleLog(`Creating kubeconfig ${ctx.kubeconfig}:`)
-    const kubeConfig = `apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: ${cluster.certificateAuthority.data}
-    server: ${cluster.endpoint}
-  name: ${cluster.arn}
-contexts:
-- context:
-    cluster: ${cluster.arn}
-    user: ${cluster.arn}
-  name: ${cluster.arn}
-current-context: ${cluster.arn}
-kind: Config
-preferences: {}
-users:
-- name: ${cluster.arn}
-  user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1alpha1
-      args:
-      - token
-      - -i
-      - ${cluster.name}
-      command: aws-iam-authenticator
-`
-    writeFileSync(ctx.kubeconfig, kubeConfig)
+    await saveKubeconfigToFile(ctx.awsConfig, ctx.clusterName, ctx.kubeconfig)
     consoleLog('  Done.')
 }
 

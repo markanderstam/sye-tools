@@ -1,5 +1,30 @@
 import * as aws from 'aws-sdk'
-import { consoleLog, awaitAsyncCondition } from '../../lib/common'
+import { consoleLog, awaitAsyncCondition, execSync, exit } from '../../lib/common'
+import { saveKubeconfigToFile } from './utils'
+import { unlinkSync } from 'fs'
+
+async function ensureNoLoadBalancer(awsConfig: aws.Config, clusterName: string) {
+    const kubeConfigFile = `./.tmp.${clusterName}.yaml`
+    consoleLog(`Deleting NGINX Ingress:`)
+    await saveKubeconfigToFile(awsConfig, clusterName, kubeConfigFile)
+    try {
+        execSync(
+            `kubectl --kubeconfig ${kubeConfigFile} delete --namespace kube-system svc nginx-ingress-controller 2>&1`
+        )
+        consoleLog('  Done.')
+    } catch (err) {
+        consoleLog('  Already deleted - OK.')
+    }
+    const services = execSync(
+        `kubectl --kubeconfig ${kubeConfigFile} get svc --all-namespaces -o jsonpath=\'{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.name}{" "}{end}\'`
+    )
+        .toString()
+        .trim()
+    if (services.length > 0) {
+        exit(`Aborting cluster delete due the following load balancer backed service(s): ${services}`)
+    }
+    unlinkSync(kubeConfigFile)
+}
 
 async function deleteCfStack(awsConfig: aws.Config, stackName: string) {
     const cloudformation = new aws.CloudFormation({ ...awsConfig, apiVersion: '2010-05-15' })
@@ -56,6 +81,7 @@ async function deleteEks(awsConfig, clusterName: string) {
 
 export async function deleteEksCluster(options: { region: string; clusterName: string }) {
     const awsConfig = new aws.Config({ region: options.region })
+    await ensureNoLoadBalancer(awsConfig, options.clusterName)
     await deleteCfStack(awsConfig, `${options.clusterName}-worker-nodes`)
     await deleteEks(awsConfig, options.clusterName)
     await deleteCfStack(awsConfig, options.clusterName)
