@@ -7,6 +7,7 @@ import { createAksCluster } from '../sye-aks/lib/cluster-create'
 import { exit } from '../lib/common'
 import { aksRegionCleanup } from '../sye-aks/lib/region-cleanup'
 import { deleteAksCluster } from '../sye-aks/lib/cluster-delete'
+import { createClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-setup'
 const debug = require('debug')('sye-aks')
 
 function required(options: object, name: string, optionName: string = name): string {
@@ -124,6 +125,38 @@ program
             exit(ex)
         }
     })
+
+program
+    .command('cluster-autoscaler-setup')
+    .description('Setup the Cluster Autoscaler for an existing AKS cluster')
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .option('--resource-group <name>', 'Resource group to place the AKS cluster in')
+    .option('--location <name>', 'The Azure location to create the AKS cluster in')
+    .option('--name <name>', 'The name of the existing AKS cluster')
+    .option('--password <string>', 'Password for the service principal for the cluster autoscaler')
+    .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
+    .action(
+        async (options: {
+            subscription?: string
+            resourceGroup: string
+            location: string
+            name: string
+            password: string
+            kubeconfig: string
+        }) => {
+            try {
+                await createClusterAutoscaler(options.subscription, {
+                    resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+                    location: required(options, 'location'),
+                    clusterName: required(options, 'name'),
+                    servicePrincipalPassword: required(options, 'password'),
+                    kubeconfig: required(options, 'kubeconfig'),
+                })
+            } catch (ex) {
+                exit(ex)
+            }
+        }
+    )
 
 program.command('*').action(help)
 

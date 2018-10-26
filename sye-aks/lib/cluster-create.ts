@@ -3,7 +3,13 @@ import { exec } from './utils'
 import { ensureLoggedIn } from './utils'
 import * as util from 'util'
 import * as fs from 'fs'
-import { installTillerRbac, installTiller, waitForTillerStarted, installNginxIngress } from '../../lib/k8s'
+import {
+    installTillerRbac,
+    installTiller,
+    waitForTillerStarted,
+    installNginxIngress,
+    installPrometheus,
+} from '../../lib/k8s'
 const debug = require('debug')('aks/cluster-create')
 
 export interface Context {
@@ -359,4 +365,5 @@ export async function createAksCluster(
     installTiller(ctx.kubeconfig)
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
+    await installPrometheus(ctx.kubeconfig)
 }
