@@ -4,7 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
-* Check for load balancer backed services before deleting an EKS cluster.
+* Increase timeout when creating an EKS cluster.
+* Check for existing load balancers before deleting an EKS cluster.
 
 ## [1.4.0] - 2018-10-25
 
