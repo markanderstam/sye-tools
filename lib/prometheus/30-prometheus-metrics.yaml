@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: metrics
+  labels:
+    prometheus: metrics
+  namespace: prometheus
+spec:
+  replicas: 1
+  serviceAccountName: prometheus
+  baseImage: quay.io/prometheus/prometheus
+  nodeSelector:
+    beta.kubernetes.io/os: linux
+  resources:
+    requests:
+      memory: 400Mi
+  ruleNamespaceSelector:
+    matchExpressions:
+      - {key: name, operator: NotIn, values: [monitoring]}
+  serviceMonitorNamespaceSelector:
+    matchExpressions:
+      - {key: name, operator: NotIn, values: [monitoring]}
+  serviceMonitorSelector: {}
+  storage:
+    volumeClaimTemplate:
+      spec:
+        resources:
+          requests:
+            storage: 3Gi
+

@@ -22,7 +22,7 @@
     "test": "npm run tsc && multi-tape build/sye-aws/test/test-*.js",
     "lint": "prettier --list-different \"{,**/**}*.ts\" && tslint -t stylish -p tsconfig.json",
     "prettier": "prettier --write \"{,**/**}*.ts\"",
-    "tsc": "tsc && rm -rf build/bin && mkdir build/bin && cp build/cli/sye.js build/bin/sye && cp build/cli/sye-aws.js build/bin/sye-aws && cp build/cli/sye-azure.js build/bin/sye-azure && cp build/cli/sye-aks.js build/bin/sye-aks && cp build/cli/sye-cluster.js build/bin/sye-cluster && cp build/cli/sye-eks.js build/bin/sye-eks && cp build/cli/sye-registry.js build/bin/sye-registry && chmod +x build/bin/* && cp sye-azure/bootstrap.sh build/sye-azure && cp sye-aws/bootstrap.sh build/sye-aws/ && cp sye-cluster-*.sh build && cp sye-eks/amazon-eks-nodegroup.yaml build/sye-eks"
+    "tsc": "tsc && rm -rf build/bin && mkdir build/bin && cp build/cli/sye.js build/bin/sye && cp build/cli/sye-aws.js build/bin/sye-aws && cp build/cli/sye-azure.js build/bin/sye-azure && cp build/cli/sye-aks.js build/bin/sye-aks && cp build/cli/sye-cluster.js build/bin/sye-cluster && cp build/cli/sye-eks.js build/bin/sye-eks && cp build/cli/sye-registry.js build/bin/sye-registry && chmod +x build/bin/* && cp sye-azure/bootstrap.sh build/sye-azure && cp sye-aws/bootstrap.sh build/sye-aws/ && cp sye-cluster-*.sh build && cp sye-eks/amazon-eks-nodegroup.yaml build/sye-eks && cp -R lib/prometheus* build/lib"
   },
   "author": "Net Insight",
   "license": "MIT",
@@ -42,6 +42,7 @@
     "easy-table": "^1.1.0",
     "ms-rest-azure": "^2.5.2",
     "prompt-sync": "^4.1.5",
+    "rxjs": "^6.3.3",
     "semver": "^5.4.1",
     "source-map-support": "^0.4.18"
   },

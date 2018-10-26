@@ -1,6 +1,14 @@
 import * as aws from 'aws-sdk'
 import { execSync, readPackageFile, consoleLog, awaitAsyncCondition } from '../../lib/common'
-import { installTillerRbac, installTiller, waitForTillerStarted, installNginxIngress } from '../../lib/k8s'
+import {
+    installTillerRbac,
+    installTiller,
+    waitForTillerStarted,
+    installNginxIngress,
+    installMetricsServer,
+    installPrometheus,
+    installClusterAutoscaler,
+} from '../../lib/k8s'
 import { saveKubeconfigToFile } from './utils'
 
 const VPC_TEMPLATE_URL =
@@ -252,4 +260,7 @@ export async function createEksCluster(options: {
     installTiller(ctx.kubeconfig)
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
+    installMetricsServer(ctx.kubeconfig)
+    installPrometheus(ctx.kubeconfig, 'aws')
+    installClusterAutoscaler(ctx.kubeconfig, options.clusterName, options.region, 'aws')
 }
