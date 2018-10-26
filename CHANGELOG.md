@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+## [1.4.1] - 2018-10-26
+
 * Increase timeout when creating an EKS cluster.
 * Check for existing load balancers before deleting an EKS cluster.
 
