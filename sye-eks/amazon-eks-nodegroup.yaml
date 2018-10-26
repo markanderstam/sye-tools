@@ -263,7 +263,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     DependsOn: NodeSecurityGroup
     Properties:
-      Description: Sye SSP traffic (UDP 2123)'
+      Description: Sye SSP traffic (UDP 2123)
       GroupId: !Ref NodeSecurityGroup
       SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
       IpProtocol: udp
