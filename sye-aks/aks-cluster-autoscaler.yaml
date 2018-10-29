@@ -136,7 +136,7 @@ spec:
         - --logtostderr=true
         - --cloud-provider=azure
         - --skip-nodes-with-local-storage=false
-        - --nodes=1:2:${agentpool}
+        - --nodes=${nodeRange}:${nodePool}
         - --skip-nodes-with-system-pods=false
         - --scale-down-delay-after-add=2m
         - --scale-down-unneeded-time=2m

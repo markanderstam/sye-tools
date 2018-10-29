@@ -7,12 +7,14 @@ import { createAksCluster } from '../sye-aks/lib/cluster-create'
 import { exit } from '../lib/common'
 import { aksRegionCleanup } from '../sye-aks/lib/region-cleanup'
 import { deleteAksCluster } from '../sye-aks/lib/cluster-delete'
-import { createClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-setup'
+import { prepareClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-prepare'
+import { defaultClusterAutoscalerSpName } from '../sye-aks/lib/utils'
+import { cleanupClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-cleanup'
 const debug = require('debug')('sye-aks')
 
-function required(options: object, name: string, optionName: string = name): string {
+function required(options: object, name: string, optionName = name, reason?: string): string {
     if (!options[optionName]) {
-        exit(`The option --${name} is required`)
+        exit(`The option --${name} is required ${reason}`)
     }
     return options[optionName]
 }
@@ -78,6 +80,17 @@ program
     .option('--password <string>', 'Password for the service principal')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
+    .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
+    .option(
+        '--autoscaler-sp-name [string]',
+        `Name for the existing Cluster Autoscaler's service principal (defaults to ${defaultClusterAutoscalerSpName(
+            '$resourceGroup',
+            '$clusterName'
+        )})`
+    )
+    .option('--autoscaler-sp-password [string]', "Password for the existing Cluster Autoscaler's service principal")
+    .option('--node-range [min:max]', 'The range of nodes for the Cluster Autoscaler')
+    .option('--node-pool [string]', 'The node pool name for the Cluster Autoscaler (defaults to the first node pool)')
     .action(
         async (options: {
             subscription?: string
@@ -90,7 +103,24 @@ program
             password: string
             kubeconfig: string
             cidr: string
+            setupClusterAutoscaler?: boolean
+            autoscalerSpName?: string
+            autoscalerSpPassword?: string
+            nodeRange?: string
+            nodePool?: string
         }) => {
+            if (options.setupClusterAutoscaler) {
+                required(
+                    options,
+                    'autoscaler-sp-password',
+                    'autoscalerSpPassword',
+                    'for setting up the Cluster Autoscaler'
+                )
+                required(options, 'node-range', 'nodeRange', 'for setting up the Cluster Autoscaler')
+                if (!/^\d+:\d+$/.test(options.nodeRange)) {
+                    exit('The option --node-range is required to be in the form MIN:MAX')
+                }
+            }
             try {
                 await createAksCluster(options.subscription, {
                     resourceGroup: required(options, 'resource-group', 'resourceGroup'),
@@ -102,6 +132,10 @@ program
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
                     subnetCidr: options.cidr,
+                    autoscalerSpName: options.autoscalerSpName,
+                    autoscalerSpPassword: options.autoscalerSpPassword,
+                    nodeRange: options.nodeRange,
+                    nodePool: options.nodePool,
                 })
             } catch (ex) {
                 exit(ex)
@@ -127,36 +161,42 @@ program
     })
 
 program
-    .command('cluster-autoscaler-setup')
-    .description('Setup the Cluster Autoscaler for an existing AKS cluster')
+    .command('cluster-autoscaler-prepare')
+    .description('Create a service principal for the Cluster Autoscaler for an existing AKS cluster')
     .option('--subscription [name or id]', 'The Azure subscription')
-    .option('--resource-group <name>', 'Resource group to place the AKS cluster in')
-    .option('--location <name>', 'The Azure location to create the AKS cluster in')
-    .option('--name <name>', 'The name of the existing AKS cluster')
+    .option('--resource-group <name>', 'The resource group for the existing AKS cluster')
+    .option('--cluster-name <name>', 'The name of the existing AKS cluster')
     .option('--password <string>', 'Password for the service principal for the cluster autoscaler')
-    .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .action(
-        async (options: {
-            subscription?: string
-            resourceGroup: string
-            location: string
-            name: string
-            password: string
-            kubeconfig: string
-        }) => {
+        async (options: { subscription?: string; resourceGroup: string; clusterName: string; password: string }) => {
             try {
-                await createClusterAutoscaler(options.subscription, {
+                await prepareClusterAutoscaler(options.subscription, {
                     resourceGroup: required(options, 'resource-group', 'resourceGroup'),
-                    location: required(options, 'location'),
-                    clusterName: required(options, 'name'),
+                    clusterName: required(options, 'cluster-name', 'clusterName'),
                     servicePrincipalPassword: required(options, 'password'),
-                    kubeconfig: required(options, 'kubeconfig'),
                 })
             } catch (ex) {
                 exit(ex)
             }
         }
     )
+
+program
+    .command('cluster-autoscaler-cleanup')
+    .description('Delete the service principal for the Cluster Autoscaler')
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .option('--resource-group <name>', 'The resource group for the existing/deleted AKS cluster')
+    .option('--cluster-name <name>', 'The name of the existing/deleted AKS cluster')
+    .action(async (options: { subscription?: string; resourceGroup: string; clusterName: string }) => {
+        try {
+            await cleanupClusterAutoscaler(options.subscription, {
+                resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+                clusterName: required(options, 'cluster-name', 'clusterName'),
+            })
+        } catch (ex) {
+            exit(ex)
+        }
+    })
 
 program.command('*').action(help)
 

@@ -1,5 +1,5 @@
-import { consoleLog } from '../../lib/common'
-import { exec } from './utils'
+import { consoleLog, execSync, readPackageFile } from '../../lib/common'
+import { exec, defaultClusterAutoscalerSpName } from './utils'
 import { ensureLoggedIn } from './utils'
 import * as util from 'util'
 import * as fs from 'fs'
@@ -29,6 +29,10 @@ export interface Context {
     vmSize: string
     kubeconfig: string
     k8sResourceGroup: string
+    autoscalerSpName?: string
+    autoscalerSpPassword?: string
+    nodeRange?: string
+    nodePool?: string
 }
 
 async function createSubnet(ctx: Context) {
@@ -327,6 +331,76 @@ async function downloadKubectlCredentials(ctx: Context) {
     consoleLog('  Done.')
 }
 
+async function installClusterAutoscalerSecret(ctx: Context, spPassword: string, spName?: string) {
+    const subscriptionId = (await exec('az', [
+        'account',
+        'show',
+        ...ctx.subscriptionArgs,
+        '--query',
+        'id',
+        '--output',
+        'tsv',
+    ]))[0]
+    const tenantId = (await exec('az', [
+        'account',
+        'show',
+        ...ctx.subscriptionArgs,
+        '--query',
+        'tenantId',
+        '--output',
+        'tsv',
+    ]))[0]
+    const clientId = (await exec('az', [
+        'ad',
+        'sp',
+        'show',
+        ...ctx.subscriptionArgs,
+        '--id',
+        `http://${spName || defaultClusterAutoscalerSpName(ctx.resourceGroup, ctx.clusterName)}`,
+        '--query',
+        'appId',
+        '--output',
+        'tsv',
+    ]))[0]
+    const secret = `---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-autoscaler-azure
+  namespace: kube-system
+data:
+  ClientID: ${Buffer.from(clientId).toString('base64')}
+  ClientSecret: ${Buffer.from(spPassword).toString('base64')}
+  ResourceGroup: ${Buffer.from(ctx.resourceGroup).toString('base64')}
+  SubscriptionID: ${Buffer.from(subscriptionId).toString('base64')}
+  TenantID: ${Buffer.from(tenantId).toString('base64')}
+  VMType: ${Buffer.from('AKS').toString('base64')}
+  ClusterName: ${Buffer.from(ctx.clusterName).toString('base64')}
+  NodeResourceGroup: ${Buffer.from(ctx.k8sResourceGroup).toString('base64')}
+---`
+    debug('secret', secret)
+    consoleLog(`Installing/updating Cluster Autoscaler Secret:`)
+    execSync(`kubectl --kubeconfig ${ctx.kubeconfig} apply -f -`, {
+        input: secret,
+    })
+    consoleLog('  Done.')
+}
+
+async function installClusterAutoscaler(kubeconfig: string, nodeRange: string, nodePool?: string) {
+    const agentpool =
+        nodePool ||
+        (await exec('kubectl', ['get', 'nodes', '-o', "jsonpath='{.items[0].metadata.labels.agentpool}'"]))[0]
+    debug('agentpool', agentpool)
+    consoleLog(`Installing/updating Cluster Autoscaler:`)
+    execSync(`kubectl --kubeconfig ${kubeconfig} apply -f -`, {
+        input: readPackageFile('sye-aks/aks-cluster-autoscaler.yaml')
+            .toString()
+            .replace('${nodeRange}', nodeRange)
+            .replace('${nodePool}', agentpool),
+    })
+    consoleLog('  Done.')
+}
+
 export async function createAksCluster(
     subscription: string | undefined,
     options: {
@@ -339,6 +413,10 @@ export async function createAksCluster(
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
+        autoscalerSpName?: string
+        autoscalerSpPassword?: string
+        nodeRange?: string
+        nodePool?: string
     }
 ) {
     const subscriptionArgs = []
@@ -366,4 +444,8 @@ export async function createAksCluster(
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
     await installPrometheus(ctx.kubeconfig)
+    if (options.autoscalerSpPassword && options.nodeRange) {
+        await installClusterAutoscalerSecret(ctx, options.autoscalerSpPassword, ctx.autoscalerSpName)
+        await installClusterAutoscaler(ctx.kubeconfig, options.nodeRange, ctx.nodePool)
+    }
 }

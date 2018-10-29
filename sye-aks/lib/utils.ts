@@ -44,3 +44,7 @@ export async function ensureLoggedIn(): Promise<void> {
         await exec('az', ['login'])
     }
 }
+
+export function defaultClusterAutoscalerSpName(resourceGroup: string, clusterName: string): string {
+    return `${resourceGroup}-${clusterName}-autoscaler`
+}
