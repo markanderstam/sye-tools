@@ -19,6 +19,7 @@
   "scripts": {
     "tag-version:latest": "npm dist-tag add $npm_package_name@$npm_package_version",
     "prepare": "npm run tsc",
+    "precommit": "lint-staged",
     "test": "npm run tsc && multi-tape build/sye-aws/test/test-*.js",
     "lint": "prettier --list-different \"{,**/**}*.ts\" && tslint -t stylish -p tsconfig.json",
     "prettier": "prettier --write \"{,**/**}*.ts\"",
@@ -49,6 +50,8 @@
   "devDependencies": {
     "@types/debug": "0.0.30",
     "@types/node": "^8.0.28",
+    "husky": "^1.1.2",
+    "lint-staged": "^8.0.0",
     "multi-tape": "^1.1.1",
     "prettier": "^1.9.2",
     "purple-tape": "^1.0.3",

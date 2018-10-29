@@ -261,6 +261,6 @@ export async function createEksCluster(options: {
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
     installMetricsServer(ctx.kubeconfig)
-    installPrometheus(ctx.kubeconfig, 'aws')
+    await installPrometheus(ctx.kubeconfig, 'aws')
     installClusterAutoscaler(ctx.kubeconfig, options.clusterName, options.region, 'aws')
 }
