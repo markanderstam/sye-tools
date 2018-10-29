@@ -119,6 +119,22 @@ This will have been created:
 
 The AKS cluster will have been modified according to the requirements of Sye (see above).
 
+### Enable the Cluster Autoscaler for the AKS cluster
+
+The Cluster Autoscaler needs a service principle for modifying the cluster and its group resource. A service principal named `$resourceGroup-$clusterName-autoscaler` with minimal permissions, for the Cluster Autoscaler, can be created using `sye aks cluster-autoscaler-prepare`:
+
+```bash
+sye aks cluster-autoscaler-prepare --resource-group sye-aks --cluster-name my-cluster --password AjPZQH8FXtCThvIN0kUskAStYS0I3
+```
+
+Then `sye aks cluster-create` command should be rerun to enable the Cluster Autoscaler on the existing cluster (restating all the previous flags):
+
+```bash
+sye aks cluster-create ... --setup-cluster-autoscaler --autoscaler-sp-password AjPZQH8FXtCThvIN0kUskAStYS0I3 --node-range 3:5
+```
+
+The example cluster can scale to a minimum of 3 nodes and a maximum of 5 nodes, using the service principal created previously. Note that any service principal with Contributor role on the `resource-group` and the `k8s/node-resource-group` will also work (specify `--autoscaler-sp-name` for custom service principles).
+
 ## Post Install Actions
 
 ### Register DNS entries

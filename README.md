@@ -13,6 +13,8 @@ The tools are installed as a single command named `sye`. The sye-command has sev
 
 Documentation on the `sye aws` command can be found in [sye-aws/README.md](sye-aws/README.md).
 
+Documentation on the `sye eks` command can be found in [sye-eks/README.md](sye-eks/README.md).
+
 Documentation on the `sye azure` command can be found in [sye-azure/README.md](sye-azure/README.md).
 
 Documentation on the `sye aks` command can be found in [sye-aks/README.md](sye-aks/README.md).
