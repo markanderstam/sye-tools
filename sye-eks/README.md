@@ -71,7 +71,7 @@ sye eks cluster-create --role-name eksServiceRole --region us-west-2 \
 This will create a cluster with 5 worker nodes and will run kubernetes `1.10`. Credentials for `kubectl`
 will be stored in `~/.kube/my-cluster.yaml` (this file will be overwritten if it already exist).
 
-The Cluster Autoscaler will be enabled for the ASG with minimum size of 1 and maximum size of 3.
+The Cluster Autoscaler will be enabled for the ASG with minimum size of 1 and maximum size of 5. Specify `--min-count` to increase the minimum nodes for the ASG.
 
 ### Delete an EKS cluster
 
