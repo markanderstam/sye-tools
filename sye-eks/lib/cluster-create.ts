@@ -8,6 +8,8 @@ import {
     installMetricsServer,
     installPrometheus,
     installClusterAutoscaler,
+    installPrometheusOperator,
+    installPrometheusAdapter,
 } from '../../lib/k8s'
 import { saveKubeconfigToFile } from './utils'
 
@@ -262,6 +264,8 @@ export async function createEksCluster(options: {
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
     installMetricsServer(ctx.kubeconfig)
-    await installPrometheus(ctx.kubeconfig, 'aws')
+    installPrometheusOperator(ctx.kubeconfig)
+    installPrometheus(ctx.kubeconfig)
+    installPrometheusAdapter(ctx.kubeconfig)
     installClusterAutoscaler(ctx.kubeconfig, options.clusterName, options.region, 'aws')
 }

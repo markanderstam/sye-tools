@@ -16,10 +16,10 @@ spec:
       memory: 400Mi
   ruleNamespaceSelector:
     matchExpressions:
-      - {key: name, operator: NotIn, values: [monitoring]}
+      - {key: name, operator: NotIn, values: [prometheus]}
   serviceMonitorNamespaceSelector:
     matchExpressions:
-      - {key: name, operator: NotIn, values: [monitoring]}
+      - {key: name, operator: NotIn, values: [prometheus]}
   serviceMonitorSelector: {}
   storage:
     volumeClaimTemplate:
@@ -27,4 +27,3 @@ spec:
         resources:
           requests:
             storage: 3Gi
-

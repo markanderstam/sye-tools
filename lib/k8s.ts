@@ -1,6 +1,4 @@
 import { consoleLog, execSync } from './common'
-import { defer, of } from 'rxjs'
-import { retryWhen, delay, take } from 'rxjs/operators'
 
 export function installTillerRbac(kubeconfig: string) {
     const rbacSpec = `---
@@ -71,42 +69,36 @@ export function installMetricsServer(kubeconfig: string) {
     consoleLog('  Done.')
 }
 
-export async function installPrometheus(kubeconfig: string, cloudProvider?: string) {
+export function installPrometheusOperator(kubeconfig: string) {
     consoleLog('Installing/updating Prometheus Operator:')
-    execSync(`kubectl apply --kubeconfig ${kubeconfig} --namespace prometheus -f lib/prometheus-operator`)
-    execSync(
-        `kubectl --kubeconfig ${kubeconfig} --namespace prometheus wait pods --for condition=ready -l k8s-app=prometheus-operator --timeout=60s`
-    )
-    await defer(() =>
-        of(
-            execSync(
-                `kubectl --kubeconfig ${kubeconfig} wait customresourcedefinition/prometheusrules.monitoring.coreos.com --for condition=established 2>&1`
-            )
-        )
-    )
-        .pipe(
-            retryWhen((errors) =>
-                errors.pipe(
-                    delay(1000),
-                    take(60)
-                )
-            )
-        )
-        .toPromise()
-
+    execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace prometheus --wait \
+--set prometheus.enabled=false \
+--set alertmanager.enabled=false \
+--set grafana.enabled=false \
+--set kubeApiServer.enabled=false \
+--set kubelet.enabled=false \
+--set kubeControllerManager.enabled=false \
+--set coreDns.enabled=false \
+--set kubeDns.enabled=false \
+--set kubeEtcd.enabled=false \
+--set kubeStateMetrics.enabled=false \
+--set nodeExporter.enabled=false \
+prometheus-operator stable/prometheus-operator`)
     consoleLog('  Done.')
+}
+
+export function installPrometheus(kubeconfig: string) {
     consoleLog('Installing/updating Prometheus:')
     execSync(`kubectl apply --kubeconfig ${kubeconfig} --namespace prometheus -f lib/prometheus`)
     consoleLog('  Done.')
+}
+
+export function installPrometheusAdapter(kubeconfig: string) {
     consoleLog('Installing/updating Prometheus Adapter:')
     execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace prometheus \
     --set prometheus.url=http://metrics.prometheus.svc \
     --set prometheus.port=9090 \
-        ${
-            cloudProvider === 'aws'
-                ? '--set image.repository=bhavin192/k8s-prometheus-adapter-amd64 --set image.tag=pr110'
-                : ''
-        } \
+    --set image.repository=bhavin192/k8s-prometheus-adapter-amd64 --set image.tag=pr110 \
     prometheus-adapter stable/prometheus-adapter`)
     consoleLog('  Done.')
 }

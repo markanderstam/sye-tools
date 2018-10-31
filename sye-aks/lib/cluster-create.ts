@@ -9,6 +9,8 @@ import {
     waitForTillerStarted,
     installNginxIngress,
     installPrometheus,
+    installPrometheusOperator,
+    installPrometheusAdapter,
 } from '../../lib/k8s'
 const debug = require('debug')('aks/cluster-create')
 
@@ -443,7 +445,9 @@ export async function createAksCluster(
     installTiller(ctx.kubeconfig)
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
-    await installPrometheus(ctx.kubeconfig)
+    installPrometheusOperator(ctx.kubeconfig)
+    installPrometheus(ctx.kubeconfig)
+    installPrometheusAdapter(ctx.kubeconfig)
     if (options.autoscalerSpPassword && options.nodeRange) {
         await installClusterAutoscalerSecret(ctx, options.autoscalerSpPassword, ctx.autoscalerSpName)
         await installClusterAutoscaler(ctx.kubeconfig, options.nodeRange, ctx.nodePool)
