@@ -117,10 +117,8 @@ export function installClusterAutoscaler(
 --set image.tag=v1.2.2 \
 --set-string extraArgs.skip-nodes-with-local-storage=false \
 --set-string extraArgs.skip-nodes-with-system-pods=false \
---set extraArgs.scale-down-delay-after-add=2m \
---set extraArgs.scale-down-unneeded-time=2m \
 --set rbac.create=true \
---set sslCertPath=/etc/kubernetes/pki/ca.crt \
+${cloudProvider === 'aws' ? '--set sslCertPath=/etc/kubernetes/pki/ca.crt' : ''} \
 autoscaler stable/cluster-autoscaler`)
     consoleLog('  Done.')
 }

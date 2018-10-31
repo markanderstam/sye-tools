@@ -77,6 +77,7 @@ program
     .option('--release <version>', 'The Kubernetes version to use')
     .option('--size <type>', 'The type of VMs to use for the worker nodes')
     .option('--count <number>', 'The number of worker nodes to create')
+    .option('--min-count [number]', 'The minimum number of worker nodes for the Cluster Autoscaler', '1')
     .option('--password <string>', 'Password for the service principal')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
@@ -89,8 +90,6 @@ program
         )})`
     )
     .option('--autoscaler-sp-password [string]', "Password for the existing Cluster Autoscaler's service principal")
-    .option('--node-range [min:max]', 'The range of nodes for the Cluster Autoscaler')
-    .option('--node-pool [string]', 'The node pool name for the Cluster Autoscaler (defaults to the first node pool)')
     .action(
         async (options: {
             subscription?: string
@@ -100,14 +99,13 @@ program
             release: string
             size: string
             count: string
+            minCount: string
             password: string
             kubeconfig: string
             cidr: string
             setupClusterAutoscaler?: boolean
             autoscalerSpName?: string
             autoscalerSpPassword?: string
-            nodeRange?: string
-            nodePool?: string
         }) => {
             if (options.setupClusterAutoscaler) {
                 required(
@@ -116,10 +114,6 @@ program
                     'autoscalerSpPassword',
                     'for setting up the Cluster Autoscaler'
                 )
-                required(options, 'node-range', 'nodeRange', 'for setting up the Cluster Autoscaler')
-                if (!/^\d+:\d+$/.test(options.nodeRange)) {
-                    exit('The option --node-range is required to be in the form MIN:MAX')
-                }
             }
             try {
                 await createAksCluster(options.subscription, {
@@ -129,13 +123,12 @@ program
                     kubernetesVersion: required(options, 'release'),
                     vmSize: required(options, 'size'),
                     nodeCount: parseInt(required(options, 'count')),
+                    minNodeCount: parseInt(options.minCount),
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
                     subnetCidr: options.cidr,
                     autoscalerSpName: options.autoscalerSpName,
                     autoscalerSpPassword: options.autoscalerSpPassword,
-                    nodeRange: options.nodeRange,
-                    nodePool: options.nodePool,
                 })
             } catch (ex) {
                 exit(ex)

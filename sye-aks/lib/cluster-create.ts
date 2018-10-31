@@ -27,14 +27,13 @@ export interface Context {
     subnetName: string
     subnetCidr: string
     nodeCount: number
+    minNodeCount: number
     adminUsername: string
     vmSize: string
     kubeconfig: string
     k8sResourceGroup: string
     autoscalerSpName?: string
     autoscalerSpPassword?: string
-    nodeRange?: string
-    nodePool?: string
 }
 
 async function createSubnet(ctx: Context) {
@@ -380,7 +379,6 @@ data:
   ClusterName: ${Buffer.from(ctx.clusterName).toString('base64')}
   NodeResourceGroup: ${Buffer.from(ctx.k8sResourceGroup).toString('base64')}
 ---`
-    debug('secret', secret)
     consoleLog(`Installing/updating Cluster Autoscaler Secret:`)
     execSync(`kubectl --kubeconfig ${ctx.kubeconfig} apply -f -`, {
         input: secret,
@@ -388,16 +386,20 @@ data:
     consoleLog('  Done.')
 }
 
-async function installClusterAutoscaler(kubeconfig: string, nodeRange: string, nodePool?: string) {
-    const agentpool =
-        nodePool ||
-        (await exec('kubectl', ['get', 'nodes', '-o', "jsonpath='{.items[0].metadata.labels.agentpool}'"]))[0]
+async function installClusterAutoscaler(kubeconfig: string, minNodeCount: number, maxNodeCount: number) {
+    const agentpool = (await exec('kubectl', [
+        'get',
+        'nodes',
+        '-o',
+        "jsonpath='{.items[0].metadata.labels.agentpool}'",
+    ]))[0]
     debug('agentpool', agentpool)
     consoleLog(`Installing/updating Cluster Autoscaler:`)
     execSync(`kubectl --kubeconfig ${kubeconfig} apply -f -`, {
         input: readPackageFile('sye-aks/aks-cluster-autoscaler.yaml')
             .toString()
-            .replace('${nodeRange}', nodeRange)
+            .replace('${minNodes}', minNodeCount.toString())
+            .replace('${maxNodes}', maxNodeCount.toString())
             .replace('${nodePool}', agentpool),
     })
     consoleLog('  Done.')
@@ -412,13 +414,12 @@ export async function createAksCluster(
         kubernetesVersion: string
         vmSize: string
         nodeCount: number
+        minNodeCount: number
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
         autoscalerSpName?: string
         autoscalerSpPassword?: string
-        nodeRange?: string
-        nodePool?: string
     }
 ) {
     const subscriptionArgs = []
@@ -448,8 +449,8 @@ export async function createAksCluster(
     installPrometheusOperator(ctx.kubeconfig)
     installPrometheus(ctx.kubeconfig)
     installPrometheusAdapter(ctx.kubeconfig)
-    if (options.autoscalerSpPassword && options.nodeRange) {
+    if (options.autoscalerSpPassword) {
         await installClusterAutoscalerSecret(ctx, options.autoscalerSpPassword, ctx.autoscalerSpName)
-        await installClusterAutoscaler(ctx.kubeconfig, options.nodeRange, ctx.nodePool)
+        await installClusterAutoscaler(ctx.kubeconfig, options.minNodeCount, options.nodeCount)
     }
 }

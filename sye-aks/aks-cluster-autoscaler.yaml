@@ -135,11 +135,9 @@ spec:
         - --v=3
         - --logtostderr=true
         - --cloud-provider=azure
+        - --nodes=${minNodes}:${maxNodes}:${nodePool}
         - --skip-nodes-with-local-storage=false
-        - --nodes=${nodeRange}:${nodePool}
         - --skip-nodes-with-system-pods=false
-        - --scale-down-delay-after-add=2m
-        - --scale-down-unneeded-time=2m
         env:
         - name: ARM_SUBSCRIPTION_ID
           valueFrom:

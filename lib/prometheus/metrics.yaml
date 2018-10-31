@@ -6,7 +6,7 @@ metadata:
     prometheus: metrics
   namespace: prometheus
 spec:
-  replicas: 1
+  replicas: 2
   serviceAccountName: prometheus
   baseImage: quay.io/prometheus/prometheus
   nodeSelector:
@@ -21,9 +21,3 @@ spec:
     matchExpressions:
       - {key: name, operator: NotIn, values: [prometheus]}
   serviceMonitorSelector: {}
-  storage:
-    volumeClaimTemplate:
-      spec:
-        resources:
-          requests:
-            storage: 3Gi
