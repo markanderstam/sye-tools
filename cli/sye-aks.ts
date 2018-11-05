@@ -82,6 +82,7 @@ program
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
     .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
+    .option('--cluster-autoscaler-version [version]', 'The Cluster Autoscaler version to use')
     .option(
         '--autoscaler-sp-name [string]',
         `Name for the existing Cluster Autoscaler's service principal (defaults to ${defaultClusterAutoscalerSpName(
@@ -104,10 +105,17 @@ program
             kubeconfig: string
             cidr: string
             setupClusterAutoscaler?: boolean
+            clusterAutoscalerVersion?: string
             autoscalerSpName?: string
             autoscalerSpPassword?: string
         }) => {
             if (options.setupClusterAutoscaler) {
+                required(
+                    options,
+                    'cluster-autoscaler-version',
+                    'clusterAutoscalerVersion',
+                    'for setting up the Cluster Autoscaler'
+                )
                 required(
                     options,
                     'autoscaler-sp-password',
@@ -127,6 +135,7 @@ program
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
                     subnetCidr: options.cidr,
+                    clusterAutoscalerVersion: options.clusterAutoscalerVersion,
                     autoscalerSpName: options.autoscalerSpName,
                     autoscalerSpPassword: options.autoscalerSpPassword,
                 })

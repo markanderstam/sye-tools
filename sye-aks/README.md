@@ -130,10 +130,12 @@ sye aks cluster-autoscaler-prepare --resource-group sye-aks --cluster-name my-cl
 Then `sye aks cluster-create` command should be rerun to enable the Cluster Autoscaler on the existing cluster (restating all the previous flags):
 
 ```bash
-sye aks cluster-create ... --setup-cluster-autoscaler --autoscaler-sp-password AjPZQH8FXtCThvIN0kUskAStYS0I3 --min-count 3
+sye aks cluster-create ... --setup-cluster-autoscaler --cluster-autoscaler-version 1.3.4 --autoscaler-sp-password AjPZQH8FXtCThvIN0kUskAStYS0I3 --min-count 3
 ```
 
 The example cluster can scale to a minimum of 3 nodes and a maximum of 5 nodes, using the service principal created previously. Note that any service principal with Contributor permission to the `resource-group` and the `node-resource-group` will also work (specify `--autoscaler-sp-name` to use a custom service principal).
+
+Use the recommended Cluster Autoscaler version with the intended Kubernetes master version, see [Releases](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler#releases).
 
 ## Post Install Actions
 

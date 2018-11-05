@@ -32,6 +32,7 @@ export interface Context {
     vmSize: string
     kubeconfig: string
     k8sResourceGroup: string
+    clusterAutoscalerVersion?: string
     autoscalerSpName?: string
     autoscalerSpPassword?: string
 }
@@ -386,7 +387,12 @@ data:
     consoleLog('  Done.')
 }
 
-async function installClusterAutoscaler(kubeconfig: string, minNodeCount: number, maxNodeCount: number) {
+async function installClusterAutoscaler(
+    kubeconfig: string,
+    caVersion: string,
+    minNodeCount: number,
+    maxNodeCount: number
+) {
     const agentpool = (await exec('kubectl', [
         'get',
         'nodes',
@@ -398,6 +404,7 @@ async function installClusterAutoscaler(kubeconfig: string, minNodeCount: number
     execSync(`kubectl --kubeconfig ${kubeconfig} apply -f -`, {
         input: readPackageFile('sye-aks/aks-cluster-autoscaler.yaml')
             .toString()
+            .replace('${caVersion}', caVersion)
             .replace('${minNodes}', minNodeCount.toString())
             .replace('${maxNodes}', maxNodeCount.toString())
             .replace('${nodePool}', agentpool),
@@ -418,6 +425,7 @@ export async function createAksCluster(
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
+        clusterAutoscalerVersion?: string
         autoscalerSpName?: string
         autoscalerSpPassword?: string
     }
@@ -446,11 +454,16 @@ export async function createAksCluster(
     installTiller(ctx.kubeconfig)
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
-    installPrometheusOperator(ctx.kubeconfig)
-    installPrometheus(ctx.kubeconfig)
-    installPrometheusAdapter(ctx.kubeconfig)
-    if (options.autoscalerSpPassword) {
+    if (options.clusterAutoscalerVersion && options.autoscalerSpPassword) {
+        installPrometheusOperator(ctx.kubeconfig)
+        installPrometheus(ctx.kubeconfig)
+        installPrometheusAdapter(ctx.kubeconfig)
         await installClusterAutoscalerSecret(ctx, options.autoscalerSpPassword, ctx.autoscalerSpName)
-        await installClusterAutoscaler(ctx.kubeconfig, options.minNodeCount, options.nodeCount)
+        await installClusterAutoscaler(
+            ctx.kubeconfig,
+            options.clusterAutoscalerVersion,
+            options.minNodeCount,
+            options.nodeCount
+        )
     }
 }
