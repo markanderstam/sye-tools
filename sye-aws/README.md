@@ -62,7 +62,7 @@ To shut down a cluster, start by shutting down all machines with machine-delete:
 
 Wait for the machine to be terminated. Then you can remove regions with (start with non-core regions)
 
-    sye aws region-add my-cluster.example.com eu-west-2
+    sye aws region-delete my-cluster.example.com eu-west-2
     sye aws region-delete my-cluster.example.com eu-central-1
 
 And finally delete the cluster with

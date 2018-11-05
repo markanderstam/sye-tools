@@ -10,7 +10,7 @@ import {
     uploadClusterJoin,
     uploadConfig,
 } from '../sye-aws/lib/cluster'
-import { machineAdd, machineDelete, machineRedeploy } from '../sye-aws/lib/machine'
+import { machineAdd, machineDelete, machineRedeploy, requestSpotInstances } from '../sye-aws/lib/machine'
 import { regionAdd, regionDelete } from '../sye-aws/lib/region'
 import { createRegistry, showRegistry, deleteRegistry, grantPermissionRegistry } from '../sye-aws/lib/registry'
 import { createDnsRecord, deleteDnsRecord } from '../sye-aws/lib/dns'
@@ -189,6 +189,47 @@ program
     .action(async (clusterId: string, region: string, name: string) => {
         consoleLog(`Redeploying instance ${name} in region ${region} for cluster ${clusterId}`)
         await machineRedeploy(clusterId, region, name).catch(exit)
+        consoleLog('Done')
+    })
+
+program
+    .command('request-spot-instances <cluster-id> <region>')
+    .description('Create a spot instances request and assign the machines to the cluster')
+    .option('--machine-name [name]', 'Name of machine, defaults to amazon instance id')
+    .option('--instance-count [count]',
+        'The number of instances to request. Default 1',
+        (n) => parseInt(n),
+        1)
+    .option('--availability-zone [zone]', 'Availability-zone for machine. Default "a"', 'a')
+    .option('--instance-type [type]', 'e.g. t2.micro', 't2.micro')
+    .option('--spot-price [price]', 'e.g. 0.50', '0.50')
+    .option('--management', 'Run cluster-join with --management parameter')
+    .option(
+        '--role [role]',
+        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
+        (role, roles) => roles.push(role) && roles,
+        []
+    )
+    .option(
+        '--storage [size]',
+        'Setup a separate EBS volume for storing container data. Size in GiB',
+        (n) => parseInt(n),
+        0
+    )
+    .action(async (clusterId: string, region: string, options: any) => {
+        consoleLog(`Requesting ${options.instanceCount} spot instances in region ${region} for cluster ${clusterId}`)
+        await requestSpotInstances(
+            clusterId,
+            region,
+            options.machineName,
+            options.instanceCount,
+            options.availabilityZone,
+            options.instanceType,
+            options.spotPrice,
+            options.role,
+            options.storage,
+            options.management,
+        ).catch(exit)
         consoleLog('Done')
     })
 
