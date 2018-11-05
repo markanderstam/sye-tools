@@ -25,6 +25,7 @@ program
     .option('--instance-type <type>', 'Instance type for the worker nodes')
     .option('--ami <string>', 'Amazon EKS worker node AMI ID for the specified region')
     .option('--count <number>', 'The number of worker nodes to create')
+    .option('--min-count [number]', 'The minimum number of worker nodes for the ASG', '1')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--ssh-key <name>', 'Name of an Amazon EC2 SSH key pair used for connecting with SSH into the worker nodes')
     .action(async (options: object) => {
@@ -38,6 +39,7 @@ program
                 instanceType: required(options, 'instance-type', 'instanceType'),
                 workerAmi: required(options, 'ami'),
                 nodeCount: parseInt(required(options, 'count')),
+                minNodeCount: parseInt(options['minCount']),
                 nodeSshKey: required(options, 'ssh-key', 'sshKey'),
             })
         } catch (ex) {

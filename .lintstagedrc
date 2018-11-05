@@ -1,0 +1,3 @@
+{
+  "*.ts": ["prettier --list-different", "tslint -t stylish -p tsconfig.json"],
+}

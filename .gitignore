@@ -5,3 +5,5 @@ node_modules
 npm-debug.log
 sye-environment.tar.gz
 !test/test-config.tar.gz
+.helm
+.kube

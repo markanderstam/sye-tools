@@ -1,6 +1,16 @@
 import * as aws from 'aws-sdk'
 import { execSync, readPackageFile, consoleLog, awaitAsyncCondition } from '../../lib/common'
-import { installTillerRbac, installTiller, waitForTillerStarted, installNginxIngress } from '../../lib/k8s'
+import {
+    installTillerRbac,
+    installTiller,
+    waitForTillerStarted,
+    installNginxIngress,
+    installMetricsServer,
+    installPrometheus,
+    installClusterAutoscaler,
+    installPrometheusOperator,
+    installPrometheusAdapter,
+} from '../../lib/k8s'
 import { saveKubeconfigToFile } from './utils'
 
 const VPC_TEMPLATE_URL =
@@ -225,6 +235,7 @@ export async function createEksCluster(options: {
     instanceType: string
     workerAmi: string
     nodeCount: number
+    minNodeCount: number
     nodeSshKey: string
 }) {
     const ctx: Context = {
@@ -236,7 +247,7 @@ export async function createEksCluster(options: {
         clusterRole: options.clusterRole,
         workersStackName: `${options.clusterName}-worker-nodes`,
         workersNodeGroupName: `${options.clusterName}-node_group`,
-        workersMinSize: options.nodeCount,
+        workersMinSize: options.minNodeCount,
         workersMaxSize: options.nodeCount,
         workerInstanceType: options.instanceType,
         workerAmi: options.workerAmi,
@@ -252,4 +263,9 @@ export async function createEksCluster(options: {
     installTiller(ctx.kubeconfig)
     waitForTillerStarted(ctx.kubeconfig)
     installNginxIngress(ctx.kubeconfig)
+    installMetricsServer(ctx.kubeconfig)
+    installPrometheusOperator(ctx.kubeconfig)
+    installPrometheus(ctx.kubeconfig)
+    installPrometheusAdapter(ctx.kubeconfig)
+    installClusterAutoscaler(ctx.kubeconfig, options.clusterName, options.region, 'aws')
 }

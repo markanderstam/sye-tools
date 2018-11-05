@@ -60,3 +60,65 @@ export function installNginxIngress(kubeconfig: string) {
     )
     consoleLog('  Done.')
 }
+
+export function installMetricsServer(kubeconfig: string) {
+    consoleLog('Installing/updating Metrics Server:')
+    execSync(
+        `helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system metrics-server stable/metrics-server`
+    )
+    consoleLog('  Done.')
+}
+
+export function installPrometheusOperator(kubeconfig: string) {
+    consoleLog('Installing/updating Prometheus Operator:')
+    execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace prometheus --wait \
+--set prometheus.enabled=false \
+--set alertmanager.enabled=false \
+--set grafana.enabled=false \
+--set kubeApiServer.enabled=false \
+--set kubelet.enabled=false \
+--set kubeControllerManager.enabled=false \
+--set coreDns.enabled=false \
+--set kubeDns.enabled=false \
+--set kubeEtcd.enabled=false \
+--set kubeStateMetrics.enabled=false \
+--set nodeExporter.enabled=false \
+prometheus-operator stable/prometheus-operator`)
+    consoleLog('  Done.')
+}
+
+export function installPrometheus(kubeconfig: string) {
+    consoleLog('Installing/updating Prometheus:')
+    execSync(`kubectl apply --kubeconfig ${kubeconfig} --namespace prometheus -f lib/prometheus`)
+    consoleLog('  Done.')
+}
+
+export function installPrometheusAdapter(kubeconfig: string) {
+    consoleLog('Installing/updating Prometheus Adapter:')
+    execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace prometheus \
+    --set prometheus.url=http://metrics.prometheus.svc \
+    --set prometheus.port=9090 \
+    --set image.repository=bhavin192/k8s-prometheus-adapter-amd64 --set image.tag=pr110 \
+    prometheus-adapter stable/prometheus-adapter`)
+    consoleLog('  Done.')
+}
+
+export function installClusterAutoscaler(
+    kubeconfig: string,
+    clusterName: string,
+    region: string,
+    cloudProvider: string
+) {
+    consoleLog('Installing/updating Cluster Autoscaler:')
+    execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system \
+--set autoDiscovery.clusterName=${clusterName} \
+--set awsRegion=${region} \
+--set cloudProvider=${cloudProvider} \
+--set image.tag=v1.2.2 \
+--set-string extraArgs.skip-nodes-with-local-storage=false \
+--set-string extraArgs.skip-nodes-with-system-pods=false \
+--set rbac.create=true \
+${cloudProvider === 'aws' ? '--set sslCertPath=/etc/kubernetes/pki/ca.crt' : ''} \
+autoscaler stable/cluster-autoscaler`)
+    consoleLog('  Done.')
+}
