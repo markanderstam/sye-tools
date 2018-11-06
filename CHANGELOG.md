@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [] - Unreleased
 
+* Azure: Support for creating firewall rules for additional resource groups (experimental)
+
 ## [1.4.1] - 2018-10-26
 
 * Increase timeout when creating an EKS cluster.
