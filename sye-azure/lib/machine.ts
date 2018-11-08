@@ -345,14 +345,11 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
     )
 }
 
-export async function ensureMachineSecurityRules(clusterId: string, profile?: string) {
-    validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
-
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
-
+export async function getPublicIpsForCluster(
+    clusterId: string,
+    computeClient: ComputeClient,
+    networkClient: NetworkManagementClient
+) {
     const vms = await computeClient.virtualMachines.list(clusterId)
     const ips = new Array<string>()
 
@@ -363,6 +360,9 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
                 const nicInfo = await networkClient.networkInterfaces.get(clusterId, nicName)
                 if (nicInfo.ipConfigurations) {
                     for (const ip of nicInfo.ipConfigurations) {
+                        if (!ip.publicIPAddress) {
+                            continue
+                        }
                         const ipName = ip.publicIPAddress.id.substr(ip.publicIPAddress.id.lastIndexOf('/') + 1)
                         const ipInfo = await networkClient.publicIPAddresses.get(clusterId, ipName)
                         if (ipInfo && ipInfo.ipAddress) {
@@ -378,6 +378,25 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
                 }
             }
         }
+    }
+    return ips
+}
+
+export async function ensureMachineSecurityRules(clusterId: string, profile?: string, extraResourceGroups?: string[]) {
+    validateClusterId(clusterId)
+    const credentials = await getCredentials(profile)
+    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+
+    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+
+    const ips = await getPublicIpsForCluster(clusterId, computeClient, networkClient)
+    for (const extraResourceGroup of extraResourceGroups) {
+        if (clusterId === extraResourceGroup) {
+            exit(`Extra resource group '${extraResourceGroup}' cannot be the same as the cluster id '${clusterId}'`)
+        }
+        const ips2 = await getPublicIpsForCluster(extraResourceGroup, computeClient, networkClient)
+        ips.push(...ips2)
     }
 
     const frontendBalancerSecurityRuleDefs = [
@@ -428,7 +447,7 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
         },
     ]
 
-    const defaultSecurityRuleDefs = [
+    const sshSecurityRuleDefs = [
         {
             type: 'ssh-default',
             rule: {
@@ -442,6 +461,8 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
                 protocol: 'TCP',
             },
         },
+    ]
+    const defaultSecurityRuleDefs = [
         {
             type: 'cluster-default',
             rule: {
@@ -463,6 +484,7 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
         networkSecurityGroups.map((group) => {
             const type = getSecurityGroupType(group.name)
             const rules = new Array<{ type: string; rule: SecurityRule }>()
+            rules.push(...sshSecurityRuleDefs)
             rules.push(...defaultSecurityRuleDefs)
             switch (type) {
                 case SG_TYPE_FRONTEND_BALANCER:
@@ -487,6 +509,18 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
             return setSecurityRules(networkClient, clusterId, group.location, type, rules)
         })
     )
+
+    for (const resourceGroup of extraResourceGroups) {
+        consoleLog(`Ensuring security rules for resource group ${resourceGroup}`)
+        const sideNetworkSecurityGroups = await networkClient.networkSecurityGroups.list(resourceGroup)
+        for (const nsg of sideNetworkSecurityGroups) {
+            debug(`Updating network security group: ${nsg.name} in ${resourceGroup}`)
+            for (const ruleDef of defaultSecurityRuleDefs) {
+                const ruleName = securityRuleName(resourceGroup, nsg.location, 'side', ruleDef.type)
+                await networkClient.securityRules.createOrUpdate(resourceGroup, nsg.name, ruleName, ruleDef.rule)
+            }
+        }
+    }
 }
 
 async function setSecurityRules(
@@ -496,10 +530,12 @@ async function setSecurityRules(
     type: string,
     rules: { type: string; rule: SecurityRule }[]
 ) {
+    const nsgName = securityGroupName(clusterId, location, type)
+    debug(`Updating network security group: ${nsgName}`)
     for (const def of rules) {
         await networkClient.securityRules.createOrUpdate(
             clusterId,
-            securityGroupName(clusterId, location, type),
+            nsgName,
             securityRuleName(clusterId, location, type, def.type),
             def.rule
         )

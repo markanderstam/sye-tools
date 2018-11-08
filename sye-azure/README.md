@@ -48,6 +48,8 @@ Azure requires us to use public IPv4 addresses in order to run a multi-region cl
 
 The internal communication in a Sye cluster is protected with [TLS Mutual Authentication](https://en.wikipedia.org/wiki/Mutual_authentication) for all services except the Log service (elasticsearch). To protect the elasticsearch service, you need to purchase an [X-pack license](https://www.elastic.co/products/x-pack) from [Elastic](https://www.elastic.co).
 
+The `ensure-security-rules` command can optionally connect additional Resource Groups by specifying a Sye cluster id together with one or several additional Azure Resource Groups. The Node Security Groups in both the core cluster and the additional Resource Groups will then be updated to reference the IP addresses of each other.
+
 ## Create the cluster configuration
 
 First you need to create the `sye-environment.tar.gz` describing the cluster using the sye-command:

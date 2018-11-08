@@ -195,12 +195,12 @@ program
     })
 
 program
-    .command('ensure-security-rules <cluster-id>')
+    .command('ensure-security-rules <cluster-id> [extra-resource-groups...]')
     .option('--profile [name]', 'The profile used for credentials (defaults to default)')
-    .description('Ensure security rules are correct for the specified cluster.')
-    .action(async (clusterId: string, options: { profile?: string }) => {
+    .description('Ensure security rules are correct for the specified core cluster and optional resource groups.')
+    .action(async (clusterId: string, extraResourceGroups: string[], options: { profile?: string }) => {
         consoleLog(`Ensuring security rules for cluster ${clusterId}`)
-        await ensureMachineSecurityRules(clusterId, options.profile).catch(exit)
+        await ensureMachineSecurityRules(clusterId, options.profile, extraResourceGroups).catch(exit)
         consoleLog('Done')
     })
 
