@@ -269,8 +269,26 @@ async function deleteInstance(clusterId: string, region: string, name: string) {
 
     const instance = await getInstance(clusterId, region, name)
 
+    const spotInstanceRequest = getTag(instance.Tags, 'SpotInstanceRequest')
+    if (spotInstanceRequest) {
+        debug('cancelSpotInstanceRequest')
+        await ec2
+            .cancelSpotInstanceRequests({
+                SpotInstanceRequestIds: [spotInstanceRequest],
+            })
+            .promise()
+    }
+
+    debug('terminateInstance')
     await ec2
         .terminateInstances({
+            InstanceIds: [instance.InstanceId],
+        })
+        .promise()
+
+    debug('waitForInstanceTerminated')
+    await ec2
+        .waitFor('instanceTerminated', {
             InstanceIds: [instance.InstanceId],
         })
         .promise()
@@ -280,6 +298,10 @@ async function redeployInstance(clusterId: string, region: string, name: string)
     const ec2 = new aws.EC2({ region })
 
     const instance = await getInstance(clusterId, region, name)
+
+    if (instanceType(instance) === 'spot') {
+        throw new Error('Cannot redeploy a spot instance')
+    }
 
     const dataVolume = instance.BlockDeviceMappings.find((v) => v.DeviceName !== instance.RootDeviceName)
     const dataVolumeId = dataVolume && dataVolume.Ebs.VolumeId
@@ -455,7 +477,9 @@ export async function getInstances(
 
     const instances = await ec2.describeInstances(describeInstancesRequest).promise()
 
-    return instances.Reservations.reduce((acc: aws.EC2.Instance[], current) => { return acc.concat(current.Instances) }, [])
+    return instances.Reservations.reduce((acc: aws.EC2.Instance[], current) => {
+        return acc.concat(current.Instances)
+    }, [])
 }
 
 export async function getInstance(clusterId: string, region: string, name: string): Promise<aws.EC2.Instance> {
@@ -601,14 +625,19 @@ async function createSpotInstance(
     // use the instance-id as a name. Either way this requires
     // us to tag the instance after it has been created.
     await Promise.all(
-        spotInstancesInfo.map(async (spotInst) => {
-            let instName = name || spotInst.instanceId
-            await tagResource(ec2, spotInst.instanceId, clusterId, instName, {
+        spotInstancesInfo.map(async (spotInstInfo) => {
+            let instName = name || spotInstInfo.instanceId
+            await tagResource(ec2, spotInstInfo.instanceId, clusterId, instName, {
                 Region: region,
                 AvailabilityZone: availabilityZone,
                 Roles: roles.join(','),
+                SpotInstanceRequest: spotInstInfo.spotRequestId,
             })
         })
     )
     // TODO: Tag the volume with the cluster ID if storage > 0
+}
+
+export function instanceType(instance: aws.EC2.Instance): 'spot' | 'onDemand' {
+    return getTag(instance.Tags, 'SpotInstanceRequest') ? 'spot' : 'onDemand'
 }

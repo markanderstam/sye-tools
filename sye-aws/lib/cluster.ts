@@ -2,7 +2,7 @@ import * as aws from 'aws-sdk'
 import * as dbg from 'debug'
 import * as fs from 'fs'
 import * as EasyTable from 'easy-table'
-import { getInstances } from './machine'
+import { getInstances, instanceType } from './machine'
 import { getTag } from './common'
 import { consoleLog, readPackageFile, syeEnvironmentFile } from '../../lib/common'
 
@@ -69,6 +69,7 @@ export async function showResources(clusterId: string, output = true, raw = fals
                     AZ: getTag(instance.Tags, 'AvailabilityZone'),
                     Name: getTag(instance.Tags, 'Name'),
                     Roles: getTag(instance.Tags, 'Roles'),
+                    Type: instanceType(instance),
                     PrivateIpAddress: instance.PrivateIpAddress,
                     PublicIpAddress: instance.PublicIpAddress,
                     Ipv6Address: instance.NetworkInterfaces[0].Ipv6Addresses[0].Ipv6Address,
