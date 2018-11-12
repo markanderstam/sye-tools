@@ -78,35 +78,48 @@ async function buildUserData(
     const efsDns = fileSystemId ? `${fileSystemId}.efs.${region}.amazonaws.com` : ''
     debug('efsDns', efsDns)
     debug('ebsDeviceName', ebsDeviceName)
-    return Buffer.from(
-        `#!/bin/sh
-cd /tmp
-aws s3 cp s3://${clusterId}/public/bootstrap.sh bootstrap.sh
-chmod +x bootstrap.sh
-ROLES="${roles}" BUCKET="${clusterId}" SYE_ENV_URL="${envUrl}" EBS_DEVICE_NAME="${ebsDeviceName}" EFS_DNS="${efsDns}" ./bootstrap.sh --machine-name ${name} --machine-region ${region} --machine-zone ${zone} ${args}
-`
-    ).toString('base64')
-}
 
-async function createInstance(
-    clusterId: string,
-    region: string,
-    availabilityZone: string,
-    name: string,
-    instanceType: string,
-    storage: number,
-    roles: string[],
-    args: string
-) {
-    if (storage > 0 && !name) {
-        throw 'A machine with storage must have a name'
+    let userData = [
+        '#!/bin/sh',
+        'cd /tmp',
+        `aws s3 cp s3://${clusterId}/public/bootstrap.sh bootstrap.sh`,
+        'chmod +x bootstrap.sh',
+    ]
+    let runBootstrap = [
+        `ROLES="${roles}"`,
+        `BUCKET="${clusterId}"`,
+        `SYE_ENV_URL="${envUrl}"`,
+        `EBS_DEVICE_NAME="${ebsDeviceName}"`,
+        `EFS_DNS="${efsDns}"`,
+        `./bootstrap.sh`,
+        `--machine-region ${region}`,
+        `--machine-zone ${zone} ${args}`,
+    ]
+    if (name) {
+        runBootstrap.push(`--machine-name ${name}`)
     }
 
-    let ec2 = new aws.EC2({ region })
-    let vpcid = await getVpcs(ec2, clusterId).then((vpc) => vpc[0].VpcId)
-    let sg = await getSecurityGroups(ec2, clusterId, vpcid)
-    let subnetId = await getSubnet(ec2, clusterId, availabilityZone).then((subnet) => subnet.SubnetId)
-    let amiId = await getAmiId(ec2)
+    userData.push(runBootstrap.join(' '))
+
+    return Buffer.from(userData.join('\n')).toString('base64')
+}
+
+async function createInstanceLaunchSpec(
+    ec2: aws.EC2,
+    clusterId: string,
+    region: string,
+    type: 'spot' | 'onDemand',
+    name: string,
+    availabilityZone: string,
+    instanceType: string,
+    roles: string[],
+    storage: number,
+    args: string
+): Promise<aws.EC2.RunInstancesRequest | aws.EC2.RequestSpotLaunchSpecification> {
+    const vpcid = await getVpcs(ec2, clusterId).then((vpc) => vpc[0].VpcId)
+    const sg = await getSecurityGroups(ec2, clusterId, vpcid)
+    const subnetId = await getSubnet(ec2, clusterId, availabilityZone).then((subnet) => subnet.SubnetId)
+    const amiId = await getAmiId(ec2)
     let instanceProfileArn = await getInstanceProfileArn(clusterId)
     // The scaling machine needs different AWS permissions than just reading the S3 bucket
     if (roles.includes('scaling')) {
@@ -126,10 +139,9 @@ async function createInstance(
     } else {
         consoleLog(`EFS not available in region ${region}. /sharedData will not be available.`, true)
     }
-
     const ebsDeviceName = '/dev/sdf'
 
-    let ec2Req: AWS.EC2.RunInstancesRequest = {
+    let ec2Req: Partial<aws.EC2.RunInstancesRequest | aws.EC2.RequestSpotLaunchSpecification> = {
         ImageId: amiId,
         InstanceType: instanceType,
         IamInstanceProfile: {
@@ -144,8 +156,6 @@ async function createInstance(
                 SubnetId: subnetId,
             },
         ],
-        MinCount: 1,
-        MaxCount: 1,
         UserData: await buildUserData(
             clusterId,
             roles.join(','),
@@ -170,24 +180,70 @@ async function createInstance(
         ]
     }
 
-    if (name) {
-        // This instance has a name, so we can tag it when we start it
-        ec2Req.TagSpecifications = [
-            {
-                ResourceType: 'instance',
-                Tags: buildTags(clusterId, name, {
-                    AvailabilityZone: availabilityZone,
-                    Roles: roles.join(','),
-                }),
+    if (type === 'onDemand') {
+        ec2Req = {
+            MinCount: 1,
+            MaxCount: 1,
+            ...ec2Req,
+        }
+
+        if (name) {
+            // This instance has a name, so we can tag it when we start it
+            ec2Req.TagSpecifications = [
+                {
+                    ResourceType: 'instance',
+                    Tags: buildTags(clusterId, name, {
+                        AvailabilityZone: availabilityZone,
+                        Roles: roles.join(','),
+                    }),
+                },
+                {
+                    ResourceType: 'volume',
+                    Tags: buildTags(clusterId, name, {
+                        AvailabilityZone: availabilityZone,
+                    }),
+                },
+            ]
+        }
+    } else if (type === 'spot') {
+        ec2Req = {
+            Placement: {
+                AvailabilityZone: region + availabilityZone,
             },
-            {
-                ResourceType: 'volume',
-                Tags: buildTags(clusterId, name, {
-                    AvailabilityZone: availabilityZone,
-                }),
-            },
-        ]
+            ...ec2Req,
+        }
     }
+
+    return ec2Req
+}
+
+async function createInstance(
+    clusterId: string,
+    region: string,
+    availabilityZone: string,
+    name: string,
+    instanceType: string,
+    storage: number,
+    roles: string[],
+    args: string
+) {
+    if (storage > 0 && !name) {
+        throw 'A machine with storage must have a name'
+    }
+
+    const ec2 = new aws.EC2({ region })
+    const ec2Req = (await createInstanceLaunchSpec(
+        ec2,
+        clusterId,
+        region,
+        'onDemand',
+        name,
+        availabilityZone,
+        instanceType,
+        roles,
+        storage,
+        args
+    )) as aws.EC2.RunInstancesRequest
 
     let result = await ec2.runInstances(ec2Req).promise()
 
@@ -213,8 +269,26 @@ async function deleteInstance(clusterId: string, region: string, name: string) {
 
     const instance = await getInstance(clusterId, region, name)
 
+    const spotInstanceRequest = getTag(instance.Tags, 'SpotInstanceRequest')
+    if (spotInstanceRequest) {
+        debug('cancelSpotInstanceRequest')
+        await ec2
+            .cancelSpotInstanceRequests({
+                SpotInstanceRequestIds: [spotInstanceRequest],
+            })
+            .promise()
+    }
+
+    debug('terminateInstance')
     await ec2
         .terminateInstances({
+            InstanceIds: [instance.InstanceId],
+        })
+        .promise()
+
+    debug('waitForInstanceTerminated')
+    await ec2
+        .waitFor('instanceTerminated', {
             InstanceIds: [instance.InstanceId],
         })
         .promise()
@@ -224,6 +298,10 @@ async function redeployInstance(clusterId: string, region: string, name: string)
     const ec2 = new aws.EC2({ region })
 
     const instance = await getInstance(clusterId, region, name)
+
+    if (instanceType(instance) === 'spot') {
+        throw new Error('Cannot redeploy a spot instance')
+    }
 
     const dataVolume = instance.BlockDeviceMappings.find((v) => v.DeviceName !== instance.RootDeviceName)
     const dataVolumeId = dataVolume && dataVolume.Ebs.VolumeId
@@ -399,7 +477,9 @@ export async function getInstances(
 
     const instances = await ec2.describeInstances(describeInstancesRequest).promise()
 
-    return instances.Reservations.map((r) => r.Instances[0])
+    return instances.Reservations.reduce((acc: aws.EC2.Instance[], current) => {
+        return acc.concat(current.Instances)
+    }, [])
 }
 
 export async function getInstance(clusterId: string, region: string, name: string): Promise<aws.EC2.Instance> {
@@ -446,4 +526,118 @@ export async function machineDelete(clusterId: string, region: string, name: str
 
 export async function machineRedeploy(clusterId: string, region: string, name: string) {
     await redeployInstance(clusterId, region, name)
+}
+
+export async function requestSpotInstances(
+    clusterId: string,
+    region: string,
+    name: string,
+    instanceCount: number,
+    availabilityZone: string, // a
+    instanceType: string,
+    spotPrice: string,
+    roles: string[],
+    storage: number,
+    management: boolean
+) {
+    let args = ''
+    if (management) {
+        args += ' --management eth0'
+    }
+    await createSpotInstance(
+        clusterId,
+        region,
+        name,
+        instanceCount,
+        availabilityZone,
+        instanceType,
+        spotPrice,
+        roles,
+        storage,
+        args
+    )
+}
+
+async function createSpotInstance(
+    clusterId: string,
+    region: string,
+    name: string,
+    instanceCount: number,
+    availabilityZone: string,
+    instanceType: string,
+    spotPrice: string,
+    roles: string[],
+    storage: number,
+    args: string
+) {
+    if (name && instanceCount > 1) {
+        throw new Error(
+            `Cannot have a custom name with more than one instance. Instance count is set to ${instanceCount}`
+        )
+    }
+
+    const ec2 = new aws.EC2({ region })
+    const spotInstanceLaunchSpec = (await createInstanceLaunchSpec(
+        ec2,
+        clusterId,
+        region,
+        'spot',
+        name,
+        availabilityZone,
+        instanceType,
+        roles,
+        storage,
+        args
+    )) as aws.EC2.RequestSpotLaunchSpecification
+
+    let ec2Request: aws.EC2.RequestSpotInstancesRequest = {
+        InstanceCount: instanceCount,
+        LaunchSpecification: spotInstanceLaunchSpec,
+        SpotPrice: spotPrice,
+        Type: 'one-time',
+        ValidUntil: new Date(Date.now() + 86400000), // one day
+    }
+
+    debug('requestSpotInstances')
+    const result = await ec2.requestSpotInstances(ec2Request).promise()
+    debug('waitForSpotInstanceRequestFulfilled')
+    const fulfilled = await ec2
+        .waitFor('spotInstanceRequestFulfilled', {
+            SpotInstanceRequestIds: result.SpotInstanceRequests.map((sr) => sr.SpotInstanceRequestId),
+        })
+        .promise()
+
+    const notFulfilled = fulfilled.SpotInstanceRequests.filter((sr) => sr.Status.Code !== 'fulfilled')
+    if (notFulfilled.length > 0) {
+        const spotReqs = notFulfilled.map((sr) => {
+            return { spotRequestId: sr.SpotInstanceRequestId, status: sr.Status }
+        })
+        throw new Error(`One or more spot requests was not fulfilled: ${JSON.stringify(spotReqs, null, 2)}`)
+    }
+
+    const spotInstancesInfo = fulfilled.SpotInstanceRequests.map((sr) => {
+        return { spotRequestId: sr.SpotInstanceRequestId, instanceId: sr.InstanceId, requestStatus: sr.Status.Code }
+    })
+
+    debug(spotInstancesInfo)
+
+    // If the user did not specify a name for this instance
+    // use the instance-id as a name. Either way this requires
+    // us to tag the instance after it has been created.
+    await Promise.all(
+        spotInstancesInfo.map(async (spotInstInfo) => {
+            let instName = name || spotInstInfo.instanceId
+            await tagResource(ec2, spotInstInfo.instanceId, clusterId, instName, {
+                Region: region,
+                AvailabilityZone: availabilityZone,
+                Roles: roles.join(','),
+                SpotInstanceRequest: spotInstInfo.spotRequestId,
+            })
+        })
+    )
+    // TODO: Tag the volume with the cluster ID if storage > 0
+}
+
+export function instanceType(instance: aws.EC2.Instance): 'spot' | 'onDemand' {
+    return getTag(instance.Tags, 'SpotInstanceRequest') ? 'spot' : 'onDemand'
 }
