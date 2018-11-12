@@ -189,7 +189,7 @@ async function createInstanceLaunchSpec(
 
         if (name) {
             // This instance has a name, so we can tag it when we start it
-            ec2Req.TagSpecifications = [
+            ;(<Partial<aws.EC2.RunInstancesRequest>>ec2Req).TagSpecifications = [
                 {
                     ResourceType: 'instance',
                     Tags: buildTags(clusterId, name, {
