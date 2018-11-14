@@ -83,6 +83,7 @@ program
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
     .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
     .option('--cluster-autoscaler-version [version]', 'The Cluster Autoscaler version to use')
+    .option('--open-ssh-port', 'Allow SSH access to the worker nodes')
     .option(
         '--autoscaler-sp-name [string]',
         `Name for the existing Cluster Autoscaler's service principal (defaults to ${defaultClusterAutoscalerSpName(
@@ -108,6 +109,7 @@ program
             clusterAutoscalerVersion?: string
             autoscalerSpName?: string
             autoscalerSpPassword?: string
+            openSshPort?: boolean
         }) => {
             if (options.setupClusterAutoscaler) {
                 required(
@@ -138,6 +140,7 @@ program
                     clusterAutoscalerVersion: options.clusterAutoscalerVersion,
                     autoscalerSpName: options.autoscalerSpName,
                     autoscalerSpPassword: options.autoscalerSpPassword,
+                    openSshPort: options.openSshPort,
                 })
             } catch (ex) {
                 exit(ex)

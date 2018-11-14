@@ -35,6 +35,7 @@ export interface Context {
     clusterAutoscalerVersion?: string
     autoscalerSpName?: string
     autoscalerSpPassword?: string
+    openSshPort?: boolean
 }
 
 async function createSubnet(ctx: Context) {
@@ -252,10 +253,15 @@ async function addPublicIps(ctx: Context) {
     consoleLog('  All VMs have their Public IPs configured')
 }
 
-async function enableSspPort(ctx: Context) {
-    const portNumber = 2123
-    const ruleName = `UDP_${portNumber}`
-    consoleLog(`Enable SSP in network security rules:`)
+async function openPortInNsg(
+    ctx: Context,
+    portNumber: number,
+    protocol: 'Udp' | 'Tcp',
+    priority: string,
+    description: string
+) {
+    const ruleName = `${protocol.toUpperCase()}_${portNumber}`
+    consoleLog(`Enable port ${protocol}/${portNumber} network security rules:`)
     consoleLog('  Finding NSG...')
     const nsgName = (await exec('az', [
         'network',
@@ -300,11 +306,11 @@ async function enableSspPort(ctx: Context) {
             '--name',
             ruleName,
             '--description',
-            'Sye SSP traffic (UDP 2123)',
+            description,
             '--priority',
-            '200',
+            priority,
             '--protocol',
-            'Udp',
+            protocol,
             '--destination-port-ranges',
             portNumber.toString(),
         ])
@@ -428,6 +434,7 @@ export async function createAksCluster(
         clusterAutoscalerVersion?: string
         autoscalerSpName?: string
         autoscalerSpPassword?: string
+        openSshPort?: boolean
     }
 ) {
     const subscriptionArgs = []
@@ -448,7 +455,10 @@ export async function createAksCluster(
     await createSubnet(ctx)
     await createCluster(ctx)
     await addPublicIps(ctx)
-    await enableSspPort(ctx)
+    await openPortInNsg(ctx, 2123, 'Udp', '200', 'Sye SSP traffic (UDP 2123)')
+    if (ctx.openSshPort) {
+        await openPortInNsg(ctx, 22, 'Tcp', '201', 'SSH access')
+    }
     await downloadKubectlCredentials(ctx)
     installTillerRbac(ctx.kubeconfig)
     installTiller(ctx.kubeconfig)
