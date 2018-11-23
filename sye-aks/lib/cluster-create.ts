@@ -29,6 +29,7 @@ export interface Context {
     subnetCidr: string
     nodeCount: number
     minNodeCount: number
+    maxNodeCount: number
     adminUsername: string
     vmSize: string
     kubeconfig: string
@@ -386,8 +387,8 @@ async function getClusterAutoscalerExtraArgs(
     return [
         `--set image.tag=v${caVersion}`,
         `--set autoscalingGroups[0].name=${agentpool},\
-autoscalingGroups[0].maxSize=${maxNodeCount},\
-autoscalingGroups[0].minSize=${minNodeCount}`,
+autoscalingGroups[0].minSize=${minNodeCount},\
+autoscalingGroups[0].maxSize=${maxNodeCount}`,
         `--set azureClientID=${clientId}`,
         `--set azureClientSecret=${spPassword}`,
         `--set azureSubscriptionID=${subscriptionId}`,
@@ -409,6 +410,7 @@ export async function createAksCluster(
         vmSize: string
         nodeCount: number
         minNodeCount: number
+        maxNodeCount: number
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
@@ -456,7 +458,7 @@ export async function createAksCluster(
                 ctx,
                 options.clusterAutoscalerVersion,
                 options.minNodeCount,
-                options.nodeCount,
+                options.maxNodeCount,
                 options.autoscalerSpPassword
             )
         )

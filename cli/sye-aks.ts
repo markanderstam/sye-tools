@@ -78,17 +78,18 @@ program
     .option('--size <type>', 'The type of VMs to use for the worker nodes')
     .option('--count <number>', 'The number of worker nodes to create')
     .option('--min-count [number]', 'The minimum number of worker nodes for the Cluster Autoscaler', '1')
+    .option('--max-count [number]', 'The maximum number of worker nodes for the Cluster Autoscaler (default: <count>)')
     .option('--password <string>', 'Password for the service principal')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
+    .option('--open-ssh-port', 'Allow SSH access to the worker nodes')
     .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
     .option('--cluster-autoscaler-version [version]', 'The Cluster Autoscaler version to use')
-    .option('--open-ssh-port', 'Allow SSH access to the worker nodes')
     .option(
         '--autoscaler-sp-name [string]',
-        `Name for the existing Cluster Autoscaler's service principal (defaults to ${defaultClusterAutoscalerSpName(
-            '$resourceGroup',
-            '$clusterName'
+        `Name for the existing Cluster Autoscaler's service principal (default: ${defaultClusterAutoscalerSpName(
+            '<resource-group>',
+            '<name>'
         )})`
     )
     .option('--autoscaler-sp-password [string]', "Password for the existing Cluster Autoscaler's service principal")
@@ -102,6 +103,7 @@ program
             size: string
             count: string
             minCount: string
+            maxCount?: string
             password: string
             kubeconfig: string
             cidr: string
@@ -134,6 +136,7 @@ program
                     vmSize: required(options, 'size'),
                     nodeCount: parseInt(required(options, 'count')),
                     minNodeCount: parseInt(options.minCount),
+                    maxNodeCount: parseInt(options.maxCount || options.count),
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
                     subnetCidr: options.cidr,
