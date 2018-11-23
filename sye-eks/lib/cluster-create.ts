@@ -267,5 +267,10 @@ export async function createEksCluster(options: {
     installPrometheusOperator(ctx.kubeconfig)
     installPrometheus(ctx.kubeconfig)
     installPrometheusAdapter(ctx.kubeconfig)
-    installClusterAutoscaler(ctx.kubeconfig, options.clusterName, options.region, 'aws')
+    installClusterAutoscaler(ctx.kubeconfig, 'aws', [
+        `--set image.tag=v1.2.2`,
+        `--set autoDiscovery.clusterName=${options.clusterName}`,
+        `--set awsRegion=${options.region}`,
+        '--set sslCertPath=/etc/kubernetes/pki/ca.crt',
+    ])
 }

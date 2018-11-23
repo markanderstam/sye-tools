@@ -1,4 +1,4 @@
-import { consoleLog, execSync, readPackageFile } from '../../lib/common'
+import { consoleLog } from '../../lib/common'
 import { exec, defaultClusterAutoscalerSpName } from './utils'
 import { ensureLoggedIn } from './utils'
 import * as util from 'util'
@@ -11,6 +11,7 @@ import {
     installPrometheus,
     installPrometheusOperator,
     installPrometheusAdapter,
+    installClusterAutoscaler,
 } from '../../lib/k8s'
 const debug = require('debug')('aks/cluster-create')
 
@@ -339,7 +340,19 @@ async function downloadKubectlCredentials(ctx: Context) {
     consoleLog('  Done.')
 }
 
-async function installClusterAutoscalerSecret(ctx: Context, spPassword: string, spName?: string) {
+async function getClusterAutoscalerExtraArgs(
+    ctx: Context,
+    caVersion: string,
+    minNodeCount: number,
+    maxNodeCount: number,
+    spPassword: string
+) {
+    const agentpool = (await exec('kubectl', [
+        'get',
+        'nodes',
+        '-o',
+        "jsonpath='{.items[0].metadata.labels.agentpool}'",
+    ]))[0]
     const subscriptionId = (await exec('az', [
         'account',
         'show',
@@ -364,58 +377,26 @@ async function installClusterAutoscalerSecret(ctx: Context, spPassword: string, 
         'show',
         ...ctx.subscriptionArgs,
         '--id',
-        `http://${spName || defaultClusterAutoscalerSpName(ctx.resourceGroup, ctx.clusterName)}`,
+        `http://${ctx.autoscalerSpName || defaultClusterAutoscalerSpName(ctx.resourceGroup, ctx.clusterName)}`,
         '--query',
         'appId',
         '--output',
         'tsv',
     ]))[0]
-    const secret = `---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cluster-autoscaler-azure
-  namespace: kube-system
-data:
-  ClientID: ${Buffer.from(clientId).toString('base64')}
-  ClientSecret: ${Buffer.from(spPassword).toString('base64')}
-  ResourceGroup: ${Buffer.from(ctx.resourceGroup).toString('base64')}
-  SubscriptionID: ${Buffer.from(subscriptionId).toString('base64')}
-  TenantID: ${Buffer.from(tenantId).toString('base64')}
-  VMType: ${Buffer.from('AKS').toString('base64')}
-  ClusterName: ${Buffer.from(ctx.clusterName).toString('base64')}
-  NodeResourceGroup: ${Buffer.from(ctx.k8sResourceGroup).toString('base64')}
----`
-    consoleLog(`Installing/updating Cluster Autoscaler Secret:`)
-    execSync(`kubectl --kubeconfig ${ctx.kubeconfig} apply -f -`, {
-        input: secret,
-    })
-    consoleLog('  Done.')
-}
-
-async function installClusterAutoscaler(
-    kubeconfig: string,
-    caVersion: string,
-    minNodeCount: number,
-    maxNodeCount: number
-) {
-    const agentpool = (await exec('kubectl', [
-        'get',
-        'nodes',
-        '-o',
-        "jsonpath='{.items[0].metadata.labels.agentpool}'",
-    ]))[0]
-    debug('agentpool', agentpool)
-    consoleLog(`Installing/updating Cluster Autoscaler:`)
-    execSync(`kubectl --kubeconfig ${kubeconfig} apply -f -`, {
-        input: readPackageFile('sye-aks/aks-cluster-autoscaler.yaml')
-            .toString()
-            .replace('${caVersion}', caVersion)
-            .replace('${minNodes}', minNodeCount.toString())
-            .replace('${maxNodes}', maxNodeCount.toString())
-            .replace('${nodePool}', agentpool),
-    })
-    consoleLog('  Done.')
+    return [
+        `--set image.tag=v${caVersion}`,
+        `--set autoscalingGroups[0].name=${agentpool},\
+autoscalingGroups[0].maxSize=${maxNodeCount},\
+autoscalingGroups[0].minSize=${minNodeCount}`,
+        `--set azureClientID=${clientId}`,
+        `--set azureClientSecret=${spPassword}`,
+        `--set azureSubscriptionID=${subscriptionId}`,
+        `--set azureTenantID=${tenantId}`,
+        `--set azureClusterName=${ctx.clusterName}`,
+        `--set azureResourceGroup=${ctx.resourceGroup}`,
+        `--set azureVMType=AKS`,
+        `--set azureNodeResourceGroup=${ctx.k8sResourceGroup}`,
+    ]
 }
 
 export async function createAksCluster(
@@ -468,12 +449,16 @@ export async function createAksCluster(
         installPrometheusOperator(ctx.kubeconfig)
         installPrometheus(ctx.kubeconfig)
         installPrometheusAdapter(ctx.kubeconfig)
-        await installClusterAutoscalerSecret(ctx, options.autoscalerSpPassword, ctx.autoscalerSpName)
-        await installClusterAutoscaler(
+        installClusterAutoscaler(
             ctx.kubeconfig,
-            options.clusterAutoscalerVersion,
-            options.minNodeCount,
-            options.nodeCount
+            'azure',
+            await getClusterAutoscalerExtraArgs(
+                ctx,
+                options.clusterAutoscalerVersion,
+                options.minNodeCount,
+                options.nodeCount,
+                options.autoscalerSpPassword
+            )
         )
     }
 }
