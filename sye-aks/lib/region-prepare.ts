@@ -154,20 +154,38 @@ async function assignRoleToServicePrincipal(ctx: Context) {
     debug('roles', roles)
     if (roles.length == 0) {
         consoleLog('  Creating role...')
-        await exec('az', [
-            'role',
-            'assignment',
-            'create',
-            ...ctx.subscriptionArgs,
-            '--role',
-            'Contributor',
-            '--assignee',
-            appId,
-            '--scope',
-            scope,
-            '--resource-group',
-            '',
-        ])
+        let retries = 0
+        let done = false
+        while (!done) {
+            try {
+                await exec('az', [
+                    'role',
+                    'assignment',
+                    'create',
+                    ...ctx.subscriptionArgs,
+                    '--role',
+                    'Contributor',
+                    '--assignee',
+                    appId,
+                    '--scope',
+                    scope,
+                    '--resource-group',
+                    '',
+                ])
+                done = true
+            } catch (ex) {
+                debug('Role assignment failed', { ex })
+                if (!ex.toString().indexOf('does not exist in the directory')) {
+                    throw ex
+                }
+                if (retries++ < 20) {
+                    await sleep(6000)
+                    consoleLog(`    Service principal not ready - retrying (retry #${retries})...`)
+                } else {
+                    throw ex
+                }
+            }
+        }
         consoleLog('  Done.')
     } else {
         consoleLog('  Role already exists - OK.')
