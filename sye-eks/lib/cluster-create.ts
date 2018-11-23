@@ -236,6 +236,7 @@ export async function createEksCluster(options: {
     workerAmi: string
     nodeCount: number
     minNodeCount: number
+    maxNodeCount: number
     nodeSshKey: string
 }) {
     const ctx: Context = {
@@ -248,7 +249,7 @@ export async function createEksCluster(options: {
         workersStackName: `${options.clusterName}-worker-nodes`,
         workersNodeGroupName: `${options.clusterName}-node_group`,
         workersMinSize: options.minNodeCount,
-        workersMaxSize: options.nodeCount,
+        workersMaxSize: options.maxNodeCount,
         workerInstanceType: options.instanceType,
         workerAmi: options.workerAmi,
         workerSshKey: options.nodeSshKey,
@@ -267,5 +268,10 @@ export async function createEksCluster(options: {
     installPrometheusOperator(ctx.kubeconfig)
     installPrometheus(ctx.kubeconfig)
     installPrometheusAdapter(ctx.kubeconfig)
-    installClusterAutoscaler(ctx.kubeconfig, options.clusterName, options.region, 'aws')
+    installClusterAutoscaler(ctx.kubeconfig, 'aws', [
+        `--set image.tag=v1.2.2`,
+        `--set autoDiscovery.clusterName=${options.clusterName}`,
+        `--set awsRegion=${options.region}`,
+        '--set sslCertPath=/etc/kubernetes/pki/ca.crt',
+    ])
 }

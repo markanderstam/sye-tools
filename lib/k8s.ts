@@ -103,22 +103,14 @@ export function installPrometheusAdapter(kubeconfig: string) {
     consoleLog('  Done.')
 }
 
-export function installClusterAutoscaler(
-    kubeconfig: string,
-    clusterName: string,
-    region: string,
-    cloudProvider: string
-) {
+export function installClusterAutoscaler(kubeconfig: string, cloudProvider: 'aws' | 'azure', extraArgs: string[]) {
     consoleLog('Installing/updating Cluster Autoscaler:')
     execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system \
---set autoDiscovery.clusterName=${clusterName} \
---set awsRegion=${region} \
 --set cloudProvider=${cloudProvider} \
---set image.tag=v1.2.2 \
 --set-string extraArgs.skip-nodes-with-local-storage=false \
 --set-string extraArgs.skip-nodes-with-system-pods=false \
 --set rbac.create=true \
-${cloudProvider === 'aws' ? '--set sslCertPath=/etc/kubernetes/pki/ca.crt' : ''} \
+${extraArgs.join(' ')} \
 autoscaler stable/cluster-autoscaler`)
     consoleLog('  Done.')
 }
