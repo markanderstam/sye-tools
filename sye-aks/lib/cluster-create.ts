@@ -13,6 +13,7 @@ import {
     installPrometheusAdapter,
     installClusterAutoscaler,
 } from '../../lib/k8s'
+import { ensurePublicIps } from './utils'
 const debug = require('debug')('aks/cluster-create')
 
 export interface Context {
@@ -153,106 +154,6 @@ async function createCluster(ctx: Context) {
         ])
         consoleLog('  Done.')
     }
-}
-
-async function addPublicIps(ctx: Context) {
-    consoleLog(`Adding public IPs to VMs in AKS cluster ${ctx.clusterName}:`)
-    consoleLog('  Listing VMs...')
-    const vmNames = await exec('az', [
-        'vm',
-        'list',
-        ...ctx.subscriptionArgs,
-        '--resource-group',
-        ctx.k8sResourceGroup,
-        '--query',
-        '[].name',
-        '--output',
-        'tsv',
-    ])
-    for (const vmName of vmNames.filter((x) => !!x)) {
-        const publicIpName = `${vmName}-public-ip`
-        consoleLog(`  Inspecting VM ${vmName}...`)
-        try {
-            await exec('az', [
-                'network',
-                'public-ip',
-                'show',
-                ...ctx.subscriptionArgs,
-                '--resource-group',
-                ctx.k8sResourceGroup,
-                '--name',
-                publicIpName,
-            ])
-            consoleLog(`    Public IP for VM "${vmName}" already exists - OK.`)
-        } catch (ex) {
-            consoleLog('    Adding public IP...')
-            await exec('az', [
-                'network',
-                'public-ip',
-                'create',
-                ...ctx.subscriptionArgs,
-                '--resource-group',
-                ctx.k8sResourceGroup,
-                '--location',
-                ctx.location,
-                '--name',
-                publicIpName,
-                '--allocation-method',
-                'Dynamic',
-            ])
-            consoleLog('    Finding name of NIC...')
-            const nicName = (await exec('az', [
-                'vm',
-                'nic',
-                'list',
-                ...ctx.subscriptionArgs,
-                '--resource-group',
-                ctx.k8sResourceGroup,
-                '--vm-name',
-                vmName,
-                '--query',
-                '[].id',
-                '--output',
-                'tsv',
-            ]))[0].replace(/\/.*\//, '')
-            debug('nicName', nicName)
-            consoleLog('    Finding ipconfiguration...')
-            const ipConfigName = (await exec('az', [
-                'network',
-                'nic',
-                'ip-config',
-                'list',
-                ...ctx.subscriptionArgs,
-                '--resource-group',
-                ctx.k8sResourceGroup,
-                '--nic-name',
-                nicName,
-                '--query',
-                '[] | [?primary].name',
-                '--output',
-                'tsv',
-            ]))[0]
-            debug('ipConfigName', ipConfigName)
-            consoleLog('    Updating NIC...')
-            await exec('az', [
-                'network',
-                'nic',
-                'ip-config',
-                'update',
-                ...ctx.subscriptionArgs,
-                '--resource-group',
-                ctx.k8sResourceGroup,
-                '--nic-name',
-                nicName,
-                '--name',
-                ipConfigName,
-                '--public-ip-address',
-                publicIpName,
-            ])
-            consoleLog('    Public IP Configured - OK.')
-        }
-    }
-    consoleLog('  All VMs have their Public IPs configured')
 }
 
 async function openPortInNsg(
@@ -437,7 +338,7 @@ export async function createAksCluster(
     await ensureLoggedIn()
     await createSubnet(ctx)
     await createCluster(ctx)
-    await addPublicIps(ctx)
+    await ensurePublicIps(ctx)
     await openPortInNsg(ctx, 2123, 'Udp', '200', 'Sye SSP traffic (UDP 2123)')
     if (ctx.openSshPort) {
         await openPortInNsg(ctx, 22, 'Tcp', '201', 'SSH access')
