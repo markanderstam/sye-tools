@@ -10,6 +10,7 @@ import { deleteAksCluster } from '../sye-aks/lib/cluster-delete'
 import { prepareClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-prepare'
 import { defaultClusterAutoscalerSpName } from '../sye-aks/lib/utils'
 import { cleanupClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-cleanup'
+import { scaleAksCluster } from '../sye-aks/lib/cluster-scale'
 const debug = require('debug')('sye-aks')
 
 function required(options: object, name: string, optionName = name, reason?: string): string {
@@ -152,11 +153,30 @@ program
     )
 
 program
+    .command('cluster-scale')
+    .description('Add or remove nodes to an existing Sye cluster on Azure AKS')
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .option('--resource-group <name>', 'The resource group for the existing AKS cluster')
+    .option('--name <name>', 'The name of the AKS cluster to scale')
+    .option('--count <number>', 'The number of worker nodes that the cluster should have')
+    .action(async (options: { subscription?: string; resourceGroup: string; name: string; count: string }) => {
+        try {
+            await scaleAksCluster(options.subscription, {
+                resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+                clusterName: required(options, 'name'),
+                nodeCount: parseInt(required(options, 'count')),
+            })
+        } catch (ex) {
+            exit(ex)
+        }
+    })
+
+program
     .command('cluster-delete')
     .description('Delete an existing Sye cluster on Azure AKS')
     .option('--subscription [name or id]', 'The Azure subscription')
-    .option('--resource-group <name>', 'Resource group to place the AKS cluster in')
-    .option('--name <name>', 'The name of the AKS cluster to create')
+    .option('--resource-group <name>', 'The resource group for the existing AKS cluster')
+    .option('--name <name>', 'The name of the AKS cluster to delete')
     .action(async (options: { subscription?: string; resourceGroup: string; name: string }) => {
         try {
             await deleteAksCluster(options.subscription, {

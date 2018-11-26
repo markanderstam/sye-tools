@@ -196,10 +196,7 @@ program
     .command('request-spot-instances <cluster-id> <region>')
     .description('Create a spot instances request and assign the machines to the cluster')
     .option('--machine-name [name]', 'Name of machine, defaults to amazon instance id')
-    .option('--instance-count [count]',
-        'The number of instances to request. Default 1',
-        (n) => parseInt(n),
-        1)
+    .option('--instance-count [count]', 'The number of instances to request. Default 1', (n) => parseInt(n), 1)
     .option('--availability-zone [zone]', 'Availability-zone for machine. Default "a"', 'a')
     .option('--instance-type [type]', 'e.g. t2.micro', 't2.micro')
     .option('--spot-price [price]', 'e.g. 0.50', '0.50')
@@ -228,7 +225,7 @@ program
             options.spotPrice,
             options.role,
             options.storage,
-            options.management,
+            options.management
         ).catch(exit)
         consoleLog('Done')
     })
