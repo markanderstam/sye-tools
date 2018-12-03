@@ -3,8 +3,14 @@ import { AzureSession } from '../../lib/azure/azure-session'
 
 const debug = require('debug')('dns')
 
-export function createDnsRecord(name: string, ip: string, ttl = 300, subscription?: string): Promise<void> {
-    return changeDnsRecord(name, ip, 'CREATE', subscription, ttl)
+export function createDnsRecord(
+    name: string,
+    ip: string,
+    ttl = 300,
+    subscription?: string,
+    updateIfExists?: boolean
+): Promise<void> {
+    return changeDnsRecord(name, ip, 'CREATE', subscription, ttl, updateIfExists)
 }
 
 export function deleteDnsRecord(name: string, ip: string, subscription?: string): Promise<void> {
@@ -16,7 +22,8 @@ async function changeDnsRecord(
     ip: string,
     change: 'CREATE' | 'DELETE',
     subscriptionNameOrId?: string,
-    ttl?: number
+    ttl?: number,
+    updateIfExists?: boolean
 ): Promise<void> {
     const type = isIPv6(ip) ? 'AAAA' : 'A'
     const [, relativeRecordSetName, zone] = name.match(/(^.+?)\.(.+$)/)
@@ -34,7 +41,7 @@ async function changeDnsRecord(
 
     switch (change) {
         case 'CREATE':
-            if (records.some((r) => r.name === relativeRecordSetName)) {
+            if (!updateIfExists && records.some((r) => r.name === relativeRecordSetName)) {
                 throw `DNS record ${name} already exists`
             }
             const result = await dnsClient.recordSets.createOrUpdate(

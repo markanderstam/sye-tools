@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 * Azure: Support for creating firewall rules for additional resource groups (experimental)
 * Azure AKS: Option to open SSH port for worker nodes
+* Azure: Support for connect-ingress NSG ports
+* Azure: Added machine-edit command
 * Azure and AKS: Integration with credentials from Azure CLI
 * Azure and AKS: Automatic API token refresh
 * AKS: Support for multiple node pools
