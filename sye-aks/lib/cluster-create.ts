@@ -1,6 +1,4 @@
 import { consoleLog } from '../../lib/common'
-import { exec, defaultClusterAutoscalerSpName } from './utils'
-import { ensureLoggedIn } from './utils'
 import * as util from 'util'
 import * as fs from 'fs'
 import {
@@ -14,304 +12,116 @@ import {
     installClusterAutoscaler,
 } from '../../lib/k8s'
 import { ensurePublicIps } from './utils'
+import { AzureSession, NodePool } from '../../lib/azure/azure-session'
+import { promisify } from 'util'
+import * as k8s from '@kubernetes/client-node'
+import { getK8sResourceGroup } from './aks-config'
+import { getVnetName } from './aks-config'
+import { getSubnetName } from './aks-config'
+import { getAksServicePrincipalName } from './aks-config'
+import { defaultClusterAutoscalerSpName } from './aks-config'
+import { ServicePrincipal } from 'azure-graph/lib/models'
+
 const debug = require('debug')('aks/cluster-create')
 
-export interface Context {
-    subscriptionArgs: string[]
-    resourceGroup: string
-    location: string
-    clusterName: string
-    kubernetesVersion: string
-    // Derived
-    servicePrincipalPassword: string
-    servicePrincipalHomePage: string
-    vnetName: string
+async function addCredentials(
+    azureSession: AzureSession,
+    servicePrincipal: ServicePrincipal,
+    k8sResourceGroup: string,
+    resourceGroup: string,
+    vnetName: string,
     subnetName: string
-    subnetCidr: string
-    nodeCount: number
-    minNodeCount: number
-    maxNodeCount: number
-    adminUsername: string
-    vmSize: string
-    kubeconfig: string
-    k8sResourceGroup: string
-    clusterAutoscalerVersion?: string
-    autoscalerSpName?: string
-    autoscalerSpPassword?: string
-    openSshPort?: boolean
-}
-
-async function createSubnet(ctx: Context) {
-    try {
-        consoleLog(`Subnet ${ctx.subnetName}:`)
-        await exec('az', [
-            'network',
-            'vnet',
-            'subnet',
-            'show',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.resourceGroup,
-            '--vnet-name',
-            ctx.vnetName,
-            '--name',
-            ctx.subnetName,
-        ])
-        consoleLog('  Already exists - OK.')
-    } catch (ex) {
-        consoleLog('  Creating...')
-        await exec('az', [
-            'network',
-            'vnet',
-            'subnet',
-            'create',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.resourceGroup,
-            '--vnet-name',
-            ctx.vnetName,
-            '--name',
-            ctx.subnetName,
-            '--address-prefix',
-            ctx.subnetCidr,
-        ])
-        consoleLog('  Done.')
-    }
-}
-
-async function createCluster(ctx: Context) {
-    try {
-        consoleLog(`AKS Cluster ${ctx.clusterName}:`)
-        await exec('az', [
-            'aks',
-            'show',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.resourceGroup,
-            '--name',
-            ctx.clusterName,
-        ])
-        consoleLog('  Already exists - OK.')
-    } catch (ex) {
-        consoleLog('  Getting appId...')
-        const appId = (await exec('az', [
-            'ad',
-            'sp',
-            'show',
-            ...ctx.subscriptionArgs,
-            '--id',
-            ctx.servicePrincipalHomePage,
-            '--query',
-            'appId',
-            '--output',
-            'tsv',
-        ]))[0]
-        debug('appId', appId)
-        consoleLog('  Getting subnet id...')
-        const subnetId = (await exec('az', [
-            'network',
-            'vnet',
-            'subnet',
-            'show',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.resourceGroup,
-            '--vnet-name',
-            ctx.vnetName,
-            '--name',
-            ctx.subnetName,
-            '--query',
-            'id',
-            '--output',
-            'tsv',
-        ]))[0]
-        debug('subnetId', subnetId)
-        consoleLog('  Creating AKS cluster...')
-        await exec('az', [
-            'aks',
-            'create',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.resourceGroup,
-            '--name',
-            ctx.clusterName,
-            '--node-count',
-            ctx.nodeCount.toString(),
-            '--kubernetes-version',
-            ctx.kubernetesVersion,
-            '--admin-username',
-            ctx.adminUsername,
-            '--node-vm-size',
-            ctx.vmSize,
-            '--network-plugin',
-            'azure',
-            '--vnet-subnet-id',
-            subnetId,
-            '--service-principal',
-            appId,
-            '--client-secret',
-            ctx.servicePrincipalPassword,
-        ])
-        consoleLog('  Done.')
-    }
-}
-
-async function openPortInNsg(
-    ctx: Context,
-    portNumber: number,
-    protocol: 'Udp' | 'Tcp',
-    priority: string,
-    description: string
 ) {
-    const ruleName = `${protocol.toUpperCase()}_${portNumber}`
-    consoleLog(`Enable port ${protocol}/${portNumber} network security rules:`)
-    consoleLog('  Finding NSG...')
-    const nsgName = (await exec('az', [
-        'network',
-        'nsg',
-        'list',
-        ...ctx.subscriptionArgs,
-        '--resource-group',
-        ctx.k8sResourceGroup,
-        '-o',
-        'tsv',
-        '--query',
-        '[].name',
-    ]))[0]
-    try {
-        consoleLog('  Inspecting NSG Rule...')
-        await exec('az', [
-            'network',
-            'nsg',
-            'rule',
-            'show',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.k8sResourceGroup,
-            '--nsg-name',
-            nsgName,
-            '--name',
-            ruleName,
-        ])
-        consoleLog('  Already configured - OK.')
-    } catch (ex) {
-        consoleLog('  Configure NSG rule...')
-        await exec('az', [
-            'network',
-            'nsg',
-            'rule',
-            'create',
-            ...ctx.subscriptionArgs,
-            '--resource-group',
-            ctx.k8sResourceGroup,
-            '--nsg-name',
-            nsgName,
-            '--name',
-            ruleName,
-            '--description',
-            description,
-            '--priority',
-            priority,
-            '--protocol',
-            protocol,
-            '--destination-port-ranges',
-            portNumber.toString(),
-        ])
-        consoleLog('  Done.')
-    }
+    await azureSession.assignRoleToServicePrincipal(
+        servicePrincipal,
+        azureSession.getResourceGroupScope(k8sResourceGroup),
+        azureSession.getRoleDefinitionId(azureSession.CONTRIBUTOR_ROLE_NAME)
+    )
+    await azureSession.assignRoleToServicePrincipal(
+        servicePrincipal,
+        azureSession.getSubnetScope(resourceGroup, vnetName, subnetName),
+        azureSession.getRoleDefinitionId(azureSession.NETWORK_CONTRIBUTOR_ROLE_NAME)
+    )
 }
 
-async function downloadKubectlCredentials(ctx: Context) {
-    consoleLog(`Download kubectl credentials to ${ctx.kubeconfig}.`)
-    if (fs.existsSync(ctx.kubeconfig)) {
+async function downloadKubectlCredentials(
+    azureSession: AzureSession,
+    kubeconfig: string,
+    resourceGroup: string,
+    clusterName: string
+) {
+    consoleLog(`Download kubectl credentials to ${kubeconfig}.`)
+    if (fs.existsSync(kubeconfig)) {
         consoleLog('  Deleting old file...')
-        await util.promisify(fs.unlink)(ctx.kubeconfig)
+        await util.promisify(fs.unlink)(kubeconfig)
     }
     consoleLog('  Downloading new file from Azure AKS...')
-    await exec('az', [
-        'aks',
-        'get-credentials',
-        ...ctx.subscriptionArgs,
-        '--resource-group',
-        ctx.resourceGroup,
-        '--name',
-        ctx.clusterName,
-        '--file',
-        ctx.kubeconfig,
-    ])
+    const containerServiceClient = azureSession.containerServiceClient()
+    const adminCredentials = await containerServiceClient.managedClusters.listClusterAdminCredentials(
+        resourceGroup,
+        clusterName
+    )
+    debug('Found credentials', adminCredentials)
+    await promisify(fs.writeFile)(kubeconfig, adminCredentials.kubeconfigs[0].value)
     consoleLog('  Done.')
 }
 
 async function getClusterAutoscalerExtraArgs(
-    ctx: Context,
+    azureSession: AzureSession,
+    kubeconfig: string,
     caVersion: string,
-    minNodeCount: number,
-    maxNodeCount: number,
-    spPassword: string
+    nodepools: NodePool[],
+    spPassword: string,
+    autoscalerSpName: string,
+    resourceGroup: string,
+    clusterName: string,
+    k8sResourceGroup: string
 ) {
-    const agentpool = (await exec('kubectl', [
-        'get',
-        'nodes',
-        '-o',
-        "jsonpath='{.items[0].metadata.labels.agentpool}'",
-    ]))[0]
-    const subscriptionId = (await exec('az', [
-        'account',
-        'show',
-        ...ctx.subscriptionArgs,
-        '--query',
-        'id',
-        '--output',
-        'tsv',
-    ]))[0]
-    const tenantId = (await exec('az', [
-        'account',
-        'show',
-        ...ctx.subscriptionArgs,
-        '--query',
-        'tenantId',
-        '--output',
-        'tsv',
-    ]))[0]
-    const clientId = (await exec('az', [
-        'ad',
-        'sp',
-        'show',
-        ...ctx.subscriptionArgs,
-        '--id',
-        `http://${ctx.autoscalerSpName || defaultClusterAutoscalerSpName(ctx.resourceGroup, ctx.clusterName)}`,
-        '--query',
-        'appId',
-        '--output',
-        'tsv',
-    ]))[0]
-    return [
+    const k8sConfig = new k8s.KubeConfig()
+    k8sConfig.loadFromFile(kubeconfig)
+    const k8sApi = k8sConfig.makeApiClient(k8s.Core_v1Api)
+
+    const nodeList = (await k8sApi.listNode()).body
+    debug('Found nodes', nodeList)
+    const agentpool = nodeList.items[0].metadata.labels['agentpool']
+    debug('agentpool', agentpool)
+
+    const spId = `http://${autoscalerSpName || defaultClusterAutoscalerSpName(resourceGroup, clusterName)}`
+    const sp = await azureSession.graphRbacManagementClient().servicePrincipals.get(spId)
+
+    const args: string[] = [
         `--set image.tag=v${caVersion}`,
-        `--set autoscalingGroups[0].name=${agentpool},\
-autoscalingGroups[0].minSize=${minNodeCount},\
-autoscalingGroups[0].maxSize=${maxNodeCount}`,
-        `--set azureClientID=${clientId}`,
+        `--set azureClientID=${sp.servicePrincipalNames[0]}`,
         `--set azureClientSecret=${spPassword}`,
-        `--set azureSubscriptionID=${subscriptionId}`,
-        `--set azureTenantID=${tenantId}`,
-        `--set azureClusterName=${ctx.clusterName}`,
-        `--set azureResourceGroup=${ctx.resourceGroup}`,
+        `--set azureSubscriptionID=${azureSession.currentSubscription.id}`,
+        `--set azureTenantID=${azureSession.currentSubscription.tenantId}`,
+        `--set azureClusterName=${clusterName}`,
+        `--set azureResourceGroup=${resourceGroup}`,
         `--set azureVMType=AKS`,
-        `--set azureNodeResourceGroup=${ctx.k8sResourceGroup}`,
+        `--set azureNodeResourceGroup=${k8sResourceGroup}`,
     ]
+
+    let index = 0
+    for (const nodepool of nodepools) {
+        args.push(
+            `--set autoscalingGroups[${index}].name=${nodepool.name},` +
+                `autoscalingGroups[${index}].minSize=${nodepool.minCount},` +
+                `autoscalingGroups[${index}].maxSize=${nodepool.maxCount}`
+        )
+        index++
+    }
+
+    return args
 }
 
 export async function createAksCluster(
-    subscription: string | undefined,
+    subscriptionNameOrId: string | undefined,
     options: {
         resourceGroup: string
         location: string
         clusterName: string
         kubernetesVersion: string
-        vmSize: string
-        nodeCount: number
-        minNodeCount: number
-        maxNodeCount: number
+        nodepools: NodePool[]
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
@@ -321,46 +131,63 @@ export async function createAksCluster(
         openSshPort?: boolean
     }
 ) {
-    const subscriptionArgs = []
-    if (subscription) {
-        subscriptionArgs.push('--subscription')
-        subscriptionArgs.push(subscription)
+    const azureSession = await new AzureSession().init({ subscriptionNameOrId })
+    const k8sResourceGroup = await getK8sResourceGroup(options.resourceGroup, options.clusterName, options.location)
+    await azureSession.createSubnet(
+        options.resourceGroup,
+        getVnetName(options.resourceGroup),
+        getSubnetName(options.clusterName),
+        options.subnetCidr
+    )
+    const servicePrincipalName = getAksServicePrincipalName(options.resourceGroup)
+    await azureSession.createCluster(
+        options.clusterName,
+        options.resourceGroup,
+        options.location,
+        options.kubernetesVersion,
+        options.nodepools,
+        options.servicePrincipalPassword,
+        options.subnetCidr,
+        servicePrincipalName,
+        getVnetName(options.resourceGroup),
+        getSubnetName(options.clusterName)
+    )
+    const servicePrincipal = await azureSession.getServicePrincipal(servicePrincipalName)
+    await addCredentials(
+        azureSession,
+        servicePrincipal,
+        k8sResourceGroup,
+        options.resourceGroup,
+        getVnetName(options.resourceGroup),
+        getSubnetName(options.clusterName)
+    )
+    await ensurePublicIps(azureSession, options.clusterName, k8sResourceGroup, options.location)
+    await azureSession.openPortInNsg(2123, 'Udp', 200, 'Sye SSP traffic (UDP 2123)', k8sResourceGroup)
+    if (options.openSshPort) {
+        await azureSession.openPortInNsg(22, 'Tcp', 201, 'SSH access', k8sResourceGroup)
     }
-    const ctx: Context = {
-        ...options,
-        subscriptionArgs,
-        adminUsername: 'netinsight',
-        servicePrincipalHomePage: `http://${options.resourceGroup}-sp`,
-        vnetName: options.resourceGroup,
-        subnetName: `${options.clusterName}-subnet`,
-        k8sResourceGroup: `MC_${options.resourceGroup}_${options.clusterName}_${options.location}`,
-    }
-    await ensureLoggedIn()
-    await createSubnet(ctx)
-    await createCluster(ctx)
-    await ensurePublicIps(ctx)
-    await openPortInNsg(ctx, 2123, 'Udp', '200', 'Sye SSP traffic (UDP 2123)')
-    if (ctx.openSshPort) {
-        await openPortInNsg(ctx, 22, 'Tcp', '201', 'SSH access')
-    }
-    await downloadKubectlCredentials(ctx)
-    installTillerRbac(ctx.kubeconfig)
-    installTiller(ctx.kubeconfig)
-    waitForTillerStarted(ctx.kubeconfig)
-    installNginxIngress(ctx.kubeconfig)
+    await downloadKubectlCredentials(azureSession, options.kubeconfig, options.resourceGroup, options.clusterName)
+    installTillerRbac(options.kubeconfig)
+    installTiller(options.kubeconfig)
+    waitForTillerStarted(options.kubeconfig)
+    installNginxIngress(options.kubeconfig)
     if (options.clusterAutoscalerVersion && options.autoscalerSpPassword) {
-        installPrometheusOperator(ctx.kubeconfig)
-        installPrometheus(ctx.kubeconfig)
-        installPrometheusAdapter(ctx.kubeconfig)
+        installPrometheusOperator(options.kubeconfig)
+        installPrometheus(options.kubeconfig)
+        installPrometheusAdapter(options.kubeconfig)
         installClusterAutoscaler(
-            ctx.kubeconfig,
+            options.kubeconfig,
             'azure',
             await getClusterAutoscalerExtraArgs(
-                ctx,
+                azureSession,
+                options.kubeconfig,
                 options.clusterAutoscalerVersion,
-                options.minNodeCount,
-                options.maxNodeCount,
-                options.autoscalerSpPassword
+                options.nodepools,
+                options.autoscalerSpPassword,
+                options.autoscalerSpName,
+                options.resourceGroup,
+                options.clusterName,
+                k8sResourceGroup
             )
         )
     }

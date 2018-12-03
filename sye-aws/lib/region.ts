@@ -229,19 +229,21 @@ async function getCoreRegion(clusterId: string): Promise<CoreRegion | undefined>
     let vpcId: string
     let location: string
     let subnets = await Promise.all<Subnet>(
-        resources.filter((r) => r.Tags.some((tag) => tag.Key === `SyeCore_${clusterId}`)).map(
-            async (r): Promise<Subnet> => {
-                location = r.ResourceARN.split(':')[3]
-                ec2 = new aws.EC2({ region: location })
-                let id = r.ResourceARN.split('/')[1]
-                let name = r.Tags.find((tag) => tag.Key === 'Name').Value
-                let availabilityZone = name.split('-').pop()
-                let subnet = await getSubnet(ec2, clusterId, availabilityZone)
-                vpcId = subnet.VpcId
-                let ipv6CidrBlock = subnet.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
-                return { id, name, ipv6CidrBlock }
-            }
-        )
+        resources
+            .filter((r) => r.Tags.some((tag) => tag.Key === `SyeCore_${clusterId}`))
+            .map(
+                async (r): Promise<Subnet> => {
+                    location = r.ResourceARN.split(':')[3]
+                    ec2 = new aws.EC2({ region: location })
+                    let id = r.ResourceARN.split('/')[1]
+                    let name = r.Tags.find((tag) => tag.Key === 'Name').Value
+                    let availabilityZone = name.split('-').pop()
+                    let subnet = await getSubnet(ec2, clusterId, availabilityZone)
+                    vpcId = subnet.VpcId
+                    let ipv6CidrBlock = subnet.Ipv6CidrBlockAssociationSet[0].Ipv6CidrBlock
+                    return { id, name, ipv6CidrBlock }
+                }
+            )
     )
     if (subnets.length > 0) {
         const securityGroups = await getSecurityGroups(ec2, clusterId, vpcId)
@@ -255,10 +257,12 @@ async function getCoreRegion(clusterId: string): Promise<CoreRegion | undefined>
 
 async function isCoreRegion(clusterId: string, region: string): Promise<boolean> {
     let resources = await getResources(clusterId, ['ec2:subnet'])
-    return resources.filter((r) => r.Tags.some((tag) => tag.Key === `SyeCore_${clusterId}`)).some((r) => {
-        const coreRegion = r.ResourceARN.split(':')[3]
-        return coreRegion === region
-    })
+    return resources
+        .filter((r) => r.Tags.some((tag) => tag.Key === `SyeCore_${clusterId}`))
+        .some((r) => {
+            const coreRegion = r.ResourceARN.split(':')[3]
+            return coreRegion === region
+        })
 }
 
 async function ensureCoreRegion(ec2: aws.EC2, clusterId: string, subnets: Subnet[]) {

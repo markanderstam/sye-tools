@@ -1,13 +1,9 @@
 import * as dbg from 'debug'
 const debug = dbg('azure/machine')
 import { NetworkManagementClient } from 'azure-arm-network'
-import StorageManagementClient = require('azure-arm-storage')
 import { createBlobService, BlobUtilities } from 'azure-storage'
 
 import {
-    validateClusterId,
-    getCredentials,
-    getSubscription,
     vmName,
     publicIpName,
     ipConfigName,
@@ -27,11 +23,13 @@ import {
     SG_TYPE_PITCHER,
     SG_TYPE_SINGLE,
     SG_TYPE_DEFAULT,
-} from './common'
+} from '../common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine, DataDisk } from 'azure-arm-compute/lib/models'
 import { exit, syeEnvironmentFile, consoleLog } from '../../lib/common'
 import { SecurityRule } from 'azure-arm-network/lib/models'
+import { AzureSession } from '../../lib/azure/azure-session'
+import { validateClusterId } from '../common'
 
 export async function machineAdd(
     clusterId: string,
@@ -42,8 +40,7 @@ export async function machineAdd(
     roles: string[],
     management: boolean,
     storage: number | DataDisk[],
-    skipSecurityRules = false,
-    profile?: string
+    skipSecurityRules = false
 ) {
     let args = ''
     if (management) {
@@ -54,12 +51,10 @@ export async function machineAdd(
 
     validateClusterId(clusterId)
 
-    let credentials = await getCredentials(profile)
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
-
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const networkClient = azureSession.networkManagementClient()
+    const computeClient = azureSession.computeManagementClient()
     let subnetInfo = await networkClient.subnets.get(clusterId, vnetName(region), subnetName(region))
 
     // Check if machine exists before trying to create it
@@ -145,10 +140,10 @@ export async function machineAdd(
 
     debug('networkInterface', networkInterface)
 
-    let storageAccount = storageAccountName(subscription.subscriptionId, clusterId)
+    const storageAccount = storageAccountName(azureSession.currentSubscription.id, clusterId)
 
-    let storageClient = new StorageManagementClient(credentials, subscription.subscriptionId)
-    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAccount)
+    const storageClient = azureSession.storageManagementClient()
+    const keys = await storageClient.storageAccounts.listKeys(clusterId, storageAccount)
     const blobService = createBlobService(storageAccount, keys.keys[0].value)
 
     let startDate = new Date()
@@ -156,7 +151,7 @@ export async function machineAdd(
     let expiryDate = new Date()
     expiryDate.setMinutes(expiryDate.getMinutes() + 10)
 
-    var sharedAccessPolicy = {
+    const sharedAccessPolicy = {
         AccessPolicy: {
             Permissions: BlobUtilities.SharedAccessPermissions.READ,
             Start: startDate,
@@ -250,23 +245,18 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
         }
     }
     if (!skipSecurityRules) {
-        await ensureMachineSecurityRules(clusterId, profile)
+        await ensureMachineSecurityRules(clusterId)
     }
+    await azureSession.save()
 }
 
-export async function machineDelete(
-    clusterId: string,
-    machineName: string,
-    skipSecurityRules = false,
-    profile?: string
-) {
+export async function machineDelete(clusterId: string, machineName: string, skipSecurityRules = false) {
     validateClusterId(clusterId)
 
-    let credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const networkClient = azureSession.networkManagementClient()
+    const computeClient = azureSession.computeManagementClient()
 
     const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
     await computeClient.virtualMachines.deleteMethod(clusterId, vmName(machineName))
@@ -302,16 +292,16 @@ export async function machineDelete(
         securityGroupName(clusterId, vmInfo.location, vmInfo.name)
     )
     if (!skipSecurityRules) {
-        await ensureMachineSecurityRules(clusterId, profile)
+        await ensureMachineSecurityRules(clusterId)
     }
+    await azureSession.save()
 }
 
-export async function machineRedeploy(clusterId: string, machineName: string, profile?: string) {
+export async function machineRedeploy(clusterId: string, machineName: string) {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const computeClient = azureSession.computeManagementClient()
 
     const vmInfo = await computeClient.virtualMachines.get(clusterId, vmName(machineName))
 
@@ -328,7 +318,7 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
     }
 
     debug('Delete machine')
-    await machineDelete(clusterId, machineName, true, profile)
+    await machineDelete(clusterId, machineName, true)
 
     debug('Add machine')
     await machineAdd(
@@ -340,9 +330,9 @@ export async function machineRedeploy(clusterId: string, machineName: string, pr
         Object.keys(vmInfo.tags),
         !!vmInfo.tags.management,
         dataDisks,
-        false,
-        profile
+        false
     )
+    await azureSession.save()
 }
 
 export async function getPublicIpsForCluster(
@@ -382,13 +372,12 @@ export async function getPublicIpsForCluster(
     return ips
 }
 
-export async function ensureMachineSecurityRules(clusterId: string, profile?: string, extraResourceGroups?: string[]) {
+export async function ensureMachineSecurityRules(clusterId: string, extraResourceGroups?: string[]) {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const networkClient = azureSession.networkManagementClient()
+    const computeClient = azureSession.computeManagementClient()
 
     const ips = await getPublicIpsForCluster(clusterId, computeClient, networkClient)
     for (const extraResourceGroup of extraResourceGroups) {
@@ -521,6 +510,7 @@ export async function ensureMachineSecurityRules(clusterId: string, profile?: st
             }
         }
     }
+    await azureSession.save()
 }
 
 async function setSecurityRules(

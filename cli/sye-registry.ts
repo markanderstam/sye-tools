@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'source-map-support/register'
 import * as program from 'commander'
 import { registryStart, registryAddImages, registryRemove } from '../sye-registry/index'
 import { exit } from '../lib/common'

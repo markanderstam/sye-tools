@@ -36,6 +36,8 @@ The SSP (Sye Streaming Protocol) traffic needs to be able to flow in both direct
 
 `sye aks cluster-create` automatically opens UDP port `2123` towards all worker nodes for this purpose.
 
+If the flag `--open-ssh-port` is given to the `sye aks cluster-create` command the SSH port (TCP/22) will be operned as well. 
+
 ### Ingress
 
 Sye needs an ingress for inbound HTTPS traffic into the cluster. For this the `nginx-ingress` ingress controller can be used, see [Create an HTTPS ingress controller on Azure Kubernetes Service (AKS)](https://docs.microsoft.com/en-us/azure/aks/ingress-tls).
@@ -99,12 +101,26 @@ To create an AKS cluster named `my-cluster` in a region that has been prepared d
 ```bash
 sye aks cluster-create --resource-group sye-aks --location westeurope \
 		--password EjPZQH8FXtCThvIN0kUskAStYS0I3 \
-		--name my-cluster --release 1.11.3 \
-		--size Standard_F16 --count 5 --kubeconfig ~/.kube/my-cluster.yaml
+		--name my-cluster --release 1.11.5 \
+		--nodepools '[ \
+        			{"name": "core", "count":5, "vmSize": "Standard_F4"}, \
+        			{"name": "pitcher", "count":3, "vmSize": "Standard_F16"} \
+        		]' \
+		--kubeconfig ~/.kube/my-cluster.yaml
 ```
 
-The cluster will have 5 `Standard_F16` worker nodes and will run kubernetes `1.11.3`. Credentials for `kubectl`
-will be stored in `~/.kube/my-cluster.yaml` (this file will be overwritten if it already exist).
+The cluster will run Kubernetes 1.11.5 and have two nodepools:
+* One named `core` with 5 `Standard_F4` nodes
+* One named `pitcher` with 3 `Standard_F16` nodes
+
+The `--nodepools` is a JSON array of nodepool specifications. The fields are:
+* `name` - Name of the nodepool (mandatory)
+* `count` - Number VMs in the nodepool (mandatory)
+* `vmSize` - The VM type used for VMs in the nodepool (mandatory)
+* `minCount` - The minimum number of nodes in the nodepool when scaling (optional)
+* `maxCount` - The maximum number of nodes in the nodepool when scaling (optional)
+
+Credentials for `kubectl` will be stored in `~/.kube/my-cluster.yaml` (this file will be overwritten if it already exist).
 
 To find out what versions of kubernetes that is supported in a specific location do:
 

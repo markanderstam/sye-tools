@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'source-map-support/register'
 import * as program from 'commander'
 import * as os from 'os'
 import { resolve } from 'path'

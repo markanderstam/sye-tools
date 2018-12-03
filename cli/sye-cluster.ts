@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'source-map-support/register'
 import { clusterCreate, ClusterCreateOptions, createCerts, CreateCertsOptions } from '../sye-cluster/index'
 import { syeEnvironmentFile, exit } from '../lib/common'
 import * as program from 'commander'
