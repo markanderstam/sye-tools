@@ -6,7 +6,6 @@ All notable changes to this project will be documented in this file.
 
 * Azure: Support for creating firewall rules for additional resource groups (experimental)
 * Azure AKS: Option to open SSH port for worker nodes
-* Azure AKS: Support for manual scaling
 
 ## [1.4.1] - 2018-10-26
 
