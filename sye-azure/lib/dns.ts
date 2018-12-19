@@ -1,38 +1,28 @@
 import { isIPv6 } from 'net'
-import DnsManagementClient from 'azure-arm-dns'
-import * as dbg from 'debug'
-import { getCredentials, getSubscription } from './common'
+import { AzureSession } from '../../lib/azure/azure-session'
 
-const debug = dbg('dns')
+const debug = require('debug')('dns')
 
-export function createDnsRecord(
-    name: string,
-    ip: string,
-    ttl = 300,
-    profile?: string,
-    subscription?: string
-): Promise<void> {
-    return changeDnsRecord(name, ip, 'CREATE', profile, subscription, ttl)
+export function createDnsRecord(name: string, ip: string, ttl = 300, subscription?: string): Promise<void> {
+    return changeDnsRecord(name, ip, 'CREATE', subscription, ttl)
 }
 
-export function deleteDnsRecord(name: string, ip: string, profile?: string, subscription?: string): Promise<void> {
-    return changeDnsRecord(name, ip, 'DELETE', profile, subscription)
+export function deleteDnsRecord(name: string, ip: string, subscription?: string): Promise<void> {
+    return changeDnsRecord(name, ip, 'DELETE', subscription)
 }
 
 async function changeDnsRecord(
     name: string,
     ip: string,
     change: 'CREATE' | 'DELETE',
-    profile?: string,
-    subscription?: string,
+    subscriptionNameOrId?: string,
     ttl?: number
 ): Promise<void> {
     const type = isIPv6(ip) ? 'AAAA' : 'A'
     const [, relativeRecordSetName, zone] = name.match(/(^.+?)\.(.+$)/)
 
-    const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { subscription })).subscriptionId
-    const dnsClient = new DnsManagementClient(credentials, subscriptionId)
+    const azureSession = await new AzureSession().init({ subscriptionNameOrId })
+    const dnsClient = azureSession.dnsManagementClient()
 
     const resource = (await dnsClient.zones.list()).find((z) => z.name === zone)
     if (!resource) {
@@ -75,4 +65,5 @@ async function changeDnsRecord(
             await dnsClient.recordSets.deleteMethod(resourceGroupName, zone, relativeRecordSetName, type)
             break
     }
+    await azureSession.save()
 }

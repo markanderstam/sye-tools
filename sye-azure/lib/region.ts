@@ -1,22 +1,13 @@
-import { NetworkManagementClient } from 'azure-arm-network'
-import ComputeClient = require('azure-arm-compute')
-import {
-    validateClusterId,
-    getCredentials,
-    getSubscription,
-    subnetName,
-    vnetName,
-    securityGroupName,
-    SG_TYPES,
-} from './common'
+import { subnetName, vnetName, securityGroupName, SG_TYPES } from '../common'
 import { machineDelete } from './machine'
+import { validateClusterId } from '../common'
+import { AzureSession } from '../../lib/azure/azure-session'
 
-export async function regionAdd(clusterId: string, region: string, profile?: string): Promise<void> {
+export async function regionAdd(clusterId: string, region: string): Promise<void> {
     validateClusterId(clusterId)
-    let credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const networkClient = azureSession.networkManagementClient()
 
     var vnetParameters = {
         location: region,
@@ -36,25 +27,26 @@ export async function regionAdd(clusterId: string, region: string, profile?: str
             })
         )
     )
+    await azureSession.save()
 }
 
-export async function regionDelete(clusterId: string, region: string, profile?: string): Promise<void> {
+export async function regionDelete(clusterId: string, region: string): Promise<void> {
     validateClusterId(clusterId)
-    let credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId })
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const computeClient = azureSession.computeManagementClient()
     await Promise.all(
         (await computeClient.virtualMachines.list(clusterId))
             .filter((vm) => vm.location === region)
-            .map((vm) => machineDelete(clusterId, vm.name, true, profile))
+            .map((vm) => machineDelete(clusterId, vm.name, true))
     )
 
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const networkClient = azureSession.networkManagementClient()
     await networkClient.virtualNetworks.deleteMethod(clusterId, vnetName(region))
     await Promise.all(
         SG_TYPES.map((type) =>
             networkClient.networkSecurityGroups.deleteMethod(clusterId, securityGroupName(clusterId, region, type))
         )
     )
+    await azureSession.save()
 }

@@ -1,22 +1,12 @@
 import { readPackageFile, syeEnvironmentFile, consoleLog } from '../../lib/common'
-import { ResourceManagementClient } from 'azure-arm-resource'
-import StorageManagementClient = require('azure-arm-storage')
-import ComputeClient = require('azure-arm-compute')
-import { NetworkManagementClient } from 'azure-arm-network'
 import * as EasyTable from 'easy-table'
 const debug = require('debug')('azure/cluster')
 
 import { createBlobService, BlobService } from 'azure-storage'
-import {
-    deleteCredentials,
-    validateClusterId,
-    getCredentials,
-    getSubscription,
-    storageAccountName,
-    publicContainerName,
-    privateContainerName,
-} from './common'
+import { storageAccountName, publicContainerName, privateContainerName } from '../common'
 import { NetworkInterface, PublicIPAddress } from 'azure-arm-network/lib/models'
+import { validateClusterId } from '../common'
+import { AzureSession } from '../../lib/azure/azure-session'
 
 const ROOT_LOCATION = 'westus'
 
@@ -29,35 +19,25 @@ export interface ClusterMachine {
     DataDiskName?: string
 }
 
-export async function login(profile?: string): Promise<void> {
-    await getCredentials(profile)
-}
-
-export async function logout(profile?: string): Promise<void> {
-    deleteCredentials(profile)
-}
-
 export async function createCluster(
     clusterId: string,
     syeEnvironment: string,
     authorizedKeys: string,
-    profile?: string,
-    subscription?: string
+    subscriptionNameOrId?: string
 ) {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { subscription })).subscriptionId
+    const azureSession = await new AzureSession().init({ subscriptionNameOrId })
 
-    debug('Creating SYE cluster in Azure subscription', subscriptionId)
-    let resourceClient = new ResourceManagementClient(credentials, subscriptionId)
+    debug('Creating SYE cluster in Azure subscription', azureSession.currentSubscription.name)
+    const resourceClient = azureSession.resourceManagementClient()
     await resourceClient.resourceGroups.createOrUpdate(clusterId, {
         location: ROOT_LOCATION,
         tags: {},
     })
 
     // Create Storage account with Blob storage
-    let storageClient = new StorageManagementClient(credentials, subscriptionId)
-    let createParameters = {
+    const storageClient = azureSession.storageManagementClient()
+    const createParameters = {
         location: ROOT_LOCATION,
         sku: {
             name: 'Standard_RAGRS',
@@ -67,7 +47,7 @@ export async function createCluster(
         tags: {},
     }
 
-    const storageAcctname = storageAccountName(subscriptionId, clusterId)
+    const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
     debug('Creating storage account', storageAcctname)
     await storageClient.storageAccounts.create(clusterId, storageAcctname, createParameters)
 
@@ -98,45 +78,35 @@ export async function createCluster(
     await createBlockBlobFromLocalFilePromise(blobService, publicContainerName(), 'authorized_keys', authorizedKeys)
 
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
+
+    await azureSession.save()
 }
 
-export async function uploadConfig(clusterId: string, syeEnvironment: string, profile: string): Promise<void> {
+export async function uploadConfig(clusterId: string, syeEnvironment: string): Promise<void> {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
-    const storageAcctname = storageAccountName(subscriptionId, clusterId)
-    let storageClient = new StorageManagementClient(credentials, subscriptionId)
-    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
+
+    const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
+    let keys = await azureSession.storageManagementClient().storageAccounts.listKeys(clusterId, storageAcctname)
     const blobService = createBlobService(storageAcctname, keys.keys[0].value)
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
+    await azureSession.save()
 }
 
-export async function deleteCluster(clusterId: string, profile?: string) {
+export async function deleteCluster(clusterId: string) {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
-    const resourceClient = new ResourceManagementClient(credentials, subscriptionId)
-    await resourceClient.resourceGroups.deleteMethod(clusterId)
+    await azureSession.resourceManagementClient().resourceGroups.deleteMethod(clusterId)
+    await azureSession.save()
 }
 
-export async function showResources(
-    clusterId: string,
-    output = true,
-    raw = false,
-    profile?: string
-): Promise<ClusterMachine[]> {
+export async function showResources(clusterId: string, output = true, raw = false): Promise<ClusterMachine[]> {
     const tableData = new Array<ClusterMachine>()
 
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscription = await getSubscription(credentials, { resourceGroup: clusterId }).catch((e: Error) => {
-        if (e.message === 'Could not find any matching subscription') {
-            return null
-        }
-        throw e
-    })
-    if (subscription === null) {
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
+    if (azureSession.currentSubscription === null) {
         if (output) {
             if (raw) {
                 consoleLog(JSON.stringify(tableData, null, 2))
@@ -144,15 +114,16 @@ export async function showResources(
                 consoleLog('')
             }
         }
+        await azureSession.save()
         return tableData
     }
 
-    const resourceClient = new ResourceManagementClient(credentials, subscription.subscriptionId)
+    const resourceClient = azureSession.resourceManagementClient()
 
     const resourceGroup = await resourceClient.resourceGroups.get(clusterId)
 
     // Find all the NICs in the resource group
-    const networkClient = new NetworkManagementClient(credentials, subscription.subscriptionId)
+    const networkClient = azureSession.networkManagementClient()
     const nicMap: { [id: string]: NetworkInterface } = {}
     for (const nic of await networkClient.networkInterfaces.list(clusterId)) {
         nicMap[nic.id] = nic
@@ -165,7 +136,7 @@ export async function showResources(
     }
 
     // Show all the VMs in the resource group
-    const computeClient = new ComputeClient(credentials, subscription.subscriptionId)
+    const computeClient = azureSession.computeManagementClient()
     for (const vm of await computeClient.virtualMachines.list(clusterId)) {
         if (vm.networkProfile && vm.networkProfile.networkInterfaces) {
             for (const nic of vm.networkProfile!.networkInterfaces!) {
@@ -189,7 +160,9 @@ export async function showResources(
         } else {
             consoleLog('')
             consoleLog(`Cluster '${clusterId}'`)
-            consoleLog(`  Subscription: '${subscription.displayName}' (${subscription.subscriptionId})`)
+            consoleLog(
+                `  Subscription: '${azureSession.currentSubscription.name}' (${azureSession.currentSubscription.id})`
+            )
             consoleLog(`  Resource group: '${resourceGroup.name}'`)
             consoleLog(`  Location: '${resourceGroup.location}'`)
             consoleLog('')
@@ -197,19 +170,15 @@ export async function showResources(
         }
     }
 
+    await azureSession.save()
     return tableData
 }
 
-export async function getMachines(clusterId: string): Promise<ClusterMachine[]> {
-    return showResources(clusterId, false)
-}
-
-export async function uploadBootstrap(clusterId: string, profile: string): Promise<void> {
+export async function uploadBootstrap(clusterId: string): Promise<void> {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
-    const storageAcctname = storageAccountName(subscriptionId, clusterId)
-    let storageClient = new StorageManagementClient(credentials, subscriptionId)
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
+    const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
+    let storageClient = azureSession.storageManagementClient()
     let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
     const blobService = createBlobService(storageAcctname, keys.keys[0].value)
     await createBlockBlobFromTextPromise(
@@ -218,14 +187,14 @@ export async function uploadBootstrap(clusterId: string, profile: string): Promi
         'bootstrap.sh',
         readPackageFile('sye-azure/bootstrap.sh').toString()
     )
+    await azureSession.save()
 }
 
-export async function uploadClusterJoin(clusterId: string, profile: string): Promise<void> {
+export async function uploadClusterJoin(clusterId: string): Promise<void> {
     validateClusterId(clusterId)
-    const credentials = await getCredentials(profile)
-    const subscriptionId = (await getSubscription(credentials, { resourceGroup: clusterId })).subscriptionId
-    const storageAcctname = storageAccountName(subscriptionId, clusterId)
-    let storageClient = new StorageManagementClient(credentials, subscriptionId)
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
+    const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
+    let storageClient = azureSession.storageManagementClient()
     let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
     const blobService = createBlobService(storageAcctname, keys.keys[0].value)
     await createBlockBlobFromTextPromise(
@@ -234,6 +203,7 @@ export async function uploadClusterJoin(clusterId: string, profile: string): Pro
         'sye-cluster-join.sh',
         readPackageFile('sye-cluster-join.sh').toString()
     )
+    await azureSession.save()
 }
 
 function createBlockBlobFromTextPromise(

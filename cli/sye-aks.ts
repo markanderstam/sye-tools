@@ -8,8 +8,12 @@ import { exit } from '../lib/common'
 import { aksRegionCleanup } from '../sye-aks/lib/region-cleanup'
 import { deleteAksCluster } from '../sye-aks/lib/cluster-delete'
 import { prepareClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-prepare'
-import { defaultClusterAutoscalerSpName } from '../sye-aks/lib/utils'
 import { cleanupClusterAutoscaler } from '../sye-aks/lib/cluster-autoscaler-cleanup'
+import { defaultClusterAutoscalerSpName } from '../sye-aks/lib/aks-config'
+import { NodePool } from '../lib/azure/azure-session'
+import { showAksCluster } from '../sye-aks/lib/show-cluster'
+import { showAksRegion } from '../sye-aks/lib/show-region'
+import { scaleAksCluster } from '../sye-aks/lib/cluster-scale'
 const debug = require('debug')('sye-aks')
 
 function required(options: object, name: string, optionName = name, reason?: string): string {
@@ -75,10 +79,7 @@ program
     .option('--location <name>', 'The Azure location to create the AKS cluster in')
     .option('--name <name>', 'The name of the AKS cluster to create')
     .option('--release <version>', 'The Kubernetes version to use')
-    .option('--size <type>', 'The type of VMs to use for the worker nodes')
-    .option('--count <number>', 'The number of worker nodes to create')
-    .option('--min-count [number]', 'The minimum number of worker nodes for the Cluster Autoscaler', '1')
-    .option('--max-count [number]', 'The maximum number of worker nodes for the Cluster Autoscaler (default: <count>)')
+    .option('--nodepools <json>', 'A JSON describing the nodepools to use')
     .option('--password <string>', 'Password for the service principal')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
@@ -100,18 +101,15 @@ program
             location: string
             name: string
             release: string
-            size: string
-            count: string
-            minCount: string
-            maxCount?: string
+            nodepools: string
             password: string
             kubeconfig: string
             cidr: string
+            openSshPort?: boolean
             setupClusterAutoscaler?: boolean
             clusterAutoscalerVersion?: string
             autoscalerSpName?: string
             autoscalerSpPassword?: string
-            openSshPort?: boolean
         }) => {
             if (options.setupClusterAutoscaler) {
                 required(
@@ -127,16 +125,24 @@ program
                     'for setting up the Cluster Autoscaler'
                 )
             }
+            const nodepools: NodePool[] = []
+            for (const nodepoolJson of JSON.parse(options.nodepools)) {
+                nodepools.push({
+                    name: nodepoolJson.name,
+                    count: nodepoolJson.count,
+                    minCount: nodepoolJson.minCount || 1,
+                    maxCount: nodepoolJson.maxCount || 0,
+                    vmSize: nodepoolJson.vmSize,
+                })
+            }
+
             try {
                 await createAksCluster(options.subscription, {
                     resourceGroup: required(options, 'resource-group', 'resourceGroup'),
                     location: required(options, 'location'),
                     clusterName: required(options, 'name'),
                     kubernetesVersion: required(options, 'release'),
-                    vmSize: required(options, 'size'),
-                    nodeCount: parseInt(required(options, 'count')),
-                    minNodeCount: parseInt(options.minCount),
-                    maxNodeCount: parseInt(options.maxCount || options.count),
+                    nodepools: nodepools,
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
                     subnetCidr: options.cidr,
@@ -144,6 +150,38 @@ program
                     autoscalerSpName: options.autoscalerSpName,
                     autoscalerSpPassword: options.autoscalerSpPassword,
                     openSshPort: options.openSshPort,
+                })
+            } catch (ex) {
+                exit(ex)
+            }
+        }
+    )
+
+program
+    .command('cluster-scale')
+    .description('Scale a node pool of an existing Sye cluster on Azure AKS')
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .option('--resource-group <name>', 'The resource group for the existing AKS cluster')
+    .option('--name <name>', 'The name of the AKS cluster to delete')
+    .option('--nodePoolName [name]', 'The node pool to scale')
+    .option('--nodePoolSize [name]', 'The new size of the node pool')
+    .option('--update-public-ips', 'Also make sure all VMs has a public IP address')
+    .action(
+        async (options: {
+            subscription?: string
+            resourceGroup: string
+            name: string
+            nodePoolName: string
+            nodePoolSize: string
+            updatePublicIps: boolean
+        }) => {
+            try {
+                await scaleAksCluster(options.subscription, {
+                    resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+                    clusterName: required(options, 'name'),
+                    nodePoolName: required(options, 'nodePoolName'),
+                    nodePoolSize: parseInt(required(options, 'nodePoolSize')),
+                    updatePublicIps: options.updatePublicIps,
                 })
             } catch (ex) {
                 exit(ex)
@@ -197,10 +235,41 @@ program
     .option('--cluster-name <name>', 'The name of the existing/deleted AKS cluster')
     .action(async (options: { subscription?: string; resourceGroup: string; clusterName: string }) => {
         try {
-            await cleanupClusterAutoscaler(options.subscription, {
+            await cleanupClusterAutoscaler({
+                subscriptionNameOrId: options.subscription,
                 resourceGroup: required(options, 'resource-group', 'resourceGroup'),
                 clusterName: required(options, 'cluster-name', 'clusterName'),
             })
+        } catch (ex) {
+            exit(ex)
+        }
+    })
+
+program
+    .command('show-region')
+    .description('Show the current status of a AKS region')
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .option('-g, --resource-group <name>', 'The resource group for the existing/deleted AKS cluster')
+    .action(async (options: { subscriptionNameOrId?: string; resourceGroup: string }) => {
+        try {
+            required(options, 'resourceGroup')
+            await showAksRegion(options)
+        } catch (ex) {
+            exit(ex)
+        }
+    })
+
+program
+    .command('show-cluster')
+    .description('Show the current status of AKS clusters in AKS')
+    .option('--subscription [name or id]', 'The Azure subscription')
+    .option('-g, --resource-group <name>', 'The resource group for the existing/deleted AKS cluster')
+    .option('-n, --cluster-name <name>', 'The name of the existing/deleted AKS cluster')
+    .action(async (options: { subscriptionNameOrId?: string; resourceGroup: string; clusterName: string }) => {
+        try {
+            required(options, 'resourceGroup')
+            required(options, 'clusterName')
+            await showAksCluster(options)
         } catch (ex) {
             exit(ex)
         }

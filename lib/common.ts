@@ -2,6 +2,7 @@ import * as dbg from 'debug'
 import * as fs from 'fs'
 import * as cp from 'child_process'
 import { resolve } from 'path'
+import { promisify } from 'util'
 
 const debug = dbg('common')
 
@@ -73,6 +74,46 @@ export function readPackageFile(filename: string) {
 export function execSync(cmd: string, options?: cp.ExecSyncOptions) {
     debug(cmd)
     return cp.execSync(cmd, options)
+}
+
+export async function deleteFile(filename: string): Promise<void> {
+    if (await exists(filename)) {
+        await promisify(fs.unlink)(filename)
+    }
+}
+
+export function exists(path: string): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+        fs.stat(path, (err) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    resolve(false)
+                } else {
+                    reject(err)
+                }
+            } else {
+                resolve(true)
+            }
+        })
+    })
+}
+
+export async function mkdir(dirname: string): Promise<void> {
+    if (!(await exists(dirname))) {
+        await promisify(fs.mkdir)(dirname)
+    }
+}
+
+export async function writeJsonFile(filename: string, contents: any): Promise<void> {
+    await promisify(fs.writeFile)(filename, JSON.stringify(contents, null, 2))
+}
+
+export async function readJsonFile(filename: string): Promise<any | null> {
+    if (!(await exists(filename))) {
+        return null
+    }
+    const contents = await promisify(fs.readFile)(filename, 'utf-8')
+    return JSON.parse(contents.toString().trim())
 }
 
 export const syeEnvironmentFile = 'sye-environment.tar.gz'
