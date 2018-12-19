@@ -23,6 +23,7 @@ import {
     SG_TYPE_PITCHER,
     SG_TYPE_SINGLE,
     SG_TYPE_DEFAULT,
+    SG_TYPE_CONNECT_BROKER,
 } from '../common'
 import ComputeClient = require('azure-arm-compute')
 import { VirtualMachine, DataDisk } from 'azure-arm-compute/lib/models'
@@ -87,31 +88,7 @@ export async function machineAdd(
         tags[r] = 'yes'
     })
 
-    let nsgType = SG_TYPE_DEFAULT
-
-    let mgmt = tags['management'] === 'yes'
-    let fb = tags['frontend-balancer'] === 'yes'
-    let pitcher = tags['pitcher'] === 'yes'
-
-    if (pitcher) {
-        nsgType = SG_TYPE_PITCHER
-    }
-    if (mgmt) {
-        nsgType = SG_TYPE_MANAGEMENT
-    }
-    if (fb) {
-        nsgType = SG_TYPE_FRONTEND_BALANCER
-    }
-    if (mgmt && fb) {
-        nsgType = SG_TYPE_FRONTEND_BALANCER_MGMT
-    }
-    if (mgmt && fb && pitcher) {
-        nsgType = SG_TYPE_SINGLE
-    }
-    if ((mgmt && pitcher && !fb) || (fb && pitcher && !mgmt)) {
-        nsgType = SG_TYPE_SINGLE
-        consoleLog(`WARN: ${machineName} role combination not supported. Using Network Security Group type SINGLE`)
-    }
+    const nsgType = getNsgTypeForRoles(roles)
 
     const networkSecurityGroup = await networkClient.networkSecurityGroups.get(
         clusterId,
@@ -380,12 +357,14 @@ export async function ensureMachineSecurityRules(clusterId: string, extraResourc
     const computeClient = azureSession.computeManagementClient()
 
     const ips = await getPublicIpsForCluster(clusterId, computeClient, networkClient)
-    for (const extraResourceGroup of extraResourceGroups) {
-        if (clusterId === extraResourceGroup) {
-            exit(`Extra resource group '${extraResourceGroup}' cannot be the same as the cluster id '${clusterId}'`)
+    if (extraResourceGroups) {
+        for (const extraResourceGroup of extraResourceGroups) {
+            if (clusterId === extraResourceGroup) {
+                exit(`Extra resource group '${extraResourceGroup}' cannot be the same as the cluster id '${clusterId}'`)
+            }
+            const ips2 = await getPublicIpsForCluster(extraResourceGroup, computeClient, networkClient)
+            ips.push(...ips2)
         }
-        const ips2 = await getPublicIpsForCluster(extraResourceGroup, computeClient, networkClient)
-        ips.push(...ips2)
     }
 
     const frontendBalancerSecurityRuleDefs = [
@@ -451,6 +430,23 @@ export async function ensureMachineSecurityRules(clusterId: string, extraResourc
             },
         },
     ]
+
+    const connectBrokerSecurityRuleDefs = [
+        {
+            type: 'connection-broker',
+            rule: {
+                priority: 400,
+                access: 'Allow',
+                direction: 'inbound',
+                sourcePortRange: '*',
+                sourceAddressPrefix: '*',
+                destinationPortRanges: ['2505'],
+                destinationAddressPrefix: 'VirtualNetwork',
+                protocol: 'TCP',
+            },
+        },
+    ]
+
     const defaultSecurityRuleDefs = [
         {
             type: 'cluster-default',
@@ -489,24 +485,30 @@ export async function ensureMachineSecurityRules(clusterId: string, extraResourc
                 case SG_TYPE_PITCHER:
                     rules.push(...pitcherSecurityRuleDefs)
                     break
+                case SG_TYPE_CONNECT_BROKER:
+                    rules.push(...connectBrokerSecurityRuleDefs)
+                    break
                 case SG_TYPE_SINGLE:
                     rules.push(...frontendBalancerSecurityRuleDefs)
                     rules.push(...managementSecurityRuleDefs)
                     rules.push(...pitcherSecurityRuleDefs)
+                    rules.push(...connectBrokerSecurityRuleDefs)
                     break
             }
             return setSecurityRules(networkClient, clusterId, group.location, type, rules)
         })
     )
 
-    for (const resourceGroup of extraResourceGroups) {
-        consoleLog(`Ensuring security rules for resource group ${resourceGroup}`)
-        const sideNetworkSecurityGroups = await networkClient.networkSecurityGroups.list(resourceGroup)
-        for (const nsg of sideNetworkSecurityGroups) {
-            debug(`Updating network security group: ${nsg.name} in ${resourceGroup}`)
-            for (const ruleDef of defaultSecurityRuleDefs) {
-                const ruleName = securityRuleName(resourceGroup, nsg.location, 'side', ruleDef.type)
-                await networkClient.securityRules.createOrUpdate(resourceGroup, nsg.name, ruleName, ruleDef.rule)
+    if (extraResourceGroups) {
+        for (const resourceGroup of extraResourceGroups) {
+            consoleLog(`Ensuring security rules for resource group ${resourceGroup}`)
+            const sideNetworkSecurityGroups = await networkClient.networkSecurityGroups.list(resourceGroup)
+            for (const nsg of sideNetworkSecurityGroups) {
+                debug(`Updating network security group: ${nsg.name} in ${resourceGroup}`)
+                for (const ruleDef of defaultSecurityRuleDefs) {
+                    const ruleName = securityRuleName(resourceGroup, nsg.location, 'side', ruleDef.type)
+                    await networkClient.securityRules.createOrUpdate(resourceGroup, nsg.name, ruleName, ruleDef.rule)
+                }
             }
         }
     }
@@ -530,4 +532,77 @@ async function setSecurityRules(
             def.rule
         )
     }
+}
+
+export async function machineEdit(
+    clusterId: string,
+    machineName: string,
+    removeRoles: string[],
+    addRoles: string[]
+): Promise<void> {
+    debug('args', { clusterId, machineName, removeRoles, addRoles })
+    const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
+    const vm = await azureSession.computeManagementClient().virtualMachines.get(clusterId, machineName)
+
+    // Remove tags
+    for (const role of removeRoles) {
+        debug('remove role', { role })
+        delete vm.tags[role]
+    }
+
+    // Add tags
+    for (const role of addRoles) {
+        debug('add role', { role })
+        vm.tags[role] = 'yes'
+    }
+    debug('roles updated', { tags: vm.tags })
+
+    // Fetch NIC
+    if (vm.networkProfile.networkInterfaces.length !== 1) {
+        throw new Error(`VM has ${vm.networkProfile.networkInterfaces.length} NICs -- unsupported`)
+    }
+    const nicId = vm.networkProfile.networkInterfaces[0].id
+    const nicName = nicId.substr(nicId.lastIndexOf('/') + 1)
+    const nic = await azureSession.networkManagementClient().networkInterfaces.get(clusterId, nicName)
+    const nsgType = getNsgTypeForRoles(Object.getOwnPropertyNames(vm.tags).filter((t) => vm.tags[t] === 'yes'))
+    const networkSecurityGroup = await azureSession
+        .networkManagementClient()
+        .networkSecurityGroups.get(clusterId, securityGroupName(clusterId, vm.location, nsgType))
+    nic.networkSecurityGroup = networkSecurityGroup
+    debug('Updating NIC', { clusterId, nicName, nic })
+    await azureSession.networkManagementClient().networkInterfaces.createOrUpdate(clusterId, nicName, nic)
+    debug('Updating VM', { clusterId, machineName, vm })
+    await azureSession.computeManagementClient().virtualMachines.createOrUpdate(clusterId, machineName, vm)
+}
+
+function getNsgTypeForRoles(roles: string[]): string {
+    const pitcher = roles.find((x) => x === 'pitcher')
+    const log = roles.find((x) => x === 'log')
+    const connectBroker = roles.find((x) => x === 'connect-broker')
+    const management = roles.find((x) => x === 'management')
+    const frontendBalancer = roles.find((x) => x === 'frontend-balancer')
+
+    if (!pitcher && !log && !connectBroker && !management && !frontendBalancer) {
+        return SG_TYPE_DEFAULT
+    }
+    if (pitcher && !log && !connectBroker && !management && !frontendBalancer) {
+        return SG_TYPE_PITCHER
+    }
+    if (!pitcher && !log && !connectBroker && management && !frontendBalancer) {
+        return SG_TYPE_MANAGEMENT
+    }
+    if (!pitcher && !log && connectBroker && !management && !frontendBalancer) {
+        return SG_TYPE_CONNECT_BROKER
+    }
+    if (!pitcher && !log && !connectBroker && !management && frontendBalancer) {
+        return SG_TYPE_FRONTEND_BALANCER
+    }
+    if (!pitcher && !log && !connectBroker && management && frontendBalancer) {
+        return SG_TYPE_FRONTEND_BALANCER_MGMT
+    }
+    if (pitcher && log && connectBroker && management && frontendBalancer) {
+        return SG_TYPE_SINGLE
+    }
+    consoleLog(`WARN: [${roles.join(', ')}] role combination not supported. Using Network Security Group type SINGLE`)
+    return SG_TYPE_SINGLE
 }

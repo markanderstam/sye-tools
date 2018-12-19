@@ -10,7 +10,13 @@ import {
     uploadClusterJoin,
     uploadConfig,
 } from '../sye-azure/lib/cluster'
-import { machineAdd, machineDelete, machineRedeploy, ensureMachineSecurityRules } from '../sye-azure/lib/machine'
+import {
+    machineAdd,
+    machineDelete,
+    machineRedeploy,
+    ensureMachineSecurityRules,
+    machineEdit,
+} from '../sye-azure/lib/machine'
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog, exit } from '../lib/common'
 import { createDnsRecord, deleteDnsRecord } from '../sye-azure/lib/dns'
@@ -114,7 +120,7 @@ program
     .option('--management', 'Run cluster-join with --management parameter')
     .option(
         '--role [role]',
-        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management frontend-balancer',
+        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management frontend-balancer connect-broker',
         (role, roles) => roles.push(role) && roles,
         []
     )
@@ -171,6 +177,29 @@ program
     })
 
 program
+    .command('machine-edit <cluster-id> <machine-name>')
+    .description('Edits aspects of an existing machine')
+    .option(
+        '--remove-role [role]',
+        'Removes a role from a machine. Can be used multiple times. Available roles: log pitcher management frontend-balancer connect-broker. Role changes will not perform machine level tuning.',
+        (role, roles) => roles.push(role) && roles,
+        []
+    )
+    .option(
+        '--add-role [role]',
+        'Adds a role from a machine. Can be used multiple times. Available roles: log pitcher management frontend-balancer connect-broker. Role changes will not perform machine level tuning.',
+        (role, roles) => roles.push(role) && roles,
+        []
+    )
+    .option(
+        '--skip-security-rules',
+        'Skip setting security rules, useful when making multiple changes at the same time. You should then run the ensure-security-rules command afterwards.'
+    )
+    .action(async (clusterId: string, machineName: string, options: { removeRole: string[]; addRole: string[] }) => {
+        await machineEdit(clusterId, machineName, options.removeRole, options.addRole)
+    })
+
+program
     .command('machine-redeploy <cluster-id> <machine-name>')
     .description('Redeploy an existing machine, i.e. delete a machine and attach its data volume to a new machine')
     .action(async (clusterId: string, name: string) => {
@@ -193,9 +222,10 @@ program
     .description('Create a DNS record for an IPv4 or IPv6 address')
     .option('--subscription [name or id]', 'The Azure subscription', process.env.AZURE_SUBSCRIPTION_ID)
     .option('--ttl [ttl]', 'The resource record cache time to live in seconds', (n) => parseInt(n), 300)
-    .action(async (name: string, ip: string, options: { subscription?: string; ttl?: number }) => {
+    .option('--update', 'If the record exists, update the record')
+    .action(async (name: string, ip: string, options: { subscription?: string; ttl?: number; update: boolean }) => {
         consoleLog(`Creating DNS record ${name} for ip ${ip}`)
-        await createDnsRecord(name, ip, options.ttl, options.subscription).catch(exit)
+        await createDnsRecord(name, ip, options.ttl, options.subscription, options.update).catch(exit)
         consoleLog('Done')
     })
 

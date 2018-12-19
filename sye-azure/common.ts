@@ -7,6 +7,7 @@ export const SG_TYPE_FRONTEND_BALANCER = 'fb'
 export const SG_TYPE_FRONTEND_BALANCER_MGMT = 'fbmgmt'
 export const SG_TYPE_MANAGEMENT = 'mgmt'
 export const SG_TYPE_PITCHER = 'pitcher'
+export const SG_TYPE_CONNECT_BROKER = 'cb'
 
 export const SG_TYPES = [
     SG_TYPE_DEFAULT,
@@ -15,6 +16,7 @@ export const SG_TYPES = [
     SG_TYPE_FRONTEND_BALANCER_MGMT,
     SG_TYPE_MANAGEMENT,
     SG_TYPE_PITCHER,
+    SG_TYPE_CONNECT_BROKER,
 ]
 
 export function validateClusterId(clusterId: string) {
