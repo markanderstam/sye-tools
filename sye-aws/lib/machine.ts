@@ -132,6 +132,9 @@ async function createInstanceLaunchSpec(
     if (roles.includes('management')) {
         groups.push(sg.get('sye-playout-management'))
     }
+    if (roles.includes('connect-broker')) {
+        groups.push(sg.get('sye-connect-broker'))
+    }
 
     let fileSystemId
     if (await efsAvailableInRegion(region)) {

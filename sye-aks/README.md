@@ -32,9 +32,9 @@ AKS is currently not capable of configuring this automatically, and thus `sye ak
 
 ### Firewall Reconfiguration
 
-The SSP (Sye Streaming Protocol) traffic needs to be able to flow in both direction from and to the egress pitchers (and possibly also to ingress or fan-out pitchers if external SSP sources are being used).
+The SSP (Sye Streaming Protocol) traffic needs to be able to flow in both direction from and to the egress pitchers (and possibly also to ingress or fan-out pitchers if external SSP sources are being used). The connect broker service needs TCP port 2505 to serve its clients.
 
-`sye aks cluster-create` automatically opens UDP port `2123` towards all worker nodes for this purpose.
+`sye aks cluster-create` automatically opens UDP port `2123` and TCP `2505` towards all worker nodes for this purpose.
 
 If the flag `--open-ssh-port` is given to the `sye aks cluster-create` command the SSH port (TCP/22) will be operned as well. 
 

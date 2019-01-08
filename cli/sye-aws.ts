@@ -149,7 +149,7 @@ program
     .option('--management', 'Run cluster-join with --management parameter')
     .option(
         '--role [role]',
-        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
+        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling connect-broker',
         (role, roles) => roles.push(role) && roles,
         []
     )
@@ -203,7 +203,7 @@ program
     .option('--management', 'Run cluster-join with --management parameter')
     .option(
         '--role [role]',
-        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling',
+        'Configure machine for a specific role. Can be used multiple times. Available roles: log pitcher management scaling connect-broker',
         (role, roles) => roles.push(role) && roles,
         []
     )

@@ -270,6 +270,17 @@ Resources:
       FromPort: 2123
       ToPort: 2123
 
+  NodeSecurityGroupConnectBroker:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: NodeSecurityGroup
+    Properties:
+      Description: Sye Connect Broker (TCP 2505)
+      GroupId: !Ref NodeSecurityGroup
+      SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
+      IpProtocol: tcp
+      FromPort: 2505
+      ToPort: 2505
+
   NodeGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
