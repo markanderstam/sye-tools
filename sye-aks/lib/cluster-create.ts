@@ -86,12 +86,12 @@ async function getClusterAutoscalerExtraArgs(
     const agentpool = nodeList.items[0].metadata.labels['agentpool']
     debug('agentpool', agentpool)
 
-    const spId = `http://${autoscalerSpName || defaultClusterAutoscalerSpName(resourceGroup, clusterName)}`
-    const sp = await azureSession.graphRbacManagementClient().servicePrincipals.get(spId)
+    const spId = autoscalerSpName || defaultClusterAutoscalerSpName(resourceGroup, clusterName)
+    const sp = await azureSession.getServicePrincipal(spId)
 
     const args: string[] = [
         `--set image.tag=v${caVersion}`,
-        `--set azureClientID=${sp.servicePrincipalNames[0]}`,
+        `--set azureClientID=${sp.appId}`,
         `--set azureClientSecret=${spPassword}`,
         `--set azureSubscriptionID=${azureSession.currentSubscription.id}`,
         `--set azureTenantID=${azureSession.currentSubscription.tenantId}`,
