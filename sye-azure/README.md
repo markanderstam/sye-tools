@@ -45,6 +45,7 @@ Azure requires us to use public IPv4 addresses in order to run a multi-region cl
 * Machines with the management flag allow all TCP traffic to ports 81 and 4433.
 * Machines with the frontend-balancer role allow all TCP traffic to ports 80 and 443.
 * Machines with the pitcher role allow all UDP traffic to ports 2123-2130.
+* Machines with the connect-broker role allow all TCP traffic to port 2505.
 
 The internal communication in a Sye cluster is protected with [TLS Mutual Authentication](https://en.wikipedia.org/wiki/Mutual_authentication) for all services except the Log service (elasticsearch). To protect the elasticsearch service, you need to purchase an [X-pack license](https://www.elastic.co/products/x-pack) from [Elastic](https://www.elastic.co).
 

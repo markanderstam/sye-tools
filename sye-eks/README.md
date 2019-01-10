@@ -18,9 +18,9 @@ The streaming traffic from the egress pitchers is emitted directly from the work
 
 ### Firewall Reconfiguration
 
-The SSP (Sye Streaming Protocol) traffic needs to be able to flow in both direction from and to the egress pitchers (and possibly also to ingress or fan-out pitchers if external SSP sources are being used).
+The SSP (Sye Streaming Protocol) traffic needs to be able to flow in both direction from and to the egress pitchers (and possibly also to ingress or fan-out pitchers if external SSP sources are being used). In addition the connect broker needs the TCP port 2505 to be open for incoming traffic.
 
-`sye eks cluster-create` automatically opens UDP port `2123` towards all worker nodes for this purpose. 
+`sye eks cluster-create` automatically opens UDP port `2123` and `2505` towards all worker nodes for this purpose. 
 
 ### Ingress
 
@@ -41,6 +41,7 @@ The ingress maps requests to different DNS names to different parts of the Sye s
 The `sye eks` command uses a slightly modified version of the default Cloudformation template for the EKS worker nodes. The following changes have been made to the template:
 
 * Allow streaming SSP traffic over UDP by opening up the UDP port 2123 on all worker nodes.
+* Allow connect broker traffic to the cluster the TCP port 2505 on all worker nodes.
 * Add IAM policy for performing automatic discovery of auto scaling groups.
 
 ## Amazon EKS Prerequisites

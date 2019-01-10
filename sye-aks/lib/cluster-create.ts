@@ -163,6 +163,7 @@ export async function createAksCluster(
     )
     await ensurePublicIps(azureSession, options.clusterName, k8sResourceGroup, options.location)
     await azureSession.openPortInNsg(2123, 'Udp', 200, 'Sye SSP traffic (UDP 2123)', k8sResourceGroup)
+    await azureSession.openPortInNsg(2505, 'Tcp', 200, 'Connect Broker traffic (TCP 2505)', k8sResourceGroup)
     if (options.openSshPort) {
         await azureSession.openPortInNsg(22, 'Tcp', 201, 'SSH access', k8sResourceGroup)
     }

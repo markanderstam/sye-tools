@@ -193,6 +193,14 @@ async function createSecurityGroups(ec2: aws.EC2, clusterId: string, vpcid: stri
                 IpRanges: [{ CidrIp: '0.0.0.0/0' }],
             },
         ]),
+        createSecurityGroup(ec2, clusterId, vpcid, 'sye-connect-broker', [
+            {
+                IpProtocol: 'tcp',
+                FromPort: 2505,
+                ToPort: 2505,
+                IpRanges: [{ CidrIp: '0.0.0.0/0' }],
+            },
+        ]),
     ])
 }
 
