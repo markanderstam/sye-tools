@@ -1,32 +1,27 @@
-import { SubscriptionClient } from 'azure-arm-resource'
+import { ResourceManagementClient, ResourceModels, SubscriptionClient } from 'azure-arm-resource'
 import { Subscription } from 'azure-arm-resource/lib/subscription/models'
 import { FileTokenCache } from './file-token-cache'
 import {
-    LinkedSubscription,
-    DeviceTokenCredentials,
     ApplicationTokenCredentials,
-    UserTokenCredentials,
+    DeviceTokenCredentials,
+    LinkedSubscription,
     loginWithServicePrincipalSecretWithAuthResponse,
+    UserTokenCredentials,
 } from 'ms-rest-azure'
 import { NetworkManagementClient } from 'azure-arm-network'
 import { ContainerServiceClient } from 'azure-arm-containerservice'
 import { GraphRbacManagementClient } from 'azure-graph'
-import ComputeManagementClient = require('azure-arm-compute')
-import { ResourceManagementClient } from 'azure-arm-resource'
-import StorageManagementClient = require('azure-arm-storage')
 import { AuthorizationManagementClient } from 'azure-arm-authorization'
 import DnsManagementClient from 'azure-arm-dns'
 import { promisify } from 'util'
 import * as fs from 'fs'
-import { exit } from '../common'
-import { readJsonFile } from '../common'
+import { exit, readJsonFile, consoleLog, sleep } from '../common'
 import { Application, ServicePrincipal } from 'azure-graph/lib/models'
-import { consoleLog } from '../common'
-import { sleep } from '../common'
-import { ResourceModels } from 'azure-arm-resource'
 import { VirtualNetwork } from 'azure-arm-network/lib/models'
 import * as uuidv4 from 'uuid/v4'
 import { ManagedCluster } from 'azure-arm-containerservice/lib/models'
+import ComputeManagementClient = require('azure-arm-compute')
+import StorageManagementClient = require('azure-arm-storage')
 
 const debug = require('debug')('azure/azure-session')
 
@@ -562,14 +557,15 @@ export class AzureSession {
     }
 
     async openPortInNsg(
-        portNumber: number,
+        startPortNumber: number,
+        endPortNumber: number,
         protocol: 'Udp' | 'Tcp',
         priority: number,
         description: string,
         resourceGroup: string
     ) {
-        const ruleName = this.getNsgRuleName(protocol, portNumber)
-        consoleLog(`Enable port ${protocol}/${portNumber} network security rules:`)
+        const ruleName = this.getNsgRuleName(protocol, startPortNumber)
+        consoleLog(`Enable port ${protocol}/${startPortNumber}-${endPortNumber} network security rules:`)
         consoleLog('  Finding NSG...')
         const networkClient = this.networkManagementClient()
         const nsgList = await networkClient.networkSecurityGroups.list(resourceGroup)
@@ -583,18 +579,7 @@ export class AzureSession {
                 throw new Error(`More than one NSG was found ${nsgList.map((e) => e.id)}`)
         }
         const nsgName = nsgList[0].name
-        try {
-            consoleLog('  Inspecting NSG Rule...')
-            const rule = await networkClient.securityRules.get(resourceGroup, nsgName, ruleName)
-            if (rule) {
-                debug('NSG rule', rule)
-                consoleLog('  Already configured - OK.')
-                return
-            }
-        } catch (ex) {
-            debug('Ignored exception', ex.toString())
-        }
-        consoleLog('  Configure NSG rule...')
+        consoleLog('  Create/update NSG rule...')
         await networkClient.securityRules.createOrUpdate(resourceGroup, nsgName, ruleName, {
             priority,
             protocol,
@@ -603,7 +588,8 @@ export class AzureSession {
             sourceAddressPrefix: '*',
             sourcePortRange: '*',
             destinationAddressPrefix: '*',
-            destinationPortRange: `${portNumber}`,
+            destinationPortRange:
+                startPortNumber === endPortNumber ? `${startPortNumber}` : `${startPortNumber}-${endPortNumber}`,
             description,
         })
         consoleLog('  Done.')
