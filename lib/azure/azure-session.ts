@@ -6,7 +6,6 @@ import {
     DeviceTokenCredentials,
     ApplicationTokenCredentials,
     UserTokenCredentials,
-    interactiveLoginWithAuthResponse,
     loginWithServicePrincipalSecretWithAuthResponse,
 } from 'ms-rest-azure'
 import { NetworkManagementClient } from 'azure-arm-network'
@@ -19,9 +18,6 @@ import { AuthorizationManagementClient } from 'azure-arm-authorization'
 import DnsManagementClient from 'azure-arm-dns'
 import { promisify } from 'util'
 import * as fs from 'fs'
-import { deleteFile } from '../common'
-import { writeJsonFile } from '../common'
-import { mkdir } from '../common'
 import { exit } from '../common'
 import { readJsonFile } from '../common'
 import { Application, ServicePrincipal } from 'azure-graph/lib/models'
@@ -36,11 +32,6 @@ const debug = require('debug')('azure/azure-session')
 
 const AZURE_TOKENS_PATH = `${process.env.HOME}/.azure/accessTokens.json`
 const AZURE_PROFILE_PATH = `${process.env.HOME}/.azure/azureProfile.json`
-const SYE_DIR = `${process.env.HOME}/.sye`
-const SYE_TOKENS_FILE = `azureAccessTokens.json`
-const SYE_PROFILE_FILE = `azureProfile.json`
-const SYE_TOKENS_PATH = `${SYE_DIR}/${SYE_TOKENS_FILE}`
-const SYE_PROFILE_PATH = `${SYE_DIR}/${SYE_PROFILE_FILE}`
 
 /**
  * Keeps track of the credentials and other details when making calls to the Azure APIs
@@ -58,38 +49,9 @@ export class AzureSession {
 
     private readonly tokenCache: FileTokenCache = new FileTokenCache()
 
-    private credentialSource: 'sp' | 'sye' | 'cli' | null = null
+    private credentialSource: 'sp' | 'cli' | null = null
 
     constructor() {}
-
-    async login(subscriptionNameOrId?: string): Promise<void> {
-        const authResponse = await interactiveLoginWithAuthResponse({
-            tokenCache: this.tokenCache,
-        })
-        debug('Login successful', authResponse)
-        this.credentials = authResponse.credentials
-        const currentSubscription = await this.matchLinkedSubscription(authResponse.subscriptions, {
-            subscriptionNameOrId,
-        })
-        const token = this.tokenCache.first()
-        this.currentSubscription = {
-            id: currentSubscription.id,
-            name: currentSubscription.name,
-            clientId: token.userId,
-            tenantId: token.tenantId,
-        }
-        await mkdir(SYE_DIR)
-        await this.tokenCache.save(SYE_TOKENS_PATH)
-        await writeJsonFile(SYE_PROFILE_PATH, {
-            subscriptionId: currentSubscription.id,
-            tenantId: currentSubscription.tenantId,
-        })
-    }
-
-    async logout(): Promise<void> {
-        await deleteFile(SYE_TOKENS_PATH)
-        await deleteFile(SYE_PROFILE_PATH)
-    }
 
     async init(options: { subscriptionNameOrId?: string; resourceGroup?: string }): Promise<AzureSession> {
         if (await this.loginUsingPrincipal(options)) {
@@ -97,26 +59,15 @@ export class AzureSession {
             return this
         }
 
-        await this.tokenCache.load(SYE_TOKENS_PATH)
-        this.credentialSource = 'sye'
-        if (this.tokenCache.empty()) {
-            await this.tokenCache.load(AZURE_TOKENS_PATH)
-            this.credentialSource = 'cli'
-        }
+        await this.tokenCache.load(AZURE_TOKENS_PATH)
+        this.credentialSource = 'cli'
         if (this.tokenCache.empty()) {
             this.credentialSource = null
-            exit('Not logged on, please use either "az login" or "sye azure login" to login')
+            exit('Not logged on, please use either "az login" to login')
         }
 
         let tenantId: string
         switch (this.credentialSource) {
-            case 'sye':
-                const syeProfile = await readJsonFile(SYE_PROFILE_PATH)
-                if (syeProfile) {
-                    options.subscriptionNameOrId = options.subscriptionNameOrId || syeProfile.subscriptionId
-                    tenantId = syeProfile.tenantId
-                }
-                break
             case 'cli':
                 const azureProfile = await readJsonFile(AZURE_PROFILE_PATH)
                 debug(AZURE_PROFILE_PATH, azureProfile)
@@ -251,16 +202,6 @@ export class AzureSession {
                         .join(', ')}`
                 )
         }
-    }
-
-    async save(): Promise<void> {
-        if (this.credentialSource !== 'sye') {
-            return
-        }
-        if (!(await promisify(fs.stat)(SYE_DIR))) {
-            await promisify(fs.mkdir)(SYE_DIR)
-        }
-        await this.tokenCache.save(SYE_TOKENS_PATH)
     }
 
     networkManagementClient(): NetworkManagementClient {

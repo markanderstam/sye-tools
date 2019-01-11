@@ -72,5 +72,4 @@ async function changeDnsRecord(
             await dnsClient.recordSets.deleteMethod(resourceGroupName, zone, relativeRecordSetName, type)
             break
     }
-    await azureSession.save()
 }

@@ -27,7 +27,6 @@ export async function regionAdd(clusterId: string, region: string): Promise<void
             })
         )
     )
-    await azureSession.save()
 }
 
 export async function regionDelete(clusterId: string, region: string): Promise<void> {
@@ -48,5 +47,4 @@ export async function regionDelete(clusterId: string, region: string): Promise<v
             networkClient.networkSecurityGroups.deleteMethod(clusterId, securityGroupName(clusterId, region, type))
         )
     )
-    await azureSession.save()
 }

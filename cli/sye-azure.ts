@@ -20,26 +20,8 @@ import {
 import { regionAdd, regionDelete } from '../sye-azure/lib/region'
 import { consoleLog, exit } from '../lib/common'
 import { createDnsRecord, deleteDnsRecord } from '../sye-azure/lib/dns'
-import { AzureSession } from '../lib/azure/azure-session'
 
 program.description('Manage sye-clusters on Azure')
-
-program
-    .command('login')
-    .description('Login into Azure')
-    .option('--subscription [name or id]', 'Sets the default Azure subscription to use')
-    .action(async (options: { subscription?: string }) => {
-        const azureSession = new AzureSession()
-        await azureSession.login(options.subscription).catch(exit)
-    })
-
-program
-    .command('logout')
-    .description('Logout from Azure')
-    .action(async () => {
-        const azureSession = new AzureSession()
-        await azureSession.logout().catch(exit)
-    })
 
 program
     .command('cluster-create <cluster-id> <sye-environment> <authorized_keys>')
