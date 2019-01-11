@@ -224,7 +224,6 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
     if (!skipSecurityRules) {
         await ensureMachineSecurityRules(clusterId)
     }
-    await azureSession.save()
 }
 
 export async function machineDelete(clusterId: string, machineName: string, skipSecurityRules = false) {
@@ -271,7 +270,6 @@ export async function machineDelete(clusterId: string, machineName: string, skip
     if (!skipSecurityRules) {
         await ensureMachineSecurityRules(clusterId)
     }
-    await azureSession.save()
 }
 
 export async function machineRedeploy(clusterId: string, machineName: string) {
@@ -309,7 +307,6 @@ export async function machineRedeploy(clusterId: string, machineName: string) {
         dataDisks,
         false
     )
-    await azureSession.save()
 }
 
 export async function getPublicIpsForCluster(
@@ -512,7 +509,6 @@ export async function ensureMachineSecurityRules(clusterId: string, extraResourc
             }
         }
     }
-    await azureSession.save()
 }
 
 async function setSecurityRules(

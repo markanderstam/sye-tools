@@ -78,8 +78,6 @@ export async function createCluster(
     await createBlockBlobFromLocalFilePromise(blobService, publicContainerName(), 'authorized_keys', authorizedKeys)
 
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
-
-    await azureSession.save()
 }
 
 export async function uploadConfig(clusterId: string, syeEnvironment: string): Promise<void> {
@@ -90,7 +88,6 @@ export async function uploadConfig(clusterId: string, syeEnvironment: string): P
     let keys = await azureSession.storageManagementClient().storageAccounts.listKeys(clusterId, storageAcctname)
     const blobService = createBlobService(storageAcctname, keys.keys[0].value)
     await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
-    await azureSession.save()
 }
 
 export async function deleteCluster(clusterId: string) {
@@ -98,7 +95,6 @@ export async function deleteCluster(clusterId: string) {
     const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
 
     await azureSession.resourceManagementClient().resourceGroups.deleteMethod(clusterId)
-    await azureSession.save()
 }
 
 export async function showResources(clusterId: string, output = true, raw = false): Promise<ClusterMachine[]> {
@@ -114,7 +110,6 @@ export async function showResources(clusterId: string, output = true, raw = fals
                 consoleLog('')
             }
         }
-        await azureSession.save()
         return tableData
     }
 
@@ -170,7 +165,6 @@ export async function showResources(clusterId: string, output = true, raw = fals
         }
     }
 
-    await azureSession.save()
     return tableData
 }
 
@@ -187,7 +181,6 @@ export async function uploadBootstrap(clusterId: string): Promise<void> {
         'bootstrap.sh',
         readPackageFile('sye-azure/bootstrap.sh').toString()
     )
-    await azureSession.save()
 }
 
 export async function uploadClusterJoin(clusterId: string): Promise<void> {
@@ -203,7 +196,6 @@ export async function uploadClusterJoin(clusterId: string): Promise<void> {
         'sye-cluster-join.sh',
         readPackageFile('sye-cluster-join.sh').toString()
     )
-    await azureSession.save()
 }
 
 function createBlockBlobFromTextPromise(

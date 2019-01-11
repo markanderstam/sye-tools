@@ -76,12 +76,6 @@ export function execSync(cmd: string, options?: cp.ExecSyncOptions) {
     return cp.execSync(cmd, options)
 }
 
-export async function deleteFile(filename: string): Promise<void> {
-    if (await exists(filename)) {
-        await promisify(fs.unlink)(filename)
-    }
-}
-
 export function exists(path: string): Promise<boolean> {
     return new Promise<boolean>((resolve, reject) => {
         fs.stat(path, (err) => {
@@ -102,10 +96,6 @@ export async function mkdir(dirname: string): Promise<void> {
     if (!(await exists(dirname))) {
         await promisify(fs.mkdir)(dirname)
     }
-}
-
-export async function writeJsonFile(filename: string, contents: any): Promise<void> {
-    await promisify(fs.writeFile)(filename, JSON.stringify(contents, null, 2))
 }
 
 export async function readJsonFile(filename: string): Promise<any | null> {
