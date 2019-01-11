@@ -162,10 +162,10 @@ export async function createAksCluster(
         getSubnetName(options.clusterName)
     )
     await ensurePublicIps(azureSession, options.clusterName, k8sResourceGroup, options.location)
-    await azureSession.openPortInNsg(2123, 'Udp', 200, 'Sye SSP traffic (UDP 2123)', k8sResourceGroup)
-    await azureSession.openPortInNsg(2505, 'Tcp', 200, 'Connect Broker traffic (TCP 2505)', k8sResourceGroup)
+    await azureSession.openPortInNsg(2123, 2130, 'Udp', 200, 'Sye SSP traffic (UDP 2123-2130)', k8sResourceGroup)
+    await azureSession.openPortInNsg(2505, 2505, 'Tcp', 202, 'Connect Broker traffic (TCP 2505)', k8sResourceGroup)
     if (options.openSshPort) {
-        await azureSession.openPortInNsg(22, 'Tcp', 201, 'SSH access', k8sResourceGroup)
+        await azureSession.openPortInNsg(22, 22, 'Tcp', 201, 'SSH access', k8sResourceGroup)
     }
     await downloadKubectlCredentials(azureSession, options.kubeconfig, options.resourceGroup, options.clusterName)
     installTillerRbac(options.kubeconfig)

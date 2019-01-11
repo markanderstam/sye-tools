@@ -268,7 +268,7 @@ Resources:
       SourceSecurityGroupId: !Ref ClusterControlPlaneSecurityGroup
       IpProtocol: udp
       FromPort: 2123
-      ToPort: 2123
+      ToPort: 2130
 
   NodeSecurityGroupConnectBroker:
     Type: AWS::EC2::SecurityGroupIngress

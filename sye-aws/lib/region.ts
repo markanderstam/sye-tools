@@ -161,7 +161,7 @@ async function createSecurityGroups(ec2: aws.EC2, clusterId: string, vpcid: stri
             {
                 IpProtocol: 'udp',
                 FromPort: 2123,
-                ToPort: 2123,
+                ToPort: 2130,
                 IpRanges: [{ CidrIp: '0.0.0.0/0' }],
             },
         ]),
