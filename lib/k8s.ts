@@ -110,6 +110,9 @@ export function installClusterAutoscaler(kubeconfig: string, cloudProvider: 'aws
 --set-string extraArgs.skip-nodes-with-local-storage=false \
 --set-string extraArgs.skip-nodes-with-system-pods=false \
 --set rbac.create=true \
+--set serviceMonitor.enabled=true \
+--set serviceMonitor.namespace=kube-system \
+--set serviceMonitor.selector.prometheus=metrics \
 ${extraArgs.join(' ')} \
 autoscaler stable/cluster-autoscaler`)
     consoleLog('  Done.')
