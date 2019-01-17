@@ -72,16 +72,19 @@ export function installMetricsServer(kubeconfig: string) {
 export function installPrometheusOperator(kubeconfig: string) {
     consoleLog('Installing/updating Prometheus Operator:')
     execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace prometheus --wait \
+--set commonLabels.prometheus=metrics \
+--set prometheusOperator.serviceMonitor.selfMonitor=false \
 --set prometheus.enabled=false \
 --set alertmanager.enabled=false \
 --set grafana.enabled=false \
 --set kubeApiServer.enabled=false \
 --set kubelet.enabled=false \
 --set kubeControllerManager.enabled=false \
+--set kubeScheduler.enabled=false \
 --set coreDns.enabled=false \
 --set kubeDns.enabled=false \
 --set kubeEtcd.enabled=false \
---set kubeStateMetrics.enabled=false \
+--set kubeStateMetrics.enabled=true \
 --set nodeExporter.enabled=false \
 prometheus-operator stable/prometheus-operator`)
     consoleLog('  Done.')
