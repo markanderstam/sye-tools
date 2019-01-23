@@ -69,6 +69,7 @@ async function downloadKubectlCredentials(
 async function getClusterAutoscalerExtraArgs(
     azureSession: AzureSession,
     kubeconfig: string,
+    caRepository: string | undefined,
     caVersion: string,
     nodepools: NodePool[],
     spPassword: string,
@@ -100,6 +101,9 @@ async function getClusterAutoscalerExtraArgs(
         `--set azureVMType=AKS`,
         `--set azureNodeResourceGroup=${k8sResourceGroup}`,
     ]
+    if (caRepository) {
+        args.push(`--set image.repository=${caRepository}`)
+    }
 
     let index = 0
     for (const nodepool of nodepools) {
@@ -125,6 +129,7 @@ export async function createAksCluster(
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
+        clusterAutoscalerRepository?: string
         clusterAutoscalerVersion?: string
         autoscalerSpName?: string
         autoscalerSpPassword?: string
@@ -182,6 +187,7 @@ export async function createAksCluster(
             await getClusterAutoscalerExtraArgs(
                 azureSession,
                 options.kubeconfig,
+                options.clusterAutoscalerRepository,
                 options.clusterAutoscalerVersion,
                 options.nodepools,
                 options.autoscalerSpPassword,

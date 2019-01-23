@@ -112,6 +112,8 @@ export function installClusterAutoscaler(kubeconfig: string, cloudProvider: 'aws
 --set cloudProvider=${cloudProvider} \
 --set-string extraArgs.skip-nodes-with-local-storage=false \
 --set-string extraArgs.skip-nodes-with-system-pods=false \
+--set-string extraArgs.max-empty-bulk-delete=1 \
+--set-string extraArgs.max-node-deletion-time=10m0s \
 --set rbac.create=true \
 --set serviceMonitor.enabled=true \
 --set serviceMonitor.namespace=kube-system \
