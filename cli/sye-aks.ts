@@ -86,6 +86,7 @@ program
     .option('--open-ssh-port', 'Allow SSH access to the worker nodes')
     .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
     .option('--cluster-autoscaler-version [version]', 'The Cluster Autoscaler version to use')
+    .option('--cluster-autoscaler-image [image]', 'Optional cluster autoscaler image to use')
     .option(
         '--autoscaler-sp-name [string]',
         `Name for the existing Cluster Autoscaler's service principal (default: ${defaultClusterAutoscalerSpName(
@@ -107,6 +108,7 @@ program
             cidr: string
             openSshPort?: boolean
             setupClusterAutoscaler?: boolean
+            clusterAutoscalerImage?: string
             clusterAutoscalerVersion?: string
             autoscalerSpName?: string
             autoscalerSpPassword?: string
@@ -146,6 +148,7 @@ program
                     servicePrincipalPassword: required(options, 'password'),
                     kubeconfig: required(options, 'kubeconfig'),
                     subnetCidr: options.cidr,
+                    clusterAutoscalerRepository: options.clusterAutoscalerImage,
                     clusterAutoscalerVersion: options.clusterAutoscalerVersion,
                     autoscalerSpName: options.autoscalerSpName,
                     autoscalerSpPassword: options.autoscalerSpPassword,
