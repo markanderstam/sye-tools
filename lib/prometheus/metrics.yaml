@@ -14,8 +14,19 @@ spec:
   resources:
     requests:
       memory: 400Mi
+  retention: 360h
   ruleNamespaceSelector: {}
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector:
     matchLabels:
       prometheus: metrics
+  storage:
+    volumeClaimTemplate:
+      spec:
+        resources:
+          requests:
+            storage: 10Gi
+  securityContext:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
