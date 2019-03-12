@@ -84,6 +84,7 @@ program
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
     .option('--open-ssh-port', 'Allow SSH access to the worker nodes')
+    .option('--public-key-path [path]', 'Path to the public SSH key (default ~/.ssh/id_rsa.pub)')
     .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
     .option('--cluster-autoscaler-version [version]', 'The Cluster Autoscaler version to use')
     .option('--cluster-autoscaler-image [image]', 'Optional cluster autoscaler image to use')
@@ -107,6 +108,7 @@ program
             kubeconfig: string
             cidr: string
             openSshPort?: boolean
+            publicKeyPath?: string
             setupClusterAutoscaler?: boolean
             clusterAutoscalerImage?: string
             clusterAutoscalerVersion?: string
@@ -153,6 +155,7 @@ program
                     autoscalerSpName: options.autoscalerSpName,
                     autoscalerSpPassword: options.autoscalerSpPassword,
                     openSshPort: options.openSshPort,
+                    publicKeyPath: options.publicKeyPath,
                 })
             } catch (ex) {
                 exit(ex)
