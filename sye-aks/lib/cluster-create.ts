@@ -134,6 +134,7 @@ export async function createAksCluster(
         autoscalerSpName?: string
         autoscalerSpPassword?: string
         openSshPort?: boolean
+        publicKeyPath?: string
     }
 ) {
     const azureSession = await new AzureSession().init({ subscriptionNameOrId })
@@ -155,7 +156,8 @@ export async function createAksCluster(
         options.subnetCidr,
         servicePrincipalName,
         getVnetName(options.resourceGroup),
-        getSubnetName(options.clusterName)
+        getSubnetName(options.clusterName),
+        options.publicKeyPath
     )
     const servicePrincipal = await azureSession.getServicePrincipal(servicePrincipalName)
     await addCredentials(

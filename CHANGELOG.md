@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 * Azure: Support for creating firewall rules for additional resource groups (experimental)
 * Azure AKS: Option to open SSH port for worker nodes
+* Azure AKS: Option for custom SSH public key
 * Azure, AKS, AWS and EKS: Support for connect-ingress ports
 * Azure: Added machine-edit command
 * Azure and AKS: Integration with credentials from Azure CLI

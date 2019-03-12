@@ -619,7 +619,8 @@ export class AzureSession {
         cidr: string,
         servicePrincipalName: string,
         vnetName: string,
-        subnetName: string
+        subnetName: string,
+        publicKeyPath: string
     ): Promise<ManagedCluster> {
         const containerServiceClient = this.containerServiceClient()
         try {
@@ -648,7 +649,7 @@ export class AzureSession {
         const subnet = await networkClient.subnets.get(resourceGroup, vnetName, subnetName)
         debug('subnetId', subnet.id)
         consoleLog('  Reading SSH public key...')
-        const publicKey = await promisify(fs.readFile)(`${process.env.HOME}/.ssh/id_rsa.pub`)
+        const publicKey = await promisify(fs.readFile)(publicKeyPath || `${process.env.HOME}/.ssh/id_rsa.pub`)
         debug('SSH public key', publicKey)
         const parameters: ManagedCluster = {
             location: location,
