@@ -620,7 +620,8 @@ export class AzureSession {
         servicePrincipalName: string,
         vnetName: string,
         subnetName: string,
-        publicKeyPath: string
+        publicKeyPath?: string,
+        maxPodsPerNode?: number
     ): Promise<ManagedCluster> {
         const containerServiceClient = this.containerServiceClient()
         try {
@@ -679,6 +680,7 @@ export class AzureSession {
                 count: nodePool.count,
                 vmSize: nodePool.vmSize,
                 vnetSubnetID: subnet.id,
+                maxPods: maxPodsPerNode,
             })
         }
         debug('parameters', parameters)

@@ -80,6 +80,7 @@ program
     .option('--name <name>', 'The name of the AKS cluster to create')
     .option('--release <version>', 'The Kubernetes version to use')
     .option('--nodepools <json>', 'A JSON describing the nodepools to use')
+    .option('--max-pods [number]', 'Optional max number of pods per node (30-110)', parseInt)
     .option('--password <string>', 'Password for the service principal')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
     .option('--cidr [cidr]', 'CIDR to use for the subnet', '10.100.0.0/20')
@@ -96,72 +97,49 @@ program
         )})`
     )
     .option('--autoscaler-sp-password [string]', "Password for the existing Cluster Autoscaler's service principal")
-    .action(
-        async (options: {
-            subscription?: string
-            resourceGroup: string
-            location: string
-            name: string
-            release: string
-            nodepools: string
-            password: string
-            kubeconfig: string
-            cidr: string
-            openSshPort?: boolean
-            publicKeyPath?: string
-            setupClusterAutoscaler?: boolean
-            clusterAutoscalerImage?: string
-            clusterAutoscalerVersion?: string
-            autoscalerSpName?: string
-            autoscalerSpPassword?: string
-        }) => {
-            if (options.setupClusterAutoscaler) {
-                required(
-                    options,
-                    'cluster-autoscaler-version',
-                    'clusterAutoscalerVersion',
-                    'for setting up the Cluster Autoscaler'
-                )
-                required(
-                    options,
-                    'autoscaler-sp-password',
-                    'autoscalerSpPassword',
-                    'for setting up the Cluster Autoscaler'
-                )
-            }
-            const nodepools: NodePool[] = []
-            for (const nodepoolJson of JSON.parse(options.nodepools)) {
-                nodepools.push({
-                    name: nodepoolJson.name,
-                    count: nodepoolJson.count,
-                    minCount: nodepoolJson.minCount || 1,
-                    maxCount: nodepoolJson.maxCount || 0,
-                    vmSize: nodepoolJson.vmSize,
-                })
-            }
-
-            try {
-                await createAksCluster(options.subscription, {
-                    resourceGroup: required(options, 'resource-group', 'resourceGroup'),
-                    location: required(options, 'location'),
-                    clusterName: required(options, 'name'),
-                    kubernetesVersion: required(options, 'release'),
-                    nodepools: nodepools,
-                    servicePrincipalPassword: required(options, 'password'),
-                    kubeconfig: required(options, 'kubeconfig'),
-                    subnetCidr: options.cidr,
-                    clusterAutoscalerRepository: options.clusterAutoscalerImage,
-                    clusterAutoscalerVersion: options.clusterAutoscalerVersion,
-                    autoscalerSpName: options.autoscalerSpName,
-                    autoscalerSpPassword: options.autoscalerSpPassword,
-                    openSshPort: options.openSshPort,
-                    publicKeyPath: options.publicKeyPath,
-                })
-            } catch (ex) {
-                exit(ex)
-            }
+    .action(async (options) => {
+        if (options.setupClusterAutoscaler) {
+            required(
+                options,
+                'cluster-autoscaler-version',
+                'clusterAutoscalerVersion',
+                'for setting up the Cluster Autoscaler'
+            )
+            required(options, 'autoscaler-sp-password', 'autoscalerSpPassword', 'for setting up the Cluster Autoscaler')
         }
-    )
+        const nodepools: NodePool[] = []
+        for (const nodepoolJson of JSON.parse(options.nodepools)) {
+            nodepools.push({
+                name: nodepoolJson.name,
+                count: nodepoolJson.count,
+                minCount: nodepoolJson.minCount || 1,
+                maxCount: nodepoolJson.maxCount || 0,
+                vmSize: nodepoolJson.vmSize,
+            })
+        }
+
+        try {
+            await createAksCluster(options.subscription, {
+                resourceGroup: required(options, 'resource-group', 'resourceGroup'),
+                location: required(options, 'location'),
+                clusterName: required(options, 'name'),
+                kubernetesVersion: required(options, 'release'),
+                nodepools: nodepools,
+                servicePrincipalPassword: required(options, 'password'),
+                kubeconfig: required(options, 'kubeconfig'),
+                subnetCidr: options.cidr,
+                clusterAutoscalerRepository: options.clusterAutoscalerImage,
+                clusterAutoscalerVersion: options.clusterAutoscalerVersion,
+                autoscalerSpName: options.autoscalerSpName,
+                autoscalerSpPassword: options.autoscalerSpPassword,
+                openSshPort: options.openSshPort,
+                publicKeyPath: options.publicKeyPath,
+                maxPodsPerNode: options.maxPods,
+            })
+        } catch (ex) {
+            exit(ex)
+        }
+    })
 
 program
     .command('cluster-scale')

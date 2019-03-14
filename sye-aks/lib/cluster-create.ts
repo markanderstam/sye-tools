@@ -133,6 +133,7 @@ export async function createAksCluster(
         clusterAutoscalerVersion?: string
         autoscalerSpName?: string
         autoscalerSpPassword?: string
+        maxPodsPerNode?: number
         openSshPort?: boolean
         publicKeyPath?: string
     }
@@ -157,7 +158,8 @@ export async function createAksCluster(
         servicePrincipalName,
         getVnetName(options.resourceGroup),
         getSubnetName(options.clusterName),
-        options.publicKeyPath
+        options.publicKeyPath,
+        options.maxPodsPerNode
     )
     const servicePrincipal = await azureSession.getServicePrincipal(servicePrincipalName)
     await addCredentials(
