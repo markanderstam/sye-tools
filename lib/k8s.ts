@@ -1,4 +1,5 @@
 import { consoleLog, execSync } from './common'
+import * as path from 'path'
 
 export function installTillerRbac(kubeconfig: string) {
     const rbacSpec = `---
@@ -92,7 +93,8 @@ prometheus-operator stable/prometheus-operator`)
 
 export function installPrometheus(kubeconfig: string) {
     consoleLog('Installing/updating Prometheus:')
-    execSync(`kubectl apply --kubeconfig ${kubeconfig} --namespace prometheus -f lib/prometheus`)
+    const prometheusDir = path.resolve(__dirname, 'prometheus')
+    execSync(`kubectl apply --kubeconfig ${kubeconfig} --namespace prometheus -f ${prometheusDir}`)
     consoleLog('  Done.')
 }
 
