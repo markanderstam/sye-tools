@@ -72,7 +72,13 @@ sye eks cluster-create --role-name eksServiceRole --region us-west-2 \
 This will create a cluster with 5 worker nodes and will run kubernetes `1.10`. Credentials for `kubectl`
 will be stored in `~/.kube/my-cluster.yaml` (this file will be overwritten if it already exist).
 
-The Cluster Autoscaler will be enabled for the ASG with minimum size of 1 and maximum size of 5. Specify `--min-count` to increase the minimum nodes for the ASG and `--max-count` to set the maximum nodes for the ASG.
+After running `sye eks cluster-create` a values file for the Cluster Autoscaler Helm chart called `autoscaler.yaml` is created in the current directory. The cluster-autoscaler can then be installed using this command:
+
+```bash
+helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system autoscaler stable/cluster-autoscaler --version 0.12.1 -f ${valuesFile}`
+```
+
+Use the recommended Cluster Autoscaler version with the intended Kubernetes master version, see [Releases](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler#releases).
 
 ### Delete an EKS cluster
 

@@ -7,7 +7,7 @@ import {
     installNginxIngress,
     installMetricsServer,
     installPrometheus,
-    installClusterAutoscaler,
+    writeClusterAutoscalerFile,
     installPrometheusOperator,
     installPrometheusAdapter,
 } from '../../lib/k8s'
@@ -23,6 +23,7 @@ export interface Context {
     kubernetesVersion: string
     kubeconfig: string
     clusterRole: string
+    autoscalerValuesFile: string
     workersStackName: string
     workersNodeGroupName: string
     workersMinSize: number
@@ -237,6 +238,7 @@ export async function createEksCluster(options: {
     nodeCount: number
     minNodeCount: number
     maxNodeCount: number
+    autoscalerValuesFile: string
     nodeSshKey: string
 }) {
     const ctx: Context = {
@@ -246,6 +248,7 @@ export async function createEksCluster(options: {
         kubernetesVersion: options.kubernetesVersion,
         kubeconfig: options.kubeconfig,
         clusterRole: options.clusterRole,
+        autoscalerValuesFile: options.autoscalerValuesFile,
         workersStackName: `${options.clusterName}-worker-nodes`,
         workersNodeGroupName: `${options.clusterName}-node_group`,
         workersMinSize: options.minNodeCount,
@@ -268,7 +271,7 @@ export async function createEksCluster(options: {
     installPrometheusOperator(ctx.kubeconfig)
     installPrometheus(ctx.kubeconfig)
     installPrometheusAdapter(ctx.kubeconfig)
-    installClusterAutoscaler(ctx.kubeconfig, 'aws', [
+    writeClusterAutoscalerFile(ctx.autoscalerValuesFile, ctx.kubeconfig, 'aws', [
         `--set image.tag=v1.2.2`,
         `--set autoDiscovery.clusterName=${options.clusterName}`,
         `--set awsRegion=${options.region}`,

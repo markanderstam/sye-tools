@@ -9,7 +9,7 @@ import {
     installPrometheus,
     installPrometheusOperator,
     installPrometheusAdapter,
-    installClusterAutoscaler,
+    writeClusterAutoscalerFile,
 } from '../../lib/k8s'
 import { ensurePublicIps } from './utils'
 import { AzureSession, NodePool } from '../../lib/azure/azure-session'
@@ -66,11 +66,9 @@ async function downloadKubectlCredentials(
     consoleLog('  Done.')
 }
 
-async function getClusterAutoscalerExtraArgs(
+async function getClusterAutoscalerExtraValues(
     azureSession: AzureSession,
     kubeconfig: string,
-    caRepository: string | undefined,
-    caVersion: string,
     nodepools: NodePool[],
     spPassword: string,
     autoscalerSpName: string,
@@ -90,32 +88,27 @@ async function getClusterAutoscalerExtraArgs(
     const spId = autoscalerSpName || defaultClusterAutoscalerSpName(resourceGroup, clusterName)
     const sp = await azureSession.getServicePrincipal(spId)
 
-    const args: string[] = [
-        `--set image.tag=v${caVersion}`,
-        `--set azureClientID=${sp.appId}`,
-        `--set azureClientSecret=${spPassword}`,
-        `--set azureSubscriptionID=${azureSession.currentSubscription.id}`,
-        `--set azureTenantID=${azureSession.currentSubscription.tenantId}`,
-        `--set azureClusterName=${clusterName}`,
-        `--set azureResourceGroup=${resourceGroup}`,
-        `--set azureVMType=AKS`,
-        `--set azureNodeResourceGroup=${k8sResourceGroup}`,
-    ]
-    if (caRepository) {
-        args.push(`--set image.repository=${caRepository}`)
+    const values = {
+        azureClientID: sp.appId,
+        azureClientSecret: spPassword,
+        azureSubscriptionID: azureSession.currentSubscription.id,
+        azureTenantID: azureSession.currentSubscription.tenantId,
+        azureVMType: 'AKS',
+        azureClusterName: clusterName,
+        azureResourceGroup: resourceGroup,
+        azureNodeResourceGroup: k8sResourceGroup,
+        autoscalingGroups: [],
     }
 
-    let index = 0
     for (const nodepool of nodepools) {
-        args.push(
-            `--set autoscalingGroups[${index}].name=${nodepool.name},` +
-                `autoscalingGroups[${index}].minSize=${nodepool.minCount},` +
-                `autoscalingGroups[${index}].maxSize=${nodepool.maxCount}`
-        )
-        index++
+        values.autoscalingGroups.push({
+            name: nodepool.name,
+            minSize: nodepool.minCount,
+            maxSize: nodepool.maxCount,
+        })
     }
 
-    return args
+    return values
 }
 
 export async function createAksCluster(
@@ -129,8 +122,7 @@ export async function createAksCluster(
         servicePrincipalPassword: string
         kubeconfig: string
         subnetCidr: string
-        clusterAutoscalerRepository?: string
-        clusterAutoscalerVersion?: string
+        autoscalerValuesFile: string
         autoscalerSpName?: string
         autoscalerSpPassword?: string
         maxPodsPerNode?: number
@@ -181,18 +173,17 @@ export async function createAksCluster(
     installTiller(options.kubeconfig)
     waitForTillerStarted(options.kubeconfig)
     installNginxIngress(options.kubeconfig)
-    if (options.clusterAutoscalerVersion && options.autoscalerSpPassword) {
+    if (options.autoscalerSpPassword) {
         installPrometheusOperator(options.kubeconfig)
         installPrometheus(options.kubeconfig)
         installPrometheusAdapter(options.kubeconfig)
-        installClusterAutoscaler(
+        writeClusterAutoscalerFile(
+            options.autoscalerValuesFile,
             options.kubeconfig,
             'azure',
-            await getClusterAutoscalerExtraArgs(
+            await getClusterAutoscalerExtraValues(
                 azureSession,
                 options.kubeconfig,
-                options.clusterAutoscalerRepository,
-                options.clusterAutoscalerVersion,
                 options.nodepools,
                 options.autoscalerSpPassword,
                 options.autoscalerSpName,

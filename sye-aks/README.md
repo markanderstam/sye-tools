@@ -146,7 +146,7 @@ sye aks cluster-autoscaler-prepare --resource-group sye-aks --cluster-name my-cl
 Then `sye aks cluster-create` command should be rerun to enable the Cluster Autoscaler on the existing cluster (restating all the previous flags):
 
 ```bash
-sye aks cluster-create ... --setup-cluster-autoscaler --cluster-autoscaler-version 1.3.4 --autoscaler-sp-password AjPZQH8FXtCThvIN0kUskAStYS0I3 \
+sye aks cluster-create ... --setup-cluster-autoscaler --autoscaler-sp-password AjPZQH8FXtCThvIN0kUskAStYS0I3 \
     --nodepools '[ \
               {"name": "core", "count":5, "vmSize": "Standard_F4", "minCount": 3, "maxCount": 10}, \
               {"name": "pitcher", "count":3, "vmSize": "Standard_F16", "minCount": 3, "maxCount": 10} \
@@ -154,6 +154,12 @@ sye aks cluster-create ... --setup-cluster-autoscaler --cluster-autoscaler-versi
 ```
 
 The example cluster can scale to a minimum of 3 nodes and a maximum of 10 nodes, using the service principal created previously. Note that any service principal with Contributor permission to the `resource-group` and the `node-resource-group` will also work (specify `--autoscaler-sp-name` to use a custom service principal).
+
+After running `sye aks cluster-create` a values file for the Cluster Autoscaler Helm chart called `autoscaler.yaml` is created in the current directory. The cluster-autoscaler can then be installed using this command:
+
+```bash
+helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system autoscaler stable/cluster-autoscaler --version 0.12.1 -f ${valuesFile}`
+```
 
 Use the recommended Cluster Autoscaler version with the intended Kubernetes master version, see [Releases](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler#releases).
 

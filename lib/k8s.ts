@@ -1,5 +1,7 @@
 import { consoleLog, execSync } from './common'
 import * as path from 'path'
+import * as fs from 'fs'
+import * as yaml from 'js-yaml'
 
 export function installTillerRbac(kubeconfig: string) {
     const rbacSpec = `---
@@ -108,19 +110,41 @@ export function installPrometheusAdapter(kubeconfig: string) {
     consoleLog('  Done.')
 }
 
-export function installClusterAutoscaler(kubeconfig: string, cloudProvider: 'aws' | 'azure', extraArgs: string[]) {
-    consoleLog('Installing/updating Cluster Autoscaler:')
-    execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system \
---set cloudProvider=${cloudProvider} \
---set-string extraArgs.skip-nodes-with-local-storage=false \
---set-string extraArgs.skip-nodes-with-system-pods=false \
---set-string extraArgs.max-empty-bulk-delete=1 \
---set-string extraArgs.max-node-deletion-time=10m0s \
---set rbac.create=true \
---set serviceMonitor.enabled=true \
---set serviceMonitor.namespace=kube-system \
---set serviceMonitor.selector.prometheus=metrics \
-${extraArgs.join(' ')} \
-autoscaler stable/cluster-autoscaler`)
-    consoleLog('  Done.')
+export function writeClusterAutoscalerFile(
+    valuesFile: string,
+    kubeconfig: string,
+    cloudProvider: 'aws' | 'azure',
+    extraValues?: any
+) {
+    consoleLog('Preparing Cluster Autoscaler values file:')
+
+    const values = {
+        ...extraValues,
+        cloudProvider,
+        rbac: { create: true },
+        serviceMonitor: {
+            enabled: true,
+            namespace: 'kube-system',
+            selector: {
+                prometheus: 'metrics',
+            },
+        },
+        extraArgs: {
+            'skip-nodes-with-local-storage': 'false',
+            'skip-nodes-with-system-pods': 'false',
+            'max-empty-bulk-delete': '1',
+        },
+    }
+
+    if (fs.existsSync(valuesFile)) {
+        consoleLog('  Already created - OK.')
+    } else {
+        fs.writeFileSync(valuesFile, yaml.safeDump(values))
+        consoleLog('  Done.')
+    }
+
+    consoleLog('Note! Manually install/upgrade cluster-autoscaler with:')
+    consoleLog(
+        `helm upgrade --kubeconfig ${kubeconfig} --install --namespace kube-system autoscaler stable/cluster-autoscaler -f ${valuesFile}`
+    )
 }
