@@ -87,8 +87,7 @@ program
     .option('--open-ssh-port', 'Allow SSH access to the worker nodes')
     .option('--public-key-path [path]', 'Path to the public SSH key (default ~/.ssh/id_rsa.pub)')
     .option('--setup-cluster-autoscaler', 'Setup the Cluster Autoscaler for this (existing) cluster')
-    .option('--cluster-autoscaler-version [version]', 'The Cluster Autoscaler version to use')
-    .option('--cluster-autoscaler-image [image]', 'Optional cluster autoscaler image to use')
+    .option('--autoscaler-file <file>', 'Cluster autoscaler chart values file', 'autoscaler.yaml')
     .option(
         '--autoscaler-sp-name [string]',
         `Name for the existing Cluster Autoscaler's service principal (default: ${defaultClusterAutoscalerSpName(
@@ -99,12 +98,6 @@ program
     .option('--autoscaler-sp-password [string]', "Password for the existing Cluster Autoscaler's service principal")
     .action(async (options) => {
         if (options.setupClusterAutoscaler) {
-            required(
-                options,
-                'cluster-autoscaler-version',
-                'clusterAutoscalerVersion',
-                'for setting up the Cluster Autoscaler'
-            )
             required(options, 'autoscaler-sp-password', 'autoscalerSpPassword', 'for setting up the Cluster Autoscaler')
         }
         const nodepools: NodePool[] = []
@@ -128,8 +121,7 @@ program
                 servicePrincipalPassword: required(options, 'password'),
                 kubeconfig: required(options, 'kubeconfig'),
                 subnetCidr: options.cidr,
-                clusterAutoscalerRepository: options.clusterAutoscalerImage,
-                clusterAutoscalerVersion: options.clusterAutoscalerVersion,
+                autoscalerValuesFile: required(options, 'autoscaler-file', 'autoscalerFile'),
                 autoscalerSpName: options.autoscalerSpName,
                 autoscalerSpPassword: options.autoscalerSpPassword,
                 openSshPort: options.openSshPort,

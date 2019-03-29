@@ -28,6 +28,7 @@ program
     .option('--min-count [number]', 'The minimum number of worker nodes for the ASG', '1')
     .option('--max-count [number]', 'The maximum number of worker nodes for the ASG (default: <count>)')
     .option('--kubeconfig <path>', 'Path to the kubectl config file to save credentials in')
+    .option('--autoscaler-file <file>', 'Cluster autoscaler chart values file', 'autoscaler.yaml')
     .option('--ssh-key <name>', 'Name of an Amazon EC2 SSH key pair used for connecting with SSH into the worker nodes')
     .action(async (options: object) => {
         try {
@@ -42,6 +43,7 @@ program
                 nodeCount: parseInt(required(options, 'count')),
                 minNodeCount: parseInt(options['minCount']),
                 maxNodeCount: parseInt(options['maxCount'] || options['count']),
+                autoscalerValuesFile: required(options, 'autoscaler-file', 'autoscalerFile'),
                 nodeSshKey: required(options, 'ssh-key', 'sshKey'),
             })
         } catch (ex) {
