@@ -174,31 +174,6 @@ data:
     consoleLog('  Done.')
 }
 
-async function setupStorage(ctx: Context) {
-    const specFile = `---
-kind: StorageClass
-apiVersion: storage.k8s.io/v1
-metadata:
-    name: gp2
-    annotations:
-        storageclass.kubernetes.io/is-default-class: "true"
-provisioner: kubernetes.io/aws-ebs
-parameters:
-    type: gp2
-reclaimPolicy: Delete
-mountOptions:
-    - debug`
-    consoleLog(`Setting up storage class:`)
-    try {
-        execSync(`kubectl apply --kubeconfig ${ctx.kubeconfig} -f -`, {
-            input: specFile,
-        })
-    } catch (err) {
-        throw new Error(`Failed to create storage class: ${err.message}`)
-    }
-    consoleLog('  Done.')
-}
-
 async function getVpcId(ctx: Context): Promise<string> {
     return getStackOutput(ctx.awsConfig, ctx.vpcStackName, 'VpcId')
 }
@@ -262,7 +237,6 @@ export async function createEksCluster(options: {
     await createWorkers(ctx)
     await createKubeconfig(ctx)
     await enableWorkers(ctx)
-    await setupStorage(ctx)
     installTillerRbac(ctx.kubeconfig)
     installTiller(ctx.kubeconfig)
     waitForTillerStarted(ctx.kubeconfig)
@@ -271,10 +245,9 @@ export async function createEksCluster(options: {
     installPrometheusOperator(ctx.kubeconfig)
     installPrometheus(ctx.kubeconfig)
     installPrometheusAdapter(ctx.kubeconfig)
-    writeClusterAutoscalerFile(ctx.autoscalerValuesFile, ctx.kubeconfig, 'aws', [
-        `--set image.tag=v1.2.2`,
-        `--set autoDiscovery.clusterName=${options.clusterName}`,
-        `--set awsRegion=${options.region}`,
-        '--set sslCertPath=/etc/kubernetes/pki/ca.crt',
-    ])
+    writeClusterAutoscalerFile(ctx.autoscalerValuesFile, ctx.kubeconfig, 'aws', {
+        autoDiscovery: { clusterName: options.clusterName },
+        awsRegion: options.region,
+        sslCertPath: '/etc/kubernetes/pki/ca.crt',
+    })
 }
