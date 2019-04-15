@@ -121,6 +121,7 @@ export async function createAksCluster(
         nodepools: NodePool[]
         servicePrincipalPassword: string
         kubeconfig: string
+        useVmss: boolean
         subnetCidr: string
         autoscalerValuesFile: string
         autoscalerSpName?: string
@@ -143,6 +144,7 @@ export async function createAksCluster(
         options.clusterName,
         options.resourceGroup,
         options.location,
+        options.useVmss,
         options.kubernetesVersion,
         options.nodepools,
         options.servicePrincipalPassword,
@@ -162,7 +164,11 @@ export async function createAksCluster(
         getVnetName(options.resourceGroup),
         getSubnetName(options.clusterName)
     )
-    await ensurePublicIps(azureSession, options.clusterName, k8sResourceGroup, options.location)
+    if (options.useVmss) {
+        await azureSession.enableVmssPublicIps(k8sResourceGroup)
+    } else {
+        await ensurePublicIps(azureSession, options.clusterName, k8sResourceGroup, options.location)
+    }
     await azureSession.openPortInNsg(2123, 2130, 'Udp', 200, 'Sye SSP traffic (UDP 2123-2130)', k8sResourceGroup)
     await azureSession.openPortInNsg(2505, 2505, 'Tcp', 202, 'Connect Broker traffic (TCP 2505)', k8sResourceGroup)
     if (options.openSshPort) {

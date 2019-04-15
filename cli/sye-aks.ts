@@ -79,6 +79,7 @@ program
     .option('--location <name>', 'The Azure location to create the AKS cluster in')
     .option('--name <name>', 'The name of the AKS cluster to create')
     .option('--release <version>', 'The Kubernetes version to use')
+    .option('--enable-vmss', 'Enable VMSS for cluster')
     .option('--nodepools <json>', 'A JSON describing the nodepools to use')
     .option('--max-pods [number]', 'Optional max number of pods per node (30-110)', parseInt)
     .option('--password <string>', 'Password for the service principal')
@@ -120,6 +121,7 @@ program
                 nodepools: nodepools,
                 servicePrincipalPassword: required(options, 'password'),
                 kubeconfig: required(options, 'kubeconfig'),
+                useVmss: options.enableVmss,
                 subnetCidr: options.cidr,
                 autoscalerValuesFile: required(options, 'autoscaler-file', 'autoscalerFile'),
                 autoscalerSpName: options.autoscalerSpName,
