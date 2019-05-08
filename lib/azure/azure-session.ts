@@ -613,6 +613,7 @@ export class AzureSession {
         clusterName: string,
         resourceGroup: string,
         location: string,
+        useVmss: boolean,
         kubernetesVersion: string,
         nodePools: NodePool[],
         password: string,
@@ -675,13 +676,25 @@ export class AzureSession {
             dnsPrefix: clusterName,
         }
         for (const nodePool of nodePools) {
-            parameters.agentPoolProfiles.push({
-                name: nodePool.name,
-                count: nodePool.count,
-                vmSize: nodePool.vmSize,
-                vnetSubnetID: subnet.id,
-                maxPods: maxPodsPerNode,
-            })
+            if (!useVmss) {
+                parameters.agentPoolProfiles.push({
+                    name: nodePool.name,
+                    count: nodePool.count,
+                    vmSize: nodePool.vmSize,
+                    vnetSubnetID: subnet.id,
+                    maxPods: maxPodsPerNode,
+                })
+            } else {
+                parameters.agentPoolProfiles.push({
+                    name: nodePool.name,
+                    count: nodePool.count,
+                    vmSize: nodePool.vmSize,
+                    vnetSubnetID: subnet.id,
+                    maxPods: maxPodsPerNode,
+                    osType: 'Linux',
+                    type: 'VirtualMachineScaleSets',
+                })
+            }
         }
         debug('parameters', parameters)
         consoleLog('  Creating AKS cluster...')
@@ -713,6 +726,38 @@ export class AzureSession {
         } catch (ex) {
             consoleLog(`AKS cluster "${clusterName}" already deleted`)
         }
+    }
+
+    async enableVmssPublicIps(k8sResourceGroup: string) {
+        const vmssClient = this.computeManagementClient().virtualMachineScaleSets
+        const response = await vmssClient.list(k8sResourceGroup)
+        consoleLog(`Adding public IPs to VMs in AKS cluster`)
+        for (const vmss of response) {
+            consoleLog(`  Checking ${vmss.name}...`)
+            const primaryProfile = vmss.virtualMachineProfile.networkProfile.networkInterfaceConfigurations.find(
+                (ip) => ip.primary
+            )
+            if (!primaryProfile) {
+                throw new Error(`No primary network interface configuration found for ${vmss.name}`)
+            }
+            const primaryIpConfig = primaryProfile.ipConfigurations.find((ip) => ip.primary)
+            if (!primaryIpConfig) {
+                throw new Error(`No primary ip config for profile ${primaryProfile.name} in ${vmss.name}`)
+            }
+            if (primaryIpConfig.publicIPAddressConfiguration) {
+                consoleLog(`  Skipping ${vmss.name}...`)
+                continue
+            }
+            primaryIpConfig.publicIPAddressConfiguration = {
+                name: 'pub1',
+            }
+            consoleLog(`  Patching ${vmss.name}...`)
+            await vmssClient.createOrUpdate(k8sResourceGroup, vmss.name, vmss)
+            consoleLog(`  Upgrading VMs in ${vmss.name}...`)
+            const response = await vmssClient.updateInstances(k8sResourceGroup, vmss.name, ['*'])
+            consoleLog(`  Upgrade response: ${response.status}`)
+        }
+        consoleLog('  Done')
     }
 }
 
