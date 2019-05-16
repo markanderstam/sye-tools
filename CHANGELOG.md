@@ -2,17 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [] - Unreleased
+## [2.0.0] - 2019-05-16
 
-* Azure: Support for creating firewall rules for additional resource groups (experimental)
-* Azure AKS: Option to open SSH port for worker nodes
-* Azure AKS: Option for custom SSH public key
-* Azure, AKS, AWS and EKS: Support for connect-ingress ports
-* Azure: Added machine-edit command
+* Amazon EKS: Support for cluster autoscaling and monitoring
+* Azure AKS: Support for cluster autoscaling and monitoring
+* Azure AKS: Support for VMSS and multiple node pools
+* Azure AKS: cluster-scale command with nodepool support
+* Azure AKS: Option to open SSH port on worker nodes and custom SSH public key
 * Azure and AKS: Integration with credentials from Azure CLI
 * Azure and AKS: Automatic API token refresh
-* AKS: Support for multiple node pools
-* AKS: cluster-scale command with nodepool support
+* Azure: Support for creating firewall rules for additional resource groups
+* Azure, AKS, AWS and EKS: Support for connect-ingress ports
+* Azure: Added machine-edit command
 
 ## [1.4.1] - 2018-10-26
 
