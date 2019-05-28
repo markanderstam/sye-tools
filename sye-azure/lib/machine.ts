@@ -1,7 +1,6 @@
 import * as dbg from 'debug'
 const debug = dbg('azure/machine')
-import { NetworkManagementClient } from 'azure-arm-network'
-import { createBlobService, BlobUtilities } from 'azure-storage'
+import { NetworkManagementClient } from '@azure/arm-network'
 
 import {
     vmName,
@@ -25,12 +24,13 @@ import {
     SG_TYPE_DEFAULT,
     SG_TYPE_CONNECT_BROKER,
 } from '../common'
-import ComputeClient = require('azure-arm-compute')
-import { VirtualMachine, DataDisk } from 'azure-arm-compute/lib/models'
+import { VirtualMachine, DataDisk, VirtualMachineSizeTypes } from '@azure/arm-compute/esm/models'
 import { exit, syeEnvironmentFile, consoleLog } from '../../lib/common'
-import { SecurityRule } from 'azure-arm-network/lib/models'
+import { SecurityRule } from '@azure/arm-network/esm/models'
 import { AzureSession } from '../../lib/azure/azure-session'
 import { validateClusterId } from '../common'
+import * as Models from '@azure/arm-network/src/models/index'
+import { ComputeManagementClient } from '@azure/arm-compute'
 
 export async function machineAdd(
     clusterId: string,
@@ -67,7 +67,7 @@ export async function machineAdd(
         if (e.code !== 'ResourceNotFound') throw e
     }
 
-    let publicIPParameters = {
+    let publicIPParameters: Models.PublicIPAddress = {
         location: region,
         publicIPAllocationMethod: 'Dynamic',
     }
@@ -95,7 +95,7 @@ export async function machineAdd(
         securityGroupName(clusterId, region, nsgType)
     )
 
-    let nicParameters = {
+    const nicParameters: Models.NetworkInterface = {
         location: region,
         ipConfigurations: [
             {
@@ -109,40 +109,20 @@ export async function machineAdd(
         enableAcceleratedNetworking: true,
     }
 
-    let networkInterface = await networkClient.networkInterfaces.createOrUpdate(
+    const networkInterface = await networkClient.networkInterfaces.createOrUpdate(
         clusterId,
         nicName(machineName),
         nicParameters
     )
-
     debug('networkInterface', networkInterface)
 
     const storageAccount = storageAccountName(azureSession.currentSubscription.id, clusterId)
 
-    const storageClient = azureSession.storageManagementClient()
-    const keys = await storageClient.storageAccounts.listKeys(clusterId, storageAccount)
-    const blobService = createBlobService(storageAccount, keys.keys[0].value)
+    const azureStorageAccount = azureSession.getAzureStorageAccount(clusterId, region, storageAccount)
 
-    let startDate = new Date()
-    startDate.setMinutes(startDate.getMinutes() - 5)
-    let expiryDate = new Date()
-    expiryDate.setMinutes(expiryDate.getMinutes() + 10)
-
-    const sharedAccessPolicy = {
-        AccessPolicy: {
-            Permissions: BlobUtilities.SharedAccessPermissions.READ,
-            Start: startDate,
-            Expiry: expiryDate,
-        },
-    }
-    let sasToken = blobService.generateSharedAccessSignature(
-        privateContainerName(),
-        syeEnvironmentFile,
-        sharedAccessPolicy
-    )
-
-    let envUrl = blobService.getUrl(privateContainerName(), syeEnvironmentFile, sasToken, true)
-    let publicStorageUrl = blobService.getUrl(publicContainerName())
+    const envUrl = await azureStorageAccount.getTemporaryAccessUrl(privateContainerName(), syeEnvironmentFile)
+    debug('envUrl', envUrl)
+    const publicStorageUrl = azureStorageAccount.getPublicUrl(publicContainerName())
 
     const storageDeviceName = hasStorage ? '/dev/sdc' : ''
 
@@ -163,7 +143,7 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
             ).toString('base64'),
         },
         hardwareProfile: {
-            vmSize: instanceType,
+            vmSize: instanceType as VirtualMachineSizeTypes,
         },
         storageProfile: {
             imageReference: {
@@ -311,7 +291,7 @@ export async function machineRedeploy(clusterId: string, machineName: string) {
 
 export async function getPublicIpsForCluster(
     clusterId: string,
-    computeClient: ComputeClient,
+    computeClient: ComputeManagementClient,
     networkClient: NetworkManagementClient
 ) {
     const vms = await computeClient.virtualMachines.list(clusterId)
@@ -333,9 +313,7 @@ export async function getPublicIpsForCluster(
                             ips.push(ipInfo.ipAddress)
                         } else {
                             exit(
-                                `Failed to find public ip-address of vm ${
-                                    vm.name
-                                } interface ${nicName} ip name ${ipName}: ${ipInfo}`
+                                `Failed to find public ip-address of vm ${vm.name} interface ${nicName} ip name ${ipName}: ${ipInfo}`
                             )
                         }
                     }
@@ -364,93 +342,93 @@ export async function ensureMachineSecurityRules(clusterId: string, extraResourc
         }
     }
 
-    const frontendBalancerSecurityRuleDefs = [
+    const frontendBalancerSecurityRuleDefs: { type: string; rule: SecurityRule }[] = [
         {
             type: 'tcp-frontend-balancer',
             rule: {
                 priority: 100,
                 access: 'Allow',
-                direction: 'inbound',
+                direction: 'Inbound',
                 sourceAddressPrefix: '*',
                 sourcePortRange: '*',
                 destinationAddressPrefix: '*',
                 destinationPortRanges: ['80', '443'],
-                protocol: 'TCP',
+                protocol: 'Tcp',
             },
         },
     ]
 
-    const managementSecurityRuleDefs = [
+    const managementSecurityRuleDefs: { type: string; rule: SecurityRule }[] = [
         {
             type: 'tcp-management',
             rule: {
                 priority: 200,
                 access: 'Allow',
-                direction: 'inbound',
+                direction: 'Inbound',
                 sourceAddressPrefix: '*',
                 sourcePortRange: '*',
                 destinationAddressPrefix: '*',
                 destinationPortRanges: ['81', '4433'],
-                protocol: 'TCP',
+                protocol: 'Tcp',
             },
         },
     ]
 
-    const pitcherSecurityRuleDefs = [
+    const pitcherSecurityRuleDefs: { type: string; rule: SecurityRule }[] = [
         {
             type: 'udp-pitcher',
             rule: {
                 priority: 300,
                 access: 'Allow',
-                direction: 'inbound',
+                direction: 'Inbound',
                 sourceAddressPrefix: '*',
                 sourcePortRange: '*',
                 destinationAddressPrefix: '*',
                 destinationPortRange: '2123-2130',
-                protocol: 'UDP',
+                protocol: 'Udp',
             },
         },
     ]
 
-    const sshSecurityRuleDefs = [
+    const sshSecurityRuleDefs: { type: string; rule: SecurityRule }[] = [
         {
             type: 'ssh-default',
             rule: {
                 priority: 1000,
                 access: 'Allow',
-                direction: 'inbound',
+                direction: 'Inbound',
                 sourcePortRange: '*',
                 sourceAddressPrefix: '*',
                 destinationPortRanges: ['22'],
                 destinationAddressPrefix: 'VirtualNetwork',
-                protocol: 'TCP',
+                protocol: 'Tcp',
             },
         },
     ]
 
-    const connectBrokerSecurityRuleDefs = [
+    const connectBrokerSecurityRuleDefs: { type: string; rule: SecurityRule }[] = [
         {
             type: 'connection-broker',
             rule: {
                 priority: 400,
                 access: 'Allow',
-                direction: 'inbound',
+                direction: 'Inbound',
                 sourcePortRange: '*',
                 sourceAddressPrefix: '*',
                 destinationPortRanges: ['2505'],
                 destinationAddressPrefix: 'VirtualNetwork',
-                protocol: 'TCP',
+                protocol: 'Tcp',
             },
         },
     ]
 
-    const defaultSecurityRuleDefs = [
+    const defaultSecurityRuleDefs: { type: string; rule: SecurityRule }[] = [
         {
             type: 'cluster-default',
             rule: {
                 priority: 1100,
                 access: 'Allow',
-                direction: 'inbound',
+                direction: 'Inbound',
                 sourceAddressPrefixes: ips,
                 sourcePortRange: '*',
                 destinationAddressPrefix: 'VirtualNetwork',
@@ -521,12 +499,9 @@ async function setSecurityRules(
     const nsgName = securityGroupName(clusterId, location, type)
     debug(`Updating network security group: ${nsgName}`)
     for (const def of rules) {
-        await networkClient.securityRules.createOrUpdate(
-            clusterId,
-            nsgName,
-            securityRuleName(clusterId, location, type, def.type),
-            def.rule
-        )
+        let ruleName = securityRuleName(clusterId, location, type, def.type)
+        debug('Applying rule', { clusterId, nsgName, ruleName, rule: def.rule })
+        await networkClient.securityRules.createOrUpdate(clusterId, nsgName, ruleName, def.rule)
     }
 }
 

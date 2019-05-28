@@ -1,12 +1,13 @@
 import { readPackageFile, syeEnvironmentFile, consoleLog } from '../../lib/common'
 import * as EasyTable from 'easy-table'
-const debug = require('debug')('azure/cluster')
-
-import { createBlobService, BlobService } from 'azure-storage'
 import { storageAccountName, publicContainerName, privateContainerName } from '../common'
-import { NetworkInterface, PublicIPAddress } from 'azure-arm-network/lib/models'
+import { NetworkInterface, PublicIPAddress } from '@azure/arm-network/esm/models'
 import { validateClusterId } from '../common'
 import { AzureSession } from '../../lib/azure/azure-session'
+import { AzureStorageAccount } from '../../lib/azure/azure-storage-account'
+import * as fs from 'fs'
+
+const debug = require('debug')('azure/cluster')
 
 const ROOT_LOCATION = 'westus'
 
@@ -35,59 +36,40 @@ export async function createCluster(
         tags: {},
     })
 
-    // Create Storage account with Blob storage
-    const storageClient = azureSession.storageManagementClient()
-    const createParameters = {
-        location: ROOT_LOCATION,
-        sku: {
-            name: 'Standard_RAGRS',
-        },
-        kind: 'BlobStorage',
-        accessTier: 'Hot',
-        tags: {},
-    }
-
     const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
+    const storageAccount = new AzureStorageAccount(azureSession, clusterId, ROOT_LOCATION, storageAcctname)
     debug('Creating storage account', storageAcctname)
-    await storageClient.storageAccounts.create(clusterId, storageAcctname, createParameters)
-
-    debug('Listing keys in the storage account')
-    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
-
-    debug('Create BLOB service', keys.keys[0].value)
-    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
-    await createPublicContainerIfNotExistsPromise(blobService, publicContainerName())
-
-    await createPrivateContainerIfNotExistsPromise(blobService, privateContainerName())
+    await storageAccount.create()
 
     // Upload files to blob storage
-    await createBlockBlobFromTextPromise(
-        blobService,
+    await storageAccount.uploadBlobText(
         publicContainerName(),
         'bootstrap.sh',
+        true,
         readPackageFile('sye-azure/bootstrap.sh').toString()
     )
-
-    await createBlockBlobFromTextPromise(
-        blobService,
+    await storageAccount.uploadBlobText(
         publicContainerName(),
         'sye-cluster-join.sh',
+        true,
         readPackageFile('sye-cluster-join.sh').toString()
     )
-
-    await createBlockBlobFromLocalFilePromise(blobService, publicContainerName(), 'authorized_keys', authorizedKeys)
-
-    await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
+    await storageAccount.uploadBlobText(
+        publicContainerName(),
+        'authorized_keys',
+        true,
+        fs.readFileSync(authorizedKeys).toString()
+    )
+    await storageAccount.uploadBlobFile(privateContainerName(), syeEnvironmentFile, false, syeEnvironment)
 }
 
 export async function uploadConfig(clusterId: string, syeEnvironment: string): Promise<void> {
     validateClusterId(clusterId)
     const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
-
     const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
-    let keys = await azureSession.storageManagementClient().storageAccounts.listKeys(clusterId, storageAcctname)
-    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
-    await createBlockBlobFromLocalFilePromise(blobService, privateContainerName(), syeEnvironmentFile, syeEnvironment)
+    const storageAccount = new AzureStorageAccount(azureSession, clusterId, ROOT_LOCATION, storageAcctname)
+
+    await storageAccount.uploadBlobText(privateContainerName(), syeEnvironmentFile, false, syeEnvironment)
 }
 
 export async function deleteCluster(clusterId: string) {
@@ -172,13 +154,11 @@ export async function uploadBootstrap(clusterId: string): Promise<void> {
     validateClusterId(clusterId)
     const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
     const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
-    let storageClient = azureSession.storageManagementClient()
-    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
-    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
-    await createBlockBlobFromTextPromise(
-        blobService,
+    const storageAccount = new AzureStorageAccount(azureSession, clusterId, ROOT_LOCATION, storageAcctname)
+    await storageAccount.uploadBlobText(
         publicContainerName(),
         'bootstrap.sh',
+        true,
         readPackageFile('sye-azure/bootstrap.sh').toString()
     )
 }
@@ -187,63 +167,11 @@ export async function uploadClusterJoin(clusterId: string): Promise<void> {
     validateClusterId(clusterId)
     const azureSession = await new AzureSession().init({ resourceGroup: clusterId })
     const storageAcctname = storageAccountName(azureSession.currentSubscription.id, clusterId)
-    let storageClient = azureSession.storageManagementClient()
-    let keys = await storageClient.storageAccounts.listKeys(clusterId, storageAcctname)
-    const blobService = createBlobService(storageAcctname, keys.keys[0].value)
-    await createBlockBlobFromTextPromise(
-        blobService,
+    const storageAccount = new AzureStorageAccount(azureSession, clusterId, ROOT_LOCATION, storageAcctname)
+    await storageAccount.uploadBlobText(
         publicContainerName(),
         'sye-cluster-join.sh',
+        true,
         readPackageFile('sye-cluster-join.sh').toString()
     )
-}
-
-function createBlockBlobFromTextPromise(
-    blobService: BlobService,
-    container: string,
-    blob: string,
-    content: string
-): Promise<BlobService.BlobResult> {
-    debug('createBlockBlobFromTextPromise', container, blob)
-    return new Promise((resolve, reject) => {
-        blobService.createBlockBlobFromText(container, blob, content, (error, result) => {
-            return error ? reject(error) : resolve(result)
-        })
-    })
-}
-function createBlockBlobFromLocalFilePromise(
-    blobService: BlobService,
-    container: string,
-    blob: string,
-    filename: string
-): Promise<BlobService.BlobResult> {
-    debug('createBlockBlobFromLocalFilePromise', container, blob)
-    return new Promise((resolve, reject) => {
-        blobService.createBlockBlobFromLocalFile(container, blob, filename, (error, result) => {
-            return error ? reject(error) : resolve(result)
-        })
-    })
-}
-
-function createPrivateContainerIfNotExistsPromise(
-    blobService: BlobService,
-    container: string
-): Promise<BlobService.ContainerResult> {
-    return new Promise((resolve, reject) => {
-        blobService.createContainerIfNotExists(container, (error, result) => {
-            return error ? reject(error) : resolve(result)
-        })
-    })
-}
-
-function createPublicContainerIfNotExistsPromise(
-    blobService: BlobService,
-    container: string
-): Promise<BlobService.ContainerResult> {
-    debug('Create public container', container)
-    return new Promise((resolve, reject) => {
-        blobService.createContainerIfNotExists(container, { publicAccessLevel: 'blob' }, (error, result) => {
-            return error ? reject(error) : resolve(result)
-        })
-    })
 }

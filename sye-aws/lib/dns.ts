@@ -64,9 +64,7 @@ async function changeDnsRecord(
     if (wait) {
         const res = await route53.waitFor('resourceRecordSetsChanged', { Id: resourceChange.ChangeInfo.Id }).promise()
         if (res.ChangeInfo.Status !== 'INSYNC') {
-            throw `Expected the DNS record change '${changeAction}' of '${name}' to be INSYNC, got ${
-                res.ChangeInfo.Status
-            }`
+            throw `Expected the DNS record change '${changeAction}' of '${name}' to be INSYNC, got ${res.ChangeInfo.Status}`
         }
     }
 }

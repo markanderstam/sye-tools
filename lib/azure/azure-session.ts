@@ -1,32 +1,30 @@
-import { ResourceManagementClient, ResourceModels, SubscriptionClient } from 'azure-arm-resource'
-import { Subscription } from 'azure-arm-resource/lib/subscription/models'
-import { FileTokenCache } from './file-token-cache'
-import {
-    ApplicationTokenCredentials,
-    DeviceTokenCredentials,
-    LinkedSubscription,
-    loginWithServicePrincipalSecretWithAuthResponse,
-    UserTokenCredentials,
-} from 'ms-rest-azure'
-import { NetworkManagementClient } from 'azure-arm-network'
-import { ContainerServiceClient } from 'azure-arm-containerservice'
-import { GraphRbacManagementClient } from 'azure-graph'
-import { AuthorizationManagementClient } from 'azure-arm-authorization'
-import DnsManagementClient from 'azure-arm-dns'
+import { ResourceManagementClient } from '@azure/arm-resources'
+import { ResourceGroup } from '@azure/arm-resources/esm/models'
+import { NetworkManagementClient } from '@azure/arm-network'
+import { ContainerServiceClient } from '@azure/arm-containerservice'
+import { GraphRbacManagementClient } from '@azure/graph'
+import { AuthorizationManagementClient } from '@azure/arm-authorization'
+import { DnsManagementClient } from '@azure/arm-dns'
 import { promisify } from 'util'
 import * as fs from 'fs'
-import { exit, readJsonFile, consoleLog, sleep } from '../common'
-import { Application, ServicePrincipal } from 'azure-graph/lib/models'
-import { VirtualNetwork } from 'azure-arm-network/lib/models'
+import { exit, consoleLog, sleep } from '../common'
+import { Application, ServicePrincipal } from '@azure/graph/lib/models'
+import { VirtualNetwork } from '@azure/arm-network/esm/models'
 import * as uuidv4 from 'uuid/v4'
-import { ManagedCluster } from 'azure-arm-containerservice/lib/models'
-import ComputeManagementClient = require('azure-arm-compute')
-import StorageManagementClient = require('azure-arm-storage')
+import { ManagedCluster } from '@azure/arm-containerservice/esm/models'
+import { ComputeManagementClient } from '@azure/arm-compute'
+import { StorageManagementClient } from '@azure/arm-storage'
+import { SubscriptionClient } from '@azure/arm-subscriptions'
+import { ContainerServiceVMSizeTypes } from '@azure/arm-containerservice/src/models/index'
+import {
+    loginWithServicePrincipalSecretWithAuthResponse,
+    LinkedSubscription,
+    AzureCliCredentials,
+} from '@azure/ms-rest-nodeauth'
+import { AzureStorageAccount } from './azure-storage-account'
+import { ServiceClientCredentials } from '@azure/ms-rest-js'
 
 const debug = require('debug')('azure/azure-session')
-
-const AZURE_TOKENS_PATH = `${process.env.HOME}/.azure/accessTokens.json`
-const AZURE_PROFILE_PATH = `${process.env.HOME}/.azure/azureProfile.json`
 
 /**
  * Keeps track of the credentials and other details when making calls to the Azure APIs
@@ -39,68 +37,69 @@ export class AzureSession {
         clientId: string
     }
 
-    credentials: DeviceTokenCredentials | ApplicationTokenCredentials | UserTokenCredentials
-    adCredentials: DeviceTokenCredentials | ApplicationTokenCredentials | UserTokenCredentials
-
-    private readonly tokenCache: FileTokenCache = new FileTokenCache()
-
-    private credentialSource: 'sp' | 'cli' | null = null
+    credentials: ServiceClientCredentials
+    adCredentials: ServiceClientCredentials
 
     constructor() {}
 
     async init(options: { subscriptionNameOrId?: string; resourceGroup?: string }): Promise<AzureSession> {
         if (await this.loginUsingPrincipal(options)) {
-            this.credentialSource = 'sp'
+            return this
+        }
+        if (await this.loginUsingCliCredentials(options)) {
             return this
         }
 
-        await this.tokenCache.load(AZURE_TOKENS_PATH)
-        this.credentialSource = 'cli'
-        if (this.tokenCache.empty()) {
-            this.credentialSource = null
-            exit('Not logged on, please use either "az login" to login')
-        }
+        throw new Error(`No login method was successful - cannot access Azure subscription`)
+    }
 
-        let tenantId: string
-        switch (this.credentialSource) {
-            case 'cli':
-                const azureProfile = await readJsonFile(AZURE_PROFILE_PATH)
-                debug(AZURE_PROFILE_PATH, azureProfile)
-                if (azureProfile) {
-                    const defaultSubscription = azureProfile.subscriptions.find((s) => s.isDefault)
-                    options.subscriptionNameOrId = options.subscriptionNameOrId || defaultSubscription.id
-                    tenantId = defaultSubscription.tenantId
-                }
-                break
-            default:
-                throw new Error(`Invalid credentialSource: ${this.credentialSource}`)
-        }
-        debug('Find subscription options', options)
-
-        const token = this.tokenCache.first()
-        debug('Selected token')
-        this.credentials = new DeviceTokenCredentials({ tokenCache: this.tokenCache, username: token.userId })
-        this.adCredentials = new DeviceTokenCredentials({
-            tokenCache: this.tokenCache,
-            username: token.userId,
-            tokenAudience: '00000002-0000-0000-c000-000000000000',
+    private async loginUsingCliCredentials(options: {
+        subscriptionNameOrId?: string
+        resourceGroup?: string
+    }): Promise<boolean> {
+        const creds = await AzureCliCredentials.create()
+        this.credentials = creds
+        this.adCredentials = await AzureCliCredentials.create({
+            resource: 'https://graph.windows.net',
+            subscriptionIdOrName: creds.subscriptionInfo.id,
         })
-        debug('credentials', this.credentials)
-        const subscriptionClient = new SubscriptionClient(this.credentials)
-        const subscriptionList = await subscriptionClient.subscriptions.list()
-        const currentSubscription = await this.matchSubscription(subscriptionList, options)
-        tenantId = tenantId || token.tenantId
-        if (!tenantId) {
-            const tenantList = await subscriptionClient.tenants.list()
-            tenantId = tenantList[0].tenantId
+        if (!options.subscriptionNameOrId || options.subscriptionNameOrId === creds.subscriptionInfo.subscriptionId) {
+            this.currentSubscription = {
+                tenantId: creds.subscriptionInfo.tenantId,
+                id: creds.subscriptionInfo.id,
+                name: creds.subscriptionInfo.name,
+                clientId: creds.subscriptionInfo.userId,
+            }
+            debug('Using the default subscription', {
+                creds,
+                currentSubscription: this.currentSubscription,
+            })
+            return true
+        }
+
+        // Let us change the subscriptionId, which should trigger refreshing the access token.
+        const subscriptions = await AzureCliCredentials.listAllSubscriptions()
+        debug('subscription list', subscriptions)
+        const subscription = subscriptions.find(
+            (s) => s.id === options.subscriptionNameOrId || s.name === options.subscriptionNameOrId
+        )
+        if (!subscription) {
+            throw new Error(
+                `Cannot find the subscription '${options.subscriptionNameOrId}' in ${JSON.stringify(
+                    subscriptions,
+                    null,
+                    2
+                )}`
+            )
         }
         this.currentSubscription = {
-            tenantId: tenantId,
-            id: currentSubscription.subscriptionId,
-            name: currentSubscription.displayName,
-            clientId: token.userId,
+            tenantId: subscription.tenantId,
+            id: subscription.id,
+            name: subscription.name,
+            clientId: subscription.userId,
         }
-        return this
+        debug('currentSubscription', { currentSubscription: this.currentSubscription })
+        return true
     }
 
     private async loginUsingPrincipal(options: {
@@ -120,11 +119,7 @@ export class AzureSession {
         }
 
         debug('Login to Azure using service principal credentials')
-        const authResponse = await loginWithServicePrincipalSecretWithAuthResponse(
-            clientId,
-            clientSecret,
-            this.currentSubscription.tenantId
-        )
+        const authResponse = await loginWithServicePrincipalSecretWithAuthResponse(clientId, clientSecret, tenantId)
         debug('Login successful', authResponse)
         this.credentials = authResponse.credentials
         const currentSubscription = await this.matchLinkedSubscription(authResponse.subscriptions, options)
@@ -168,37 +163,6 @@ export class AzureSession {
         }
     }
 
-    private async matchSubscription(
-        subscriptions: Subscription[],
-        options: { subscriptionNameOrId?: string; resourceGroup?: string }
-    ): Promise<Subscription> {
-        const matchingSubscriptions: Subscription[] = []
-        for (const subscription of subscriptions) {
-            if (options.subscriptionNameOrId) {
-                if (
-                    subscription.displayName === options.subscriptionNameOrId ||
-                    subscription.subscriptionId === options.subscriptionNameOrId
-                ) {
-                    matchingSubscriptions.push(subscription)
-                }
-            } else {
-                matchingSubscriptions.push(subscription)
-            }
-        }
-        switch (matchingSubscriptions.length) {
-            case 0:
-                throw new Error('Could not find any matching subscription')
-            case 1:
-                return matchingSubscriptions[0]
-            default:
-                throw new Error(
-                    `More than one matching subscription was found: ${matchingSubscriptions
-                        .map((s) => s.displayName)
-                        .join(', ')}`
-                )
-        }
-    }
-
     networkManagementClient(): NetworkManagementClient {
         return new NetworkManagementClient(this.credentials, this.currentSubscription.id)
     }
@@ -221,6 +185,14 @@ export class AzureSession {
 
     storageManagementClient(): StorageManagementClient {
         return new StorageManagementClient(this.credentials, this.currentSubscription.id)
+    }
+
+    getAzureStorageAccount(
+        resourceGroupName: string,
+        location: string,
+        storageAccountName: string
+    ): AzureStorageAccount {
+        return new AzureStorageAccount(this, resourceGroupName, location, storageAccountName)
     }
 
     dnsManagementClient(): DnsManagementClient {
@@ -400,9 +372,7 @@ export class AzureSession {
     readonly STORAGE_ACCOUNT_CONTRIBUTOR_ROLE_NAME = '17d1049b-9a84-46fb-8f53-869881c3d3ab'
 
     getRoleDefinitionId(roleId: string): string {
-        return `/subscriptions/${
-            this.currentSubscription.id
-        }/providers/Microsoft.Authorization/roleDefinitions/${roleId}`
+        return `/subscriptions/${this.currentSubscription.id}/providers/Microsoft.Authorization/roleDefinitions/${roleId}`
     }
 
     getVnetScope(resourceGroup: string, vnetName: string): string {
@@ -457,7 +427,7 @@ export class AzureSession {
 
     // ==> ResourceGroup <==
 
-    async createResourceGroup(name: string, location: string): Promise<ResourceModels.ResourceGroup> {
+    async createResourceGroup(name: string, location: string): Promise<ResourceGroup> {
         try {
             consoleLog(`Resource group ${name}:`)
             const resourceGroup = await this.resourceManagementClient().resourceGroups.get(name)
@@ -609,25 +579,29 @@ export class AzureSession {
         return 'netinsight'
     }
 
-    async createCluster(
-        clusterName: string,
-        resourceGroup: string,
-        location: string,
-        useVmss: boolean,
-        kubernetesVersion: string,
-        nodePools: NodePool[],
-        password: string,
-        cidr: string,
-        servicePrincipalName: string,
-        vnetName: string,
-        subnetName: string,
-        publicKeyPath?: string,
-        maxPodsPerNode?: number
-    ): Promise<ManagedCluster> {
+    async createCluster(options: {
+        name: string
+        resourceGroup: string
+        location: string
+        release: string
+        nodePoolName: string
+        count: number
+        vmSize: ContainerServiceVMSizeTypes
+        enableAutoScaling: boolean
+        minCount: number
+        maxCount: number
+        password: string
+        cidr: string
+        servicePrincipalName: string
+        vnetName: string
+        subnetName: string
+        publicKeyPath?: string
+        maxPods?: number
+    }): Promise<ManagedCluster> {
         const containerServiceClient = this.containerServiceClient()
         try {
-            consoleLog(`AKS Cluster ${clusterName}:`)
-            const aksCluster = await containerServiceClient.managedClusters.get(resourceGroup, clusterName)
+            consoleLog(`AKS Cluster ${options.name}:`)
+            const aksCluster = await containerServiceClient.managedClusters.get(options.resourceGroup, options.name)
             if (aksCluster) {
                 consoleLog('  Already exists - OK.')
                 return aksCluster
@@ -638,7 +612,7 @@ export class AzureSession {
         consoleLog('  Getting appId...')
         const graphClient = this.graphRbacManagementClient()
         const spList = await graphClient.servicePrincipals.list({
-            filter: `displayName eq '${servicePrincipalName}'`,
+            filter: `displayName eq '${options.servicePrincipalName}'`,
         })
         if (spList.length !== 1) {
             throw new Error(`Could not find the service principal - got ${spList.length} matches`)
@@ -648,15 +622,28 @@ export class AzureSession {
         consoleLog('  Getting subnet id...')
         const networkClient = this.networkManagementClient()
         debug('mgmt')
-        const subnet = await networkClient.subnets.get(resourceGroup, vnetName, subnetName)
+        const subnet = await networkClient.subnets.get(options.resourceGroup, options.vnetName, options.subnetName)
         debug('subnetId', subnet.id)
         consoleLog('  Reading SSH public key...')
-        const publicKey = await promisify(fs.readFile)(publicKeyPath || `${process.env.HOME}/.ssh/id_rsa.pub`)
+        const publicKey = await promisify(fs.readFile)(options.publicKeyPath || `${process.env.HOME}/.ssh/id_rsa.pub`)
         debug('SSH public key', publicKey)
         const parameters: ManagedCluster = {
-            location: location,
-            kubernetesVersion: kubernetesVersion,
-            agentPoolProfiles: [],
+            location: options.location,
+            kubernetesVersion: options.release,
+            agentPoolProfiles: [
+                {
+                    name: options.nodePoolName,
+                    count: options.count,
+                    vmSize: options.vmSize,
+                    vnetSubnetID: subnet.id,
+                    maxPods: options.maxPods,
+                    osType: 'Linux',
+                    type: 'VirtualMachineScaleSets',
+                    enableAutoScaling: options.minCount > 0,
+                    minCount: options.minCount > 0 ? options.minCount : undefined,
+                    maxCount: options.minCount > 0 ? options.maxCount : undefined,
+                },
+            ],
             linuxProfile: {
                 adminUsername: this.getAdminUsername(),
                 ssh: {
@@ -665,42 +652,21 @@ export class AzureSession {
             },
             servicePrincipalProfile: {
                 clientId: appId,
-                secret: password,
+                secret: options.password,
             },
             enableRBAC: true,
             networkProfile: {
                 networkPlugin: 'azure',
                 // Using default: networkPolicy: '',
-                podCidr: cidr,
+                podCidr: options.cidr,
             },
-            dnsPrefix: clusterName,
-        }
-        for (const nodePool of nodePools) {
-            if (!useVmss) {
-                parameters.agentPoolProfiles.push({
-                    name: nodePool.name,
-                    count: nodePool.count,
-                    vmSize: nodePool.vmSize,
-                    vnetSubnetID: subnet.id,
-                    maxPods: maxPodsPerNode,
-                })
-            } else {
-                parameters.agentPoolProfiles.push({
-                    name: nodePool.name,
-                    count: nodePool.count,
-                    vmSize: nodePool.vmSize,
-                    vnetSubnetID: subnet.id,
-                    maxPods: maxPodsPerNode,
-                    osType: 'Linux',
-                    type: 'VirtualMachineScaleSets',
-                })
-            }
+            dnsPrefix: options.name,
         }
         debug('parameters', parameters)
         consoleLog('  Creating AKS cluster...')
         const cluster = await containerServiceClient.managedClusters.createOrUpdate(
-            resourceGroup,
-            clusterName,
+            options.resourceGroup,
+            options.name,
             parameters
         )
         debug('Cluster created', cluster)
@@ -728,7 +694,11 @@ export class AzureSession {
         }
     }
 
-    async enableVmssPublicIps(k8sResourceGroup: string) {
+    async enableVmssPublicIps(k8sResourceGroup: string, publicKeyPath: string) {
+        const publicKey = (await promisify(fs.readFile)(
+            publicKeyPath || `${process.env.HOME}/.ssh/id_rsa.pub`
+        )).toString()
+        debug('public SSH key', publicKey)
         const vmssClient = this.computeManagementClient().virtualMachineScaleSets
         const response = await vmssClient.list(k8sResourceGroup)
         consoleLog(`Adding public IPs to VMs in AKS cluster`)
@@ -744,27 +714,21 @@ export class AzureSession {
             if (!primaryIpConfig) {
                 throw new Error(`No primary ip config for profile ${primaryProfile.name} in ${vmss.name}`)
             }
-            if (primaryIpConfig.publicIPAddressConfiguration) {
+
+            if (!primaryIpConfig.publicIPAddressConfiguration) {
+                consoleLog(`  Adding public IP to ${vmss.name}...`)
+                primaryIpConfig.publicIPAddressConfiguration = {
+                    name: 'pub1',
+                }
+                consoleLog(`  Patching ${vmss.name}...`)
+                await vmssClient.createOrUpdate(k8sResourceGroup, vmss.name, vmss)
+                consoleLog(`  Upgrading VMs in ${vmss.name}...`)
+                const response = await vmssClient.updateInstances(k8sResourceGroup, vmss.name, { instanceIds: ['*'] })
+                consoleLog(`  Upgrade response: ${response.status}`)
+            } else {
                 consoleLog(`  Skipping ${vmss.name}...`)
-                continue
             }
-            primaryIpConfig.publicIPAddressConfiguration = {
-                name: 'pub1',
-            }
-            consoleLog(`  Patching ${vmss.name}...`)
-            await vmssClient.createOrUpdate(k8sResourceGroup, vmss.name, vmss)
-            consoleLog(`  Upgrading VMs in ${vmss.name}...`)
-            const response = await vmssClient.updateInstances(k8sResourceGroup, vmss.name, ['*'])
-            consoleLog(`  Upgrade response: ${response.status}`)
         }
         consoleLog('  Done')
     }
-}
-
-export interface NodePool {
-    name: string
-    count: number
-    vmSize: string
-    minCount?: number
-    maxCount?: number
 }

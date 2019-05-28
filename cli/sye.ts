@@ -92,9 +92,7 @@ async function singleServer(networkInterface: string, options: any) {
         resolve(
             __dirname,
             '..',
-            `./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${
-                options.managementTlsPort
-            } --single ${networkInterface}`
+            `./sye-cluster-join.sh --management-port ${options.managementPort} --management-tls-port ${options.managementTlsPort} --single ${networkInterface}`
         )
     )
 
