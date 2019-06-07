@@ -199,6 +199,8 @@ ROLES="${roles}" PUBLIC_STORAGE_URL="${publicStorageUrl}" SYE_ENV_URL="${envUrl}
             debug('Network interface was updated', networkInterface)
             const vmInfo = await computeClient.virtualMachines.createOrUpdate(clusterId, machineName, vmParameters)
             debug('Virtual machine created (without accelerated networking)', vmInfo)
+        } else {
+            throw ex
         }
     }
     if (!skipSecurityRules) {
