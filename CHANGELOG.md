@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+* Increase net.core.wmem_max for pitcher machines to 20MB
+
 ## [2.0.0] - 2019-05-16
 
 * Amazon EKS: Support for cluster autoscaling and monitoring

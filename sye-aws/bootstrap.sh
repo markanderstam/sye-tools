@@ -54,7 +54,7 @@ if [[ $ROLES =~ (^|,)pitcher($|,) ]]
 then
     echo "Applying role pitcher"
     echo "" >> /etc/sysctl.conf
-    echo "net.core.wmem_max=1343488" >> /etc/sysctl.conf
+    echo "net.core.wmem_max=20000000" >> /etc/sysctl.conf
     echo "net.core.rmem_max=20000000" >> /etc/sysctl.conf
     sysctl -p
 fi
