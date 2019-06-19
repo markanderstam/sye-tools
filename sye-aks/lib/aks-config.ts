@@ -23,7 +23,3 @@ export function getVnetName(resourceGroup: string): string {
 export function getAksServicePrincipalName(resourceGroup: string): string {
     return `${resourceGroup}-sp`
 }
-
-export function defaultClusterAutoscalerSpName(resourceGroup: string, clusterName: string): string {
-    return `${resourceGroup}-${clusterName}-autoscaler`
-}

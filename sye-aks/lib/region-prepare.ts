@@ -6,17 +6,17 @@ export async function aksRegionPrepare(
     options: {
         resourceGroup: string
         location: string
-        vnetCidr: string
-        servicePrincipalPassword: string
+        cidr: string
+        password: string
     }
 ) {
     const azureSession = await new AzureSession().init({ subscriptionNameOrId })
     await azureSession.createResourceGroup(options.resourceGroup, options.location)
-    await azureSession.createVnet(options.resourceGroup, options.resourceGroup, options.location, options.vnetCidr)
+    await azureSession.createVnet(options.resourceGroup, options.resourceGroup, options.location, options.cidr)
     const adApplication = await azureSession.createAdApplication(getAksServicePrincipalName(options.resourceGroup))
     const servicePrincipal = await azureSession.createServicePrincipal(
         getAksServicePrincipalName(options.resourceGroup),
-        options.servicePrincipalPassword,
+        options.password,
         adApplication
     )
 

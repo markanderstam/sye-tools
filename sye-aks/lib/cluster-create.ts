@@ -9,18 +9,15 @@ import {
     installPrometheus,
     installPrometheusOperator,
     installPrometheusAdapter,
-    writeClusterAutoscalerFile,
 } from '../../lib/k8s'
-import { ensurePublicIps } from './utils'
-import { AzureSession, NodePool } from '../../lib/azure/azure-session'
+import { AzureSession } from '../../lib/azure/azure-session'
 import { promisify } from 'util'
-import * as k8s from '@kubernetes/client-node'
 import { getK8sResourceGroup } from './aks-config'
 import { getVnetName } from './aks-config'
 import { getSubnetName } from './aks-config'
 import { getAksServicePrincipalName } from './aks-config'
-import { defaultClusterAutoscalerSpName } from './aks-config'
-import { ServicePrincipal } from 'azure-graph/lib/models'
+import { ServicePrincipal } from '@azure/graph/lib/models'
+import { ContainerServiceVMSizeTypes } from '@azure/arm-containerservice/src/models/index'
 
 const debug = require('debug')('aks/cluster-create')
 
@@ -66,95 +63,45 @@ async function downloadKubectlCredentials(
     consoleLog('  Done.')
 }
 
-async function getClusterAutoscalerExtraValues(
-    azureSession: AzureSession,
-    kubeconfig: string,
-    nodepools: NodePool[],
-    spPassword: string,
-    autoscalerSpName: string,
-    resourceGroup: string,
-    clusterName: string,
-    k8sResourceGroup: string
-) {
-    const k8sConfig = new k8s.KubeConfig()
-    k8sConfig.loadFromFile(kubeconfig)
-    const k8sApi = k8sConfig.makeApiClient(k8s.Core_v1Api)
-
-    const nodeList = (await k8sApi.listNode()).body
-    debug('Found nodes', nodeList)
-    const agentpool = nodeList.items[0].metadata.labels['agentpool']
-    debug('agentpool', agentpool)
-
-    const spId = autoscalerSpName || defaultClusterAutoscalerSpName(resourceGroup, clusterName)
-    const sp = await azureSession.getServicePrincipal(spId)
-
-    const values = {
-        azureClientID: sp.appId,
-        azureClientSecret: spPassword,
-        azureSubscriptionID: azureSession.currentSubscription.id,
-        azureTenantID: azureSession.currentSubscription.tenantId,
-        azureVMType: 'AKS',
-        azureClusterName: clusterName,
-        azureResourceGroup: resourceGroup,
-        azureNodeResourceGroup: k8sResourceGroup,
-        autoscalingGroups: [],
-    }
-
-    for (const nodepool of nodepools) {
-        values.autoscalingGroups.push({
-            name: nodepool.name,
-            minSize: nodepool.minCount,
-            maxSize: nodepool.maxCount,
-        })
-    }
-
-    return values
-}
-
-export async function createAksCluster(
-    subscriptionNameOrId: string | undefined,
-    options: {
-        resourceGroup: string
-        location: string
-        clusterName: string
-        kubernetesVersion: string
-        nodepools: NodePool[]
-        servicePrincipalPassword: string
-        kubeconfig: string
-        useVmss: boolean
-        subnetCidr: string
-        autoscalerValuesFile: string
-        autoscalerSpName?: string
-        autoscalerSpPassword?: string
-        maxPodsPerNode?: number
-        openSshPort?: boolean
-        publicKeyPath?: string
-    }
-) {
-    const azureSession = await new AzureSession().init({ subscriptionNameOrId })
-    const k8sResourceGroup = await getK8sResourceGroup(options.resourceGroup, options.clusterName, options.location)
+export async function createAksCluster(options: {
+    subscription?: string
+    resourceGroup: string
+    location: string
+    name: string
+    release: string
+    nodePoolName: string
+    count: number
+    vmSize: ContainerServiceVMSizeTypes
+    enableAutoScaling: boolean
+    minCount: number
+    maxCount: number
+    password: string
+    kubeconfig: string
+    cidr: string
+    maxPods?: number
+    openSshPort?: boolean
+    publicKeyPath?: string
+    installPrometheus: boolean
+}) {
+    const azureSession = await new AzureSession().init({
+        subscriptionNameOrId: options.subscription,
+    })
+    const k8sResourceGroup = await getK8sResourceGroup(options.resourceGroup, options.name, options.location)
     await azureSession.createSubnet(
         options.resourceGroup,
         getVnetName(options.resourceGroup),
-        getSubnetName(options.clusterName),
-        options.subnetCidr
+        getSubnetName(options.name),
+        options.cidr
     )
     const servicePrincipalName = getAksServicePrincipalName(options.resourceGroup)
-    await azureSession.createCluster(
-        options.clusterName,
-        options.resourceGroup,
-        options.location,
-        options.useVmss,
-        options.kubernetesVersion,
-        options.nodepools,
-        options.servicePrincipalPassword,
-        options.subnetCidr,
+    const params = {
+        ...options,
         servicePrincipalName,
-        getVnetName(options.resourceGroup),
-        getSubnetName(options.clusterName),
-        options.publicKeyPath,
-        options.maxPodsPerNode
-    )
+        vnetName: getVnetName(options.resourceGroup),
+        subnetName: getSubnetName(options.name),
+    }
+    await azureSession.createCluster(params)
+
     const servicePrincipal = await azureSession.getServicePrincipal(servicePrincipalName)
     await addCredentials(
         azureSession,
@@ -162,41 +109,22 @@ export async function createAksCluster(
         k8sResourceGroup,
         options.resourceGroup,
         getVnetName(options.resourceGroup),
-        getSubnetName(options.clusterName)
+        getSubnetName(options.name)
     )
-    if (options.useVmss) {
-        await azureSession.enableVmssPublicIps(k8sResourceGroup)
-    } else {
-        await ensurePublicIps(azureSession, options.clusterName, k8sResourceGroup, options.location)
-    }
+    await azureSession.enableVmssPublicIps(k8sResourceGroup, options.publicKeyPath)
     await azureSession.openPortInNsg(2123, 2130, 'Udp', 200, 'Sye SSP traffic (UDP 2123-2130)', k8sResourceGroup)
     await azureSession.openPortInNsg(2505, 2505, 'Tcp', 202, 'Connect Broker traffic (TCP 2505)', k8sResourceGroup)
     if (options.openSshPort) {
         await azureSession.openPortInNsg(22, 22, 'Tcp', 201, 'SSH access', k8sResourceGroup)
     }
-    await downloadKubectlCredentials(azureSession, options.kubeconfig, options.resourceGroup, options.clusterName)
+    await downloadKubectlCredentials(azureSession, options.kubeconfig, options.resourceGroup, options.name)
     installTillerRbac(options.kubeconfig)
     installTiller(options.kubeconfig)
     waitForTillerStarted(options.kubeconfig)
     installNginxIngress(options.kubeconfig)
-    if (options.autoscalerSpPassword) {
+    if (installPrometheus) {
         installPrometheusOperator(options.kubeconfig)
         installPrometheus(options.kubeconfig)
         installPrometheusAdapter(options.kubeconfig)
-        writeClusterAutoscalerFile(
-            options.autoscalerValuesFile,
-            options.kubeconfig,
-            'azure',
-            await getClusterAutoscalerExtraValues(
-                azureSession,
-                options.kubeconfig,
-                options.nodepools,
-                options.autoscalerSpPassword,
-                options.autoscalerSpName,
-                options.resourceGroup,
-                options.clusterName,
-                k8sResourceGroup
-            )
-        )
     }
 }

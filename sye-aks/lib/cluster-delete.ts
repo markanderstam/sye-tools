@@ -6,14 +6,14 @@ export async function deleteAksCluster(
     subscription: string | undefined,
     options: {
         resourceGroup: string
-        clusterName: string
+        name: string
     }
 ) {
     const azureSession = await new AzureSession().init({ subscriptionNameOrId: subscription })
-    await azureSession.deleteCluster(options.clusterName, options.resourceGroup)
+    await azureSession.deleteCluster(options.name, options.resourceGroup)
     await azureSession.deleteSubnet(
         options.resourceGroup,
-        getSubnetName(options.clusterName),
+        getSubnetName(options.name),
         getVnetName(options.resourceGroup)
     )
 }
