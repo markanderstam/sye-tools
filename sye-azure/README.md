@@ -14,11 +14,10 @@ The `sye azure` command is currently in beta, and we will make backwards incompa
 
 ### Interactive login
 
-By defaylt, authentication against Azure is performed using an interactive login. The first time you run the `sye azure` command for a cluster (or explicitly issue a `sye azure login` command), it will prompt you to open a web-browser and login. When you have logged in, the generated credentials will be stored under `~/.sye/`. The stored credentials are normally only valid for one hour and then you have to login again.
+By default, authentication against Azure is performed using an interactive login. If this is the first time running a `sye azure` command, then you will need to first go through the interactive login process by running `az login` (more help [here](https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli?view=azure-cli-latest)).
 
-The default file used to store the credentials is `default.tokens.json` which can be changed using the `--profile` parameter for all the `sye azure` commands. This enables the use of more than one parallel session.
-
-A session may be invalidated using the `sye azure logout` command.
+Once you have logged in, you should set your default Azure subscription. Run `az account list --output table` to list all the available subscriptions and
+run `az account set --subscription "My subscription's name"` to set one as default. The default subscription will be used for all the subsequent `sye azure` commands.
 
 ### Service Principal login
 
