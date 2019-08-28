@@ -111,7 +111,7 @@ export async function createAksCluster(options: {
         getVnetName(options.resourceGroup),
         getSubnetName(options.name)
     )
-    await azureSession.enableVmssPublicIps(k8sResourceGroup, options.publicKeyPath)
+    await azureSession.enableVmssPublicIps(k8sResourceGroup)
     await azureSession.openPortInNsg(2123, 2130, 'Udp', 200, 'Sye SSP traffic (UDP 2123-2130)', k8sResourceGroup)
     await azureSession.openPortInNsg(2505, 2505, 'Tcp', 202, 'Connect Broker traffic (TCP 2505)', k8sResourceGroup)
     if (options.openSshPort) {

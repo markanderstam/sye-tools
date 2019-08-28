@@ -43,6 +43,8 @@ export async function addNodePoolToAksCluster(options: {
             osType: 'Linux',
             enableAutoScaling: options.minCount > 0,
         })
+    consoleLog('  Adding public IPs to VMs...')
+    await azureSession.enableVmssPublicIps(aksCluster.nodeResourceGroup)
     consoleLog('  Nodepool was added.')
 }
 

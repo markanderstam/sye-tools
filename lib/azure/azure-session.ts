@@ -694,11 +694,7 @@ export class AzureSession {
         }
     }
 
-    async enableVmssPublicIps(k8sResourceGroup: string, publicKeyPath: string) {
-        const publicKey = (await promisify(fs.readFile)(
-            publicKeyPath || `${process.env.HOME}/.ssh/id_rsa.pub`
-        )).toString()
-        debug('public SSH key', publicKey)
+    async enableVmssPublicIps(k8sResourceGroup: string) {
         const vmssClient = this.computeManagementClient().virtualMachineScaleSets
         const response = await vmssClient.list(k8sResourceGroup)
         consoleLog(`Adding public IPs to VMs in AKS cluster`)
