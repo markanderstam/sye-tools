@@ -79,3 +79,25 @@ export async function deleteNodePoolToAksCluster(
         .agentPools.deleteMethod(options.resourceGroup, options.name, options.nodePoolName)
     consoleLog('  Nodepool was deleted.')
 }
+
+export async function ensurePublicIpOnNodepool(options: {
+    subscription?: string
+    resourceGroup: string
+    name: string
+}) {
+    consoleLog('Ensuring public IPs on all nodepools:')
+    const azureSession = await new AzureSession().init({ subscriptionNameOrId: options.subscription })
+    consoleLog('  Finding cluster...')
+    const aksCluster = await azureSession.getAksCluster({
+        clusterName: options.name,
+        resourceGroup: options.resourceGroup,
+    })
+    consoleLog('  Validating...')
+    if (!aksCluster.agentPoolProfiles.find((ap) => ap.type === 'VirtualMachineScaleSets')) {
+        throw new Error('The cluster is not a VMSS base AKS cluster')
+    }
+
+    consoleLog('  Adding public IPs to VMs...')
+    await azureSession.enableVmssPublicIps(aksCluster.nodeResourceGroup)
+    consoleLog('  Nodepool was added.')
+}
