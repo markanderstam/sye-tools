@@ -9,7 +9,11 @@ import { aksRegionCleanup } from '../sye-aks/lib/region-cleanup'
 import { deleteAksCluster } from '../sye-aks/lib/cluster-delete'
 import { showAksCluster } from '../sye-aks/lib/show-cluster'
 import { showAksRegion } from '../sye-aks/lib/show-region'
-import { addNodePoolToAksCluster, deleteNodePoolToAksCluster } from '../sye-aks/lib/cluster-nodepool'
+import {
+    addNodePoolToAksCluster,
+    deleteNodePoolToAksCluster,
+    ensurePublicIpOnNodepool,
+} from '../sye-aks/lib/cluster-nodepool'
 import { ContainerServiceVMSizeTypes } from '@azure/arm-containerservice/src/models/index'
 import * as camelcase from 'camelcase'
 const debug = require('debug')('sye-aks')
@@ -177,6 +181,23 @@ program
     .action(async (options: { subscription?: string; resourceGroup: string; name: string; nodePoolName: string }) => {
         try {
             await deleteNodePoolToAksCluster(options.subscription, options)
+        } catch (ex) {
+            exit(ex)
+        }
+    })
+
+program
+    .command('ensure-public-ip')
+    .description(
+        'Ensure that all VMSS VMs and nodepools has public IPs configured\n' +
+            'If needed this command will restart VMs to upgrade them to latest config.'
+    )
+    .option('--subscription <name or id>', 'The Azure subscription')
+    .option('--resource-group <name>', 'The resource group for the AKS cluster')
+    .option('--name <name>', 'The name of the AKS cluster to update')
+    .action(async (options: { subscription?: string; resourceGroup: string; name: string; nodePoolName: string }) => {
+        try {
+            await ensurePublicIpOnNodepool(options)
         } catch (ex) {
             exit(ex)
         }
