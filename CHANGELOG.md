@@ -4,9 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [UNRELEASED]
 
+## [2.1.0] - 2019-09-09
+
 * Azure and AKS: Rewrite to use the @azure npm modules
 * Azure AKS: Drop support for non-VMSS AKS clusters
 * Azure AKS: Add/delete nodepools
+* Azure AKS: New cmd for ensuring public ip on nodepools
 * Increase net.core.wmem_max for pitcher machines to 20MB
 
 ## [2.0.0] - 2019-05-16
