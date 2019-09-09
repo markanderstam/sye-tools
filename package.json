@@ -42,7 +42,6 @@
     "@azure/ms-rest-js": "^1.8.12",
     "@azure/ms-rest-nodeauth": "^2.0.1",
     "@azure/storage-blob": "^10.3.0",
-    "@kubernetes/client-node": "^0.8.2",
     "adal-node": "^0.1.27",
     "aws-sdk": "^2.473.0",
     "camelcase": "^5.3.1",
