@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [UNRELEASED]
 
+## [2.1.1] - 2019-09-09
+
+* Update package dependencies
+
 ## [2.1.0] - 2019-09-09
 
 * Azure and AKS: Rewrite to use the @azure npm modules
