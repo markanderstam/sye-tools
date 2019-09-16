@@ -89,6 +89,7 @@ export function installPrometheusOperator(kubeconfig: string) {
 --set kubeEtcd.enabled=false \
 --set kubeStateMetrics.enabled=true \
 --set nodeExporter.enabled=false \
+--version 5.12.3 \
 prometheus-operator stable/prometheus-operator`)
     consoleLog('  Done.')
 }
@@ -105,7 +106,9 @@ export function installPrometheusAdapter(kubeconfig: string) {
     execSync(`helm upgrade --kubeconfig ${kubeconfig} --install --namespace prometheus \
     --set prometheus.url=http://metrics.prometheus.svc \
     --set prometheus.port=9090 \
-    --set image.repository=bhavin192/k8s-prometheus-adapter-amd64 --set image.tag=pr110 \
+    --set image.repository=bhavin192/k8s-prometheus-adapter-amd64 \
+    --set image.tag=pr110 \
+    --version 1.1.0 \
     prometheus-adapter stable/prometheus-adapter`)
     consoleLog('  Done.')
 }
