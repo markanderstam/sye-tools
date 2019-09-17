@@ -146,10 +146,12 @@ function _setGlobalVariablesFromArgs() {
                 shift
                 ;;
             --single)
+                validateFlag --single $2
                 SINGLE=$2
                 shift
                 ;;
             --management)
+                validateFlag --management $2
                 MANAGEMENT=$2
                 shift
                 ;;
