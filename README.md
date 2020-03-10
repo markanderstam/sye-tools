@@ -1,10 +1,10 @@
 # sye-tools
 
-[![npm version](https://badge.fury.io/js/%40netinsight%2Fsye-tools.svg)](https://badge.fury.io/js/%40netinsight%2Fsye-tools)
+[![npm version](https://badge.fury.io/js/%40trulive%2Fsye-tools.svg)](https://badge.fury.io/js/%40trulive%2Fsye-tools)
 
 Tools for installing and managing a Sye cluster.
 
-    npm install -g @netinsight/sye-tools
+    npm install -g @trulive/sye-tools
 
 The tools are installed as a single command named `sye`. The sye-command has several sub-commands. Help is available for the sye-command and all sub-commands with
 

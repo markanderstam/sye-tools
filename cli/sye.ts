@@ -10,7 +10,7 @@ import { syeEnvironmentFile, consoleLog, exit, execSync } from '../lib/common'
 
 const VERSION = require('../../package.json').version
 
-program.version(VERSION).description('sye-tools. See https://github.com/netinsight/sye-tools')
+program.version(VERSION).description('sye-tools. See https://github.com/trulive/sye-tools')
 
 program
     .command('registry [subcommand]', 'operate on a docker registry')

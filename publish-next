@@ -17,8 +17,8 @@ npm run test
 # List files that will be included by running npm pack
 # and then listing all files that it includes in the tar.
 npm pack
-tar tvzf netinsight-sye-tools*
-rm netinsight-sye-tools*
+tar tvzf trulive-sye-tools*
+rm trulive-sye-tools*
 
 echo "Do you want to publish this as the \`next\` version?"
 select yn in "Yes" "No"; do

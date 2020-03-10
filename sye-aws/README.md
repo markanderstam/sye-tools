@@ -91,7 +91,7 @@ Additionally, sye cluster on AWS is able to be deployed by using Amazon elastic 
     sye aws registry-show eu-central-1
 
 ## Grant read only permission to registry for a sye cluster
-    sye aws registry-grant-permission https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster.example.com
+    sye aws registry-grant-permission https://123456789.dkr.ecr.eu-central-1.amazonaws.com/trulive my-cluster.example.com
 
 ## Delete a registry
     sye aws registry-delete https://123456789.dkr.ecr.eu-central-1.amazonaws.com/
@@ -100,12 +100,12 @@ To set up a sye backend using ECR, you should follow the steps shown below:
 
     sye aws registry-create eu-central-1
 
-    sye cluster create --release r23.175 --internal-ipv6 https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
+    sye cluster create --release r23.175 --internal-ipv6 https://123456789.dkr.ecr.eu-central-1.amazonaws.com/trulive my-cluster-etcd1.example.com  my-cluster-etcd2.example.com my-cluster-etcd3.example.com
 
     sye aws cluster-create my-cluster.example.com ./sye-environment.tar.gz ./authorized_keys
 
-    sye registry add-release https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight
+    sye registry add-release https://123456789.dkr.ecr.eu-central-1.amazonaws.com/trulive
 
-    sye aws registry-grant-permission https://123456789.dkr.ecr.eu-central-1.amazonaws.com/netinsight my-cluster.example.com
+    sye aws registry-grant-permission https://123456789.dkr.ecr.eu-central-1.amazonaws.com/trulive my-cluster.example.com
 
 You are ready to add regions and machines.
