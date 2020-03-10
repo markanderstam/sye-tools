@@ -283,10 +283,10 @@ prompt                 = no
 C                      = SE
 ST                     = Stockholm
 L                      = Stockholm
-O                      = Net Insight
+O                      = Livestreaming Sweden
 OU                     = ott_${Date.now()}
 CN                     = ca
-emailAddress           = ca@neti.systems
+emailAddress           = ca@sye.local
 
 [ req_attributes ]
 challengePassword      = test

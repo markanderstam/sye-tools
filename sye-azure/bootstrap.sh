@@ -10,11 +10,11 @@ echo STORAGE_DEVICE_NAME $STORAGE_DEVICE_NAME
 
 echo Arguments "${@:1}"
 
-passwd -d netinsight
+passwd -d trulive
 
-curl -o /home/netinsight/.ssh/authorized_keys $PUBLIC_STORAGE_URL/authorized_keys
-chown netinsight:netinsight /home/netinsight/.ssh/authorized_keys
-chmod go-rwx /home/netinsight/.ssh/authorized_keys
+curl -o /home/trulive/.ssh/authorized_keys $PUBLIC_STORAGE_URL/authorized_keys
+chown trulive:trulive /home/trulive/.ssh/authorized_keys
+chmod go-rwx /home/trulive/.ssh/authorized_keys
 
 if [[ $STORAGE_DEVICE_NAME ]]
 then
@@ -42,7 +42,7 @@ add-apt-repository \
    stable"
 apt-get update
 apt-get install -y docker-ce
-usermod -aG docker netinsight
+usermod -aG docker trulive
 useradd -M sye
 
 if [[ $ROLES =~ (^|,)log($|,) ]]

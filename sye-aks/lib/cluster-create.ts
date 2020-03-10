@@ -16,7 +16,7 @@ import { getK8sResourceGroup } from './aks-config'
 import { getVnetName } from './aks-config'
 import { getSubnetName } from './aks-config'
 import { getAksServicePrincipalName } from './aks-config'
-import { ServicePrincipal } from '@azure/graph/lib/models'
+import { ServicePrincipal } from '@azure/graph/src/models'
 import { ContainerServiceVMSizeTypes } from '@azure/arm-containerservice/src/models/index'
 
 const debug = require('debug')('aks/cluster-create')

@@ -89,7 +89,7 @@ or the `sye * machine-add` command) get the proper certs.
 For each machine in the cluster do (this step requires SSH access
 as root to the machines):
 
-    # Copy the sye-cluster-install-certs.sh from https://github.com/netinsight/sye-tools
+    # Copy the sye-cluster-install-certs.sh from https://github.com/trulive/sye-tools
     # Copy the sye-environment-stage-<N>.tar.gz to the machine
     sudo sye-cluster-install-certs.sh -f sye-environment-stage-<N>.tar.gz
 

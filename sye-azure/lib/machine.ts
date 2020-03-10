@@ -131,7 +131,7 @@ export async function machineAdd(
         tags: tags,
         osProfile: {
             computerName: vmName(machineName),
-            adminUsername: 'netinsight',
+            adminUsername: 'trulive',
             adminPassword: 'neti1A', // TODO Remove password
             customData: Buffer.from(
                 `#!/bin/sh

@@ -43,7 +43,7 @@ program
 program
     .command('registry-create <region>')
     .description(`Create ECR registry for sye services`)
-    .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
+    .option('--prefix [prefix]', `Prefix for repositories. Default to 'trulive'`)
     .action(async (region, options: any) => {
         consoleLog(`Creating repositories in region ${region}`)
         await createRegistry(region, options.prefix).catch(exit)
@@ -53,7 +53,7 @@ program
 program
     .command('registry-show <region>')
     .description(`Show ECR registry for sye services`)
-    .option('--prefix [prefix]', `Prefix for repositories. Default to 'netinsight'`)
+    .option('--prefix [prefix]', `Prefix for repositories. Default to 'trulive'`)
     .option('--raw', 'Show raw JSON format')
     .action(async (region, options: any) => {
         await showRegistry(region, true, options.prefix, options.raw).catch(exit)

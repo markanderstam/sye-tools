@@ -8,7 +8,7 @@ import { DnsManagementClient } from '@azure/arm-dns'
 import { promisify } from 'util'
 import * as fs from 'fs'
 import { exit, consoleLog, sleep } from '../common'
-import { Application, ServicePrincipal } from '@azure/graph/lib/models'
+import { Application, ServicePrincipal } from '@azure/graph/src/models'
 import { VirtualNetwork } from '@azure/arm-network/esm/models'
 import * as uuidv4 from 'uuid/v4'
 import { ManagedCluster } from '@azure/arm-containerservice/esm/models'
@@ -196,7 +196,7 @@ export class AzureSession {
     }
 
     dnsManagementClient(): DnsManagementClient {
-        return new DnsManagementClient(this.credentials, this.currentSubscription.id)
+        return new DnsManagementClient(this.credentials as any, this.currentSubscription.id)
     }
 
     subscriptionClient(): SubscriptionClient {
@@ -302,8 +302,6 @@ export class AzureSession {
         consoleLog('  Creating...')
         const createdSp = await this.graphRbacManagementClient().servicePrincipals.create({
             appId: adApplication.appId,
-            displayName: name,
-            homepage: this.getHomepage(name),
             passwordCredentials: [
                 {
                     value: password,
@@ -576,7 +574,7 @@ export class AzureSession {
     }
 
     private getAdminUsername(): string {
-        return 'netinsight'
+        return 'trulive'
     }
 
     async createCluster(options: {
