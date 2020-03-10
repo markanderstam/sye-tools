@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [UNRELEASED]
 
+## [2.1.2] - 2020-03-10
+
+* Rebrand
+* Lock down package dependencies
+* Validate single and management switches
+* Pin versions of prometheus-operator and -adapter
+
 ## [2.1.1] - 2019-09-09
 
 * Update package dependencies

@@ -576,7 +576,7 @@ export class AzureSession {
     }
 
     private getAdminUsername(): string {
-        return 'netinsight'
+        return 'trulive'
     }
 
     async createCluster(options: {

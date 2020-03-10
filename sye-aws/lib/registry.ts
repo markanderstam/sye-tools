@@ -73,7 +73,7 @@ function getPrefixFromRegistryUrl(registryUrl: string) {
     }
 }
 
-export async function createRegistry(region: string, prefix = 'netinsight') {
+export async function createRegistry(region: string, prefix = 'trulive') {
     let ecr = new aws.ECR({ region })
     debug('createRepository')
     let repositories = await Promise.all(
@@ -85,7 +85,7 @@ export async function createRegistry(region: string, prefix = 'netinsight') {
     consoleLog(`Registry url: ${getRegistryUrl(repositories[0].repository, prefix)}`)
 }
 
-export async function showRegistry(region: string, output = true, prefix = 'netinsight', raw = false) {
+export async function showRegistry(region: string, output = true, prefix = 'trulive', raw = false) {
     let ecr = new aws.ECR({ region })
     let logOutput = ''
     let table = []
